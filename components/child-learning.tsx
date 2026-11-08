@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult, gradeChildListeningAnswer } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -43,6 +43,9 @@ export function ChildLearning({
   const [quizMode, setQuizMode] = useState(false)
   const [quizType, setQuizType] = useState<"standard" | "listening">("standard")
   const [quizAnswer, setQuizAnswer] = useState("")
+  const [quizMeaningAnswer, setQuizMeaningAnswer] = useState("")
+  const [quizHintUsed, setQuizHintUsed] = useState(false)
+  const [quizAiFeedback, setQuizAiFeedback] = useState("")
   const [quizFeedback, setQuizFeedback] = useState<"correct" | "wrong" | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [isPending, startTransition] = useTransition()
@@ -173,25 +176,52 @@ export function ChildLearning({
 
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <div className="grid grid-cols-2 gap-2"><button onClick={() => { setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "daily" ? "bg-foreground text-background" : "bg-muted"}`}>오늘 단어</button><button onClick={() => { setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "wrong" ? "bg-foreground text-background" : "bg-muted"}`}>오답 복습 ({wrongWords.length})</button></div>
-        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습" : "단어 퀴즈"}</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizFeedback(null) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
+        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습" : "단어 퀴즈"}</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
         {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
-            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
+            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
+            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
           </div>
           <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
           {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-2 py-3">
             <button type="button" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(quizWord.word); utterance.lang = "en-US"; utterance.rate = 0.85; window.speechSynthesis.speak(utterance) } }} className="flex size-16 items-center justify-center rounded-full bg-foreground text-background" aria-label="단어 발음 듣기"><span className="text-2xl">🔊</span></button>
             <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어를 입력하세요.</p>
           </div>}
-          {!quizFeedback ? <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (!quizAnswer.trim() || isPending) return; const correct = quizAnswer.trim().toLocaleLowerCase() === quizWord.word.trim().toLocaleLowerCase(); run(async () => { await recordChildQuizResult(quizWord.id, correct, quizType); setQuizFeedback(correct ? "correct" : "wrong") }) }}>
+          {quizHintUsed && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-semibold">💡 힌트</p>
+            {quizType === "listening"
+              ? <p>영어 첫 글자: <strong>{quizWord.word[0]}</strong> · 뜻: {quizWord.meaning}</p>
+              : quizWord.example
+                ? <p>{quizWord.example.replace(new RegExp(quizWord.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (match) => match[0] + "·".repeat(Math.max(0, match.length - 1)))}</p>
+                : <p>첫 글자: <strong>{quizWord.word[0]}</strong> · 글자 수: {quizWord.word.length}</p>}
+          </div>}
+          {!quizFeedback ? <form className="space-y-2" onSubmit={(event) => {
+            event.preventDefault()
+            if (!quizAnswer.trim() || isPending || (quizType === "listening" && !quizMeaningAnswer.trim())) return
+            run(async () => {
+              let correct: boolean
+              if (quizType === "listening") {
+                const result = await gradeChildListeningAnswer(quizWord.id, quizAnswer, quizMeaningAnswer)
+                correct = result.isCorrect
+                setQuizAiFeedback(`${result.wordCorrect ? "영어 철자: 정답" : "영어 철자: 오답 (정답: " + quizWord.word + ")"}\\n${result.feedback}`)
+              } else {
+                const normalized = quizAnswer.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
+                const expected = quizWord.word.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
+                correct = normalized === expected
+              }
+              await recordChildQuizResult(quizWord.id, correct, quizType)
+              setQuizFeedback(correct ? "correct" : "wrong")
+            })
+          }}>
             <input autoComplete="off" value={quizAnswer} onChange={(event) => setQuizAnswer(event.target.value)} placeholder="영어 단어 입력" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-lg" />
-            <button type="submit" disabled={isPending || !quizAnswer.trim()} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">정답 확인</button>
+            {quizType === "listening" && <input autoComplete="off" value={quizMeaningAnswer} onChange={(event) => setQuizMeaningAnswer(event.target.value)} placeholder="한국어 뜻 입력 (품사까지 정확하게)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-base" />}
+            <button type="submit" disabled={isPending || !quizAnswer.trim() || (quizType === "listening" && !quizMeaningAnswer.trim())} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending && quizType === "listening" ? "AI 선생님이 채점 중..." : "정답 확인"}</button>
           </form> : <div className="space-y-3 text-center">
             <p className={quizFeedback === "correct" ? "font-bold text-green-600" : "font-bold text-red-600"}>{quizFeedback === "correct" ? "정답이에요!" : "아쉬워요. 정답은 " + quizWord.word + " 입니다."}</p>
-            <p className="text-sm text-muted-foreground">{quizWord.meaning}</p>
-            <button onClick={() => { setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizAnswer(""); setQuizFeedback(null); if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">다음 단어</button>
+            <p className="whitespace-pre-line text-sm text-muted-foreground">{quizType === "listening" && quizAiFeedback ? quizAiFeedback : quizWord.meaning}</p>
+            <button onClick={() => { setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">다음 단어</button>
           </div>}
+          {!quizFeedback && <button type="button" disabled={quizHintUsed || isPending} onClick={() => setQuizHintUsed(true)} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">💡 힌트 보기</button>}
         </div>}
         {!visibleWords.length && <p className="text-sm text-muted-foreground">퀴즈를 시작하려면 먼저 이 과목에 단어를 등록하세요.</p>}
       </section>
