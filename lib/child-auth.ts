@@ -7,7 +7,7 @@ import { db } from "@/lib/db"
 import { childDeviceSessions, childProfiles, families } from "@/lib/db/schema"
 
 const CHILD_SESSION_COOKIE = "ewq_child_session"
-const CHILD_SESSION_DAYS = 90
+const CHILD_SESSION_COOKIE_MAX_AGE = 400 * 24 * 60 * 60
 
 function scryptAsync(password: string, salt: Buffer, keyLength: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -47,13 +47,10 @@ export function normalizeChildAccessCode(value: string): string {
 
 export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string): Promise<void> {
   const token = randomBytes(32).toString("base64url")
-  const expiresAt = new Date(Date.now() + CHILD_SESSION_DAYS * 24 * 60 * 60 * 1000)
-
   await db.insert(childDeviceSessions).values({
     childProfileId,
     tokenHash: hashOpaqueToken(token),
     deviceLabel: deviceLabel?.trim().slice(0, 100) || null,
-    expiresAt,
   })
 
   const cookieStore = await cookies()
@@ -62,7 +59,7 @@ export async function createChildDeviceSession(childProfileId: string, deviceLab
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    expires: expiresAt,
+    maxAge: CHILD_SESSION_COOKIE_MAX_AGE,
   })
 }
 
@@ -87,7 +84,6 @@ export async function getChildDeviceSession() {
     .where(and(
       eq(childDeviceSessions.tokenHash, tokenHash),
       isNull(childDeviceSessions.revokedAt),
-      gt(childDeviceSessions.expiresAt, now),
       eq(childProfiles.isActive, true),
     ))
     .limit(1)
