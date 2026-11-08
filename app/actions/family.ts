@@ -10,6 +10,7 @@ import {
   childDeviceEnrollments,
   childDeviceSessions,
   childProfiles,
+  childSubjects,
   couponTypes,
   families,
   familySettings,
@@ -117,6 +118,12 @@ export async function createChildProfile(input: { displayName: string; pin: stri
     pinHash: await hashChildPin(input.pin),
     accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
   }).returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+
+  await db.insert(childSubjects).values({
+    childProfileId: child.id,
+    name: "단어",
+    sortOrder: 0,
+  })
 
   revalidatePath("/parent")
   return { ...child, accessCode }
