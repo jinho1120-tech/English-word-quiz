@@ -102,7 +102,7 @@ export function ParentDashboard({
           <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1"><p className="font-semibold">{child.displayName}</p><p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성"}</p></div>
             <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold">과목 관리</a>
-            <a href={`/parent/children/${child.id}/words`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</a>
+            <a href={`/parent/children/words?childId=${child.id}`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</a>
             <button disabled={isPending} onClick={() => { setError(""); startTransition(async () => { try { const enrollment = await createChildQrEnrollment(child.id); setQrUrl(enrollment.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } }) }} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">QR 등록</button>
           </div>
         ))}
