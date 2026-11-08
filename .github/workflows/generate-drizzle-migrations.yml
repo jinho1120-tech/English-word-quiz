@@ -35,13 +35,20 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Generate Better Auth Drizzle schema
+        run: pnpm auth:generate
+      - name: Include Better Auth tables in Drizzle schema
+        run: |
+          if ! grep -q 'from "./auth-schema"' lib/db/schema.ts; then
+            printf '\nexport { user, session, account, verification } from "./auth-schema"\n' >> lib/db/schema.ts
+          fi
       - name: Generate schema migration
         run: pnpm db:generate
       - name: Commit generated migration
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add drizzle
+          git add drizzle lib/db/auth-schema.ts lib/db/schema.ts
           if git diff --cached --quiet; then
             echo "No new migration was generated."
             exit 0
