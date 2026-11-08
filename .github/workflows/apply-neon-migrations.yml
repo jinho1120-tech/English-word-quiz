@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 10
     env:
       DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+      BETTER_AUTH_URL: https://englishwordquiz.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
