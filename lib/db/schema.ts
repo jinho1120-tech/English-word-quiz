@@ -24,6 +24,42 @@ export const families = pgTable("families", {
   ownerUnique: uniqueIndex("families_owner_user_unique").on(table.ownerUserId),
 }))
 
+
+/**
+ * Additional authenticated parents who share management of a family.
+ * The original family owner remains the representative parent.
+ */
+export const familyMembers = pgTable("family_members", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  role: varchar("role", { length: 20 }).default("admin").notNull(),
+  invitedByUserId: text("invited_by_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  familyUserUnique: uniqueIndex("family_members_family_user_unique").on(table.familyId, table.userId),
+  userIdx: index("family_members_user_idx").on(table.userId),
+}))
+
+/**
+ * Invitations are delivered as shareable links. Only a hash of the random
+ * token is stored; acceptance requires a signed-in account with matching email.
+ */
+export const familyInvitations = pgTable("family_invitations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  email: varchar("email", { length: 320 }).notNull(),
+  tokenHash: text("token_hash").notNull(),
+  invitedByUserId: text("invited_by_user_id").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenHashUnique: uniqueIndex("family_invitations_token_hash_unique").on(table.tokenHash),
+  familyEmailIdx: index("family_invitations_family_email_idx").on(table.familyId, table.email),
+}))
+
 export const childProfiles = pgTable("child_profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
