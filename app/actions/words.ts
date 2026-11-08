@@ -6,6 +6,7 @@ import { and, asc, desc, eq, gt } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
+import { consumeUserRateLimit } from "@/lib/rate-limit"
 
 export type Profile = "지온" | "예온"
 
@@ -13,6 +14,13 @@ async function requireUserId(): Promise<string> {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user?.id) throw new Error("로그인이 필요합니다.")
   return session.user.id
+}
+
+async function requireAiAllowance(action: string, limit = 30, windowSeconds = 3600): Promise<string> {
+  const userId = await requireUserId()
+  const allowed = await consumeUserRateLimit(userId, action, limit, windowSeconds)
+  if (!allowed) throw new Error("AI 사용 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
+  return userId
 }
 
 const PROFILES: Profile[] = ["지온", "예온"]
@@ -176,7 +184,9 @@ export async function updateWord(
 
 // 💡 [클렌징 규칙이 강화된 사진 스캔 함수]
 export async function scanImageWithGemini(base64Image: string, mimeType: string) {
-  await requireUserId()
+  await requireAiAllowance("image-scan", 10)
+  if (!base64Image || base64Image.length > 10_000_000) throw new Error("이미지는 7.5MB 이하로 올려 주세요.")
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) throw new Error("JPG, PNG, WEBP 이미지만 지원합니다.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -270,7 +280,8 @@ export async function getLatestActiveDate(profile: string): Promise<string | nul
 }
 
 export async function generateContextQuiz(words: { word: string, meaning: string }[], quizType: "context" | "speaking" = "context") {
-  await requireUserId()
+  await requireAiAllowance("context-quiz", 30)
+  if (!Array.isArray(words) || words.length < 1 || words.length > 50 || words.some((w) => !w || typeof w.word !== "string" || typeof w.meaning !== "string" || w.word.length > 100 || w.meaning.length > 200)) throw new Error("퀴즈 단어는 1~50개까지 입력할 수 있습니다.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -396,7 +407,8 @@ export async function generateSpeakingCoachFeedback(data: {
   wordScores: { text: string; score: number; errorType?: string; phonemes: { phoneme: string; score: number }[] }[]
   actualSpoken?: string
 }) {
-  await requireUserId()
+  await requireAiAllowance("speaking-coach", 30)
+  if (!data || typeof data.sentence !== "string" || data.sentence.length > 2000 || !Array.isArray(data.wordScores) || data.wordScores.length > 100 || typeof data.childName !== "string" || data.childName.length > 40) throw new Error("발음 평가 데이터가 올바르지 않습니다.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -487,7 +499,8 @@ ${prosodyRule}
 
 // 💡 [추가 완료] 깐깐한 중학교 AI 선생님의 학교 시험용 뜻/품사 채점 함수
 export async function gradeKoreanMeaningWithGemini(expected: string, user: string) {
-  await requireUserId()
+  await requireAiAllowance("meaning-grade", 60)
+  if (typeof expected !== "string" || typeof user !== "string" || expected.length > 500 || user.length > 500) throw new Error("채점할 뜻은 500자 이하로 입력해 주세요.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { isCorrect: false, feedback: "API 키 없음" }
@@ -537,7 +550,9 @@ export async function gradeKoreanMeaningWithGemini(expected: string, user: strin
 
 // 💡 [복구 완료] 대본 사진에서 텍스트를 추출하는 함수
 export async function extractSpeechScriptWithGemini(base64Image: string, mimeType: string) {
-  await requireUserId()
+  await requireAiAllowance("script-image-extract", 10)
+  if (!base64Image || base64Image.length > 10_000_000) throw new Error("이미지는 7.5MB 이하로 올려 주세요.")
+  if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) throw new Error("JPG, PNG, WEBP 이미지만 지원합니다.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -586,7 +601,8 @@ export async function extractSpeechScriptWithGemini(base64Image: string, mimeTyp
 
 // 💡 [복구 완료] 대본 동시통역용 번역 함수
 export async function translateScriptWithGemini(sentences: string[]) {
-  await requireUserId()
+  await requireAiAllowance("script-translate", 30)
+  if (!Array.isArray(sentences) || sentences.length < 1 || sentences.length > 100 || sentences.some((s) => typeof s !== "string" || s.length > 2000)) throw new Error("번역 문장은 1~100개, 문장당 2,000자 이하로 입력해 주세요.")
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -628,7 +644,7 @@ ${JSON.stringify(sentences)}
 
 // 💡 [복구 완료] 원어민 TTS 및 발음 평가 통신을 위한 Azure 토큰 발급 함수
 export async function getAzureSpeechToken() {
-  await requireUserId()
+  await requireAiAllowance("azure-speech-token", 60, 3600)
   try {
     const key = process.env.AZURE_SPEECH_KEY || process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY
     const region = process.env.AZURE_SPEECH_REGION || process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION
