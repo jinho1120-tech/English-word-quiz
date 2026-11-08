@@ -18,14 +18,15 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
     setBusy(true)
     setError("")
     try {
+      const callbackURL = inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/"
       const result = mode === "signup"
-        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL: inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/" })
-        : await authClient.signIn.email({ email: email.trim(), password, callbackURL: "/" })
+        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL })
+        : await authClient.signIn.email({ email: email.trim(), password, callbackURL })
       if (result.error) {
         setError(result.error.message || "로그인에 실패했습니다.")
         return
       }
-      router.replace("/")
+      router.replace(callbackURL)
       router.refresh()
     } catch {
       setError("요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.")
