@@ -170,7 +170,7 @@ export function ChildLearning({
     if (quizMode && quizType === "listening" && quizWord && !quizFeedback) {
       void playPronunciation(quizWord.word)
     }
-  }, [quizMode, quizType, quizWord?.id])
+  }, [quizMode, quizType, quizWord?.id, quizIndex])
 
   function addSubject() {
     run(async () => {
