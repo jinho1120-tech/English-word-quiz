@@ -48,7 +48,7 @@ Vercel 프로젝트의 **Settings → Environment Variables**에 등록합니다
 
 ## 데이터베이스 초기화
 
-초기 Drizzle 마이그레이션은 `drizzle/0000_lively_luke_cage.sql`에 생성되어 있습니다. Neon의 전용 데이터베이스를 연결한 뒤 GitHub Actions의 **Apply Neon database migrations** 워크플로를 수동 실행하면 Better Auth 핵심 테이블과 앱 전용 13개 테이블을 생성합니다. 이 워크플로는 확인 입력을 선택해야 실행되며, 아직 실제 Neon DB에는 적용하지 않았습니다.
+Drizzle 초기 마이그레이션은 `drizzle/0000_lively_luke_cage.sql`(앱 테이블 13개)과 `drizzle/0001_wise_iron_patriot.sql`(Better Auth 테이블 4개)로 생성되어 있습니다. Neon의 전용 데이터베이스 연결 문자열을 GitHub 저장소 비밀값 `ENGLISH_WORD_QUIZ_DATABASE_URL`로 등록한 뒤, 기본 브랜치에 병합된 **Apply Neon database migrations** 워크플로를 확인 입력과 함께 수동 실행하면 두 마이그레이션을 적용하고 Better Auth 스키마를 검사합니다. 아직 실제 Neon DB에는 적용하지 않았습니다.
 
 ## 데이터 격리 원칙
 
