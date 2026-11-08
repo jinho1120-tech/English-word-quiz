@@ -65,7 +65,7 @@ export const childDeviceSessions = pgTable("child_device_sessions", {
   childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull(),
   deviceLabel: varchar("device_label", { length: 100 }),
-  expiresAt: timestamp("expires_at").notNull(),
+  // No fixed expiry: the parent or the device explicitly revokes this session.
   lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
   revokedAt: timestamp("revoked_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -116,16 +116,35 @@ export const couponRewards = pgTable("coupon_rewards", {
   childStatusIdx: index("coupon_rewards_child_status_idx").on(table.childProfileId, table.status),
 }))
 
+/**
+ * Subjects are configured independently for each child.
+ * Archived subjects remain available for historical learning records.
+ */
+export const childSubjects = pgTable("child_subjects", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 60 }).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  childNameUnique: uniqueIndex("child_subjects_child_name_unique").on(table.childProfileId, table.name),
+  childSortIdx: index("child_subjects_child_sort_idx").on(table.childProfileId, table.sortOrder),
+}))
+
 export const wordEntries = pgTable("word_entries", {
   id: serial("id").primaryKey(),
   // Kept as an ownership boundary; this must match the parent who owns childProfileId.
   userId: text("user_id").notNull(),
-  // Nullable only for the transitional legacy rows. New family-owned words must set this.
+  // Nullable only for transitional legacy rows. New family-owned words must set this.
   childProfileId: uuid("child_profile_id").references(() => childProfiles.id, { onDelete: "cascade" }),
-  // Retained temporarily so the existing learning UI can be migrated incrementally.
-  profile: varchar("profile", { length: 20 }).notNull(),
+  // Legacy display fields are retained during migration from the original fixed-profile app.
+  profile: varchar("profile", { length: 40 }).notNull(),
   assignmentDate: varchar("assignment_date", { length: 20 }).notNull(),
-  subject: varchar("subject", { length: 20 }).default("단어").notNull(),
+  // Subject ID is authoritative for new data; text remains for legacy compatibility.
+  subjectId: uuid("subject_id").references(() => childSubjects.id, { onDelete: "set null" }),
+  subject: varchar("subject", { length: 60 }).default("단어").notNull(),
   word: varchar("word", { length: 100 }).notNull(),
   meaning: varchar("meaning", { length: 200 }).notNull(),
   example: text("example"),
@@ -136,6 +155,7 @@ export const wordEntries = pgTable("word_entries", {
   userWrongIdx: index("word_entries_user_wrong_idx").on(table.userId, table.wrongCount),
   childDateIdx: index("word_entries_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childWrongIdx: index("word_entries_child_wrong_idx").on(table.childProfileId, table.wrongCount),
+  subjectIdx: index("word_entries_subject_idx").on(table.subjectId, table.assignmentDate),
 }))
 
 export type WordEntry = typeof wordEntries.$inferSelect
