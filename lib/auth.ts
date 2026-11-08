@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { db } from "@/lib/db"
+import { schedulePasswordResetEmail } from "@/lib/email"
 
 export const auth = betterAuth({
   appName: "English Word Quiz",
@@ -13,6 +14,14 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     minPasswordLength: 10,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      schedulePasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        url,
+      })
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30,
