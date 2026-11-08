@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, integer, index } from "drizzle-orm/pg-core"
+import { pgTable, serial, varchar, text, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core"
 
 export const wordEntries = pgTable("word_entries", {
   id: serial("id").primaryKey(),
@@ -18,3 +18,13 @@ export const wordEntries = pgTable("word_entries", {
 
 export type WordEntry = typeof wordEntries.$inferSelect
 export type NewWordEntry = typeof wordEntries.$inferInsert
+
+
+export const rateLimits = pgTable("rate_limits", {
+  userId: text("user_id").notNull(),
+  action: varchar("action", { length: 80 }).notNull(),
+  windowStartedAt: timestamp("window_started_at").defaultNow().notNull(),
+  requestCount: integer("request_count").default(0).notNull(),
+}, (table) => ({
+  userActionUnique: uniqueIndex("rate_limits_user_action_unique").on(table.userId, table.action),
+}))
