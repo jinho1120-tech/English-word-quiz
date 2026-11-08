@@ -228,3 +228,5 @@ export const childQuizAttempts = pgTable("child_quiz_attempts", {
   childDateIdx: index("child_quiz_attempts_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childSubjectIdx: index("child_quiz_attempts_child_subject_idx").on(table.childProfileId, table.subjectId, table.assignmentDate),
 }))
+
+export { user, session, account, verification } from "./auth-schema"
