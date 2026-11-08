@@ -1,3 +1,5 @@
+// Drizzle schema for app-owned family, child, word, rate-limit, and learning-history tables.
+// Better Auth core tables are created separately by the built-in Kysely adapter migration.
 import {
   pgTable,
   serial,
