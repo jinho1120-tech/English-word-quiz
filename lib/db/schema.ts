@@ -206,3 +206,23 @@ export const rateLimits = pgTable("rate_limits", {
 }, (table) => ({
   userActionUnique: uniqueIndex("rate_limits_user_action_unique").on(table.userId, table.action),
 }))
+
+/**
+ * Immutable per-question history for child learning statistics.
+ * Word and subject snapshots keep reports meaningful if a word is later edited.
+ */
+export const childQuizAttempts = pgTable("child_quiz_attempts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  wordEntryId: integer("word_entry_id").references(() => wordEntries.id, { onDelete: "set null" }),
+  subjectId: uuid("subject_id").references(() => childSubjects.id, { onDelete: "set null" }),
+  subjectName: varchar("subject_name", { length: 60 }).notNull(),
+  wordSnapshot: varchar("word_snapshot", { length: 100 }).notNull(),
+  assignmentDate: varchar("assignment_date", { length: 10 }).notNull(),
+  quizType: varchar("quiz_type", { length: 20 }).notNull(),
+  isCorrect: boolean("is_correct").notNull(),
+  answeredAt: timestamp("answered_at").defaultNow().notNull(),
+}, (table) => ({
+  childDateIdx: index("child_quiz_attempts_child_date_idx").on(table.childProfileId, table.assignmentDate),
+  childSubjectIdx: index("child_quiz_attempts_child_subject_idx").on(table.childProfileId, table.subjectId, table.assignmentDate),
+}))
