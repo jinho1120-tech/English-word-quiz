@@ -259,7 +259,7 @@ JSON만 반환하세요:
     feedback = typeof parsed.feedback === "string" ? parsed.feedback.slice(0, 500) : (meaningCorrect ? "뜻을 정확하게 이해했어요!" : "뜻이나 품사를 다시 확인해 보세요.")
   } catch (error) {
     console.error("AI 뜻 채점 오류:", error)
-    meaningCorrect = word.meaning.replace(/\\s/g, "").includes(meaningGuess.replace(/\\s/g, ""))
+    meaningCorrect = word.meaning.replace(/\s/g, "").includes(meaningGuess.replace(/\s/g, ""))
     feedback = "AI 채점 서버에 연결하지 못해 등록된 뜻과 비교해 자동 채점했습니다."
   }
   return { isCorrect: wordCorrect && meaningCorrect, wordCorrect, meaningCorrect, feedback }
