@@ -62,7 +62,7 @@ export function ChildLearning({
   const [isPending, startTransition] = useTransition()
 
   async function playPronunciation(targetText: string) {
-    const cleanText = targetText.replace(/\\s*\\/\\s*/g, " ").trim()
+    const cleanText = targetText.replace(/\s*\/\s*/g, " ").trim()
     if (!cleanText) return
     try {
       if (activeAudioRef.current) {
