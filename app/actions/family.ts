@@ -87,7 +87,19 @@ export async function getParentFamilyDashboard() {
     .where(eq(couponTypes.familyId, family.id))
     .orderBy(asc(couponTypes.createdAt))
 
-  return { familyId: family.id, settings: settings ?? null, children, coupons }
+  const devices = await db.select({
+    id: childDeviceSessions.id,
+    childProfileId: childProfiles.id,
+    childName: childProfiles.displayName,
+    deviceLabel: childDeviceSessions.deviceLabel,
+    lastSeenAt: childDeviceSessions.lastSeenAt,
+    createdAt: childDeviceSessions.createdAt,
+  }).from(childDeviceSessions)
+    .innerJoin(childProfiles, eq(childDeviceSessions.childProfileId, childProfiles.id))
+    .where(and(eq(childProfiles.familyId, family.id), isNull(childDeviceSessions.revokedAt)))
+    .orderBy(asc(childProfiles.displayName), asc(childDeviceSessions.createdAt))
+
+  return { familyId: family.id, settings: settings ?? null, children, coupons, devices }
 }
 
 export async function createChildProfile(input: { displayName: string; pin: string }) {
@@ -266,4 +278,24 @@ export async function setCouponTypeActive(input: { couponTypeId: string; isActiv
 export async function logoutChildDevice() {
   const { revokeCurrentChildDeviceSession } = await import("@/lib/child-auth")
   await revokeCurrentChildDeviceSession()
+}
+
+export async function revokeChildDeviceSession(sessionId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof sessionId !== "string" || !sessionId) throw new Error("기기 세션 정보가 올바르지 않습니다.")
+  const [owned] = await db.select({ id: childDeviceSessions.id })
+    .from(childDeviceSessions)
+    .innerJoin(childProfiles, eq(childDeviceSessions.childProfileId, childProfiles.id))
+    .where(and(
+      eq(childDeviceSessions.id, sessionId),
+      eq(childProfiles.familyId, family.id),
+      isNull(childDeviceSessions.revokedAt),
+    ))
+    .limit(1)
+  if (!owned) throw new Error("해당 기기를 관리할 권한이 없습니다.")
+  await db.update(childDeviceSessions)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(childDeviceSessions.id, sessionId), isNull(childDeviceSessions.revokedAt)))
+  revalidatePath("/parent")
+  return { success: true }
 }
