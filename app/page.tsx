@@ -25,7 +25,7 @@ export default async function Page({
 
   const params = await searchParams
   const today = todayInSeoul()
-  let date = params.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(params.date) ? params.date : undefined
+  let date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined
 
   if (!date) {
     const todayWords = await getWords(profile, today)
