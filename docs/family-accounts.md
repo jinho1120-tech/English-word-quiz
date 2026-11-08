@@ -19,7 +19,10 @@
 
 ### Parent
 - Better Auth remains the only email/password identity provider.
-- A family row is created for the authenticated parent account.
+- A family row is created for the first authenticated parent account (the family representative).
+- The representative can invite another parent by email. The invited parent signs in or registers with that exact email and accepts a seven-day, single-use invitation link.
+- Additional parents are stored as family administrators and use their own Better Auth accounts and devices. They share the family workspace and child data.
+- Only the representative can invite/revoke other parent administrators or remove an administrator. Administrators can manage children, words, learning settings, and coupons.
 - Parent actions derive the owner user ID from the Better Auth session. They never trust a client-supplied owner ID.
 
 ### Child enrollment
@@ -55,7 +58,9 @@
 
 ## Data model
 
-- `families`: one family workspace per parent user.
+- `families`: one family workspace owned by the representative parent.
+- `family_members`: additional parent administrator accounts in the family.
+- `family_invitations`: email-bound, expiring invitation links for co-parent administrators.
 - `child_profiles`: family-owned child profile, hashed PIN and hashed access code.
 - `child_device_enrollments`: expiring, one-time QR enrollment tokens.
 - `child_device_sessions`: per-device child sessions, last-seen time, and revocation (no server-side expiry).
@@ -67,7 +72,7 @@
 ## Implementation sequence
 
 1. Add the family/child/reward schema without applying a database migration.
-2. Implement parent family and child-profile management.\n3. Add each child's subject catalog and migrate existing subject labels into per-child subject rows.
+2. Implement parent family and child-profile management, including email invitations and co-parent roles.\n3. Add each child's subject catalog and migrate existing subject labels into per-child subject rows.
 3. Implement code+PIN enrollment, QR enrollment, child session cookies, and parent device revocation.
 4. Add server-side actor resolution and migrate all word/AI actions to enforce parent-or-owning-child authorization.
 5. Replace the legacy fixed profiles and hard-coded dad phone/random coupon UI with family-configured child profiles and server-created rewards.
