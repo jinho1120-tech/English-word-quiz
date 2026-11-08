@@ -319,6 +319,8 @@ export async function createParentInvitation(emailInput: string) {
   const email = normalizeEmail(emailInput)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) throw new Error("이메일 주소를 확인해 주세요.")
   if (email === normalizeEmail(currentEmail || "")) throw new Error("본인 이메일은 초대할 수 없습니다.")
+  const [existingMember] = await db.select({ id: familyMembers.id }).from(familyMembers).where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.email, email))).limit(1)
+  if (existingMember) throw new Error("이미 가족 공동 관리자로 등록된 이메일입니다.")
   const token = randomBytes(32).toString("base64url")
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
   await db.update(familyInvitations).set({ revokedAt: new Date() }).where(and(eq(familyInvitations.familyId, family.id), eq(familyInvitations.email, email), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt)))
