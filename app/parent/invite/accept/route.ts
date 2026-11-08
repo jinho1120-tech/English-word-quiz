@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     id: familyInvitations.id,
     familyId: familyInvitations.familyId,
     email: familyInvitations.email,
+    invitedByUserId: familyInvitations.invitedByUserId,
   }).from(familyInvitations).where(and(
     eq(familyInvitations.tokenHash, tokenHash),
     eq(familyInvitations.email, email),
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
     userId: session.user.id,
     email,
     role: "admin",
-    invitedByUserId: "invitation",
+    invitedByUserId: invitation.invitedByUserId,
   }).onConflictDoNothing()
 
   await db.update(familyInvitations).set({ acceptedAt: now })
