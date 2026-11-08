@@ -33,6 +33,7 @@ export const familyMembers = pgTable("family_members", {
   id: uuid("id").defaultRandom().primaryKey(),
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
   role: varchar("role", { length: 20 }).default("admin").notNull(),
   invitedByUserId: text("invited_by_user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
