@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { wordEntries, type WordEntry } from "@/lib/db/schema"
+import { wordEntries, type WordEntry, families, familyMembers } from "@/lib/db/schema"
 import { and, asc, desc, eq, gt } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
@@ -13,7 +13,12 @@ export type Profile = "지온" | "예온"
 async function requireUserId(): Promise<string> {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user?.id) throw new Error("로그인이 필요합니다.")
-  return session.user.id
+  const [membership] = await db.select({ ownerUserId: families.ownerUserId })
+    .from(familyMembers)
+    .innerJoin(families, eq(familyMembers.familyId, families.id))
+    .where(eq(familyMembers.userId, session.user.id))
+    .limit(1)
+  return membership?.ownerUserId ?? session.user.id
 }
 
 async function requireAiAllowance(action: string, limit = 30, windowSeconds = 3600): Promise<string> {
