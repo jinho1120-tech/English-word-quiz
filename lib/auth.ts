@@ -1,11 +1,14 @@
 import { betterAuth } from "better-auth"
-import { pool } from "@/lib/db"
+import { drizzleAdapter } from "@better-auth/drizzle-adapter"
+import { db } from "@/lib/db"
 
 export const auth = betterAuth({
   appName: "English Word Quiz",
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
-  database: pool,
+  database: drizzleAdapter(db, {
+    provider: "pg",
+  }),
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
