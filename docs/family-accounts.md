@@ -62,12 +62,12 @@
 - `family_settings`: reward enablement, parent phone, and reward criteria.
 - `coupon_types`: parent-managed coupon catalog.
 - `coupon_rewards`: child-earned coupon snapshots and lifecycle state.
-- `word_entries.child_profile_id`: child ownership for learning words.
+- `child_subjects`: each child's own subject catalog, with display order and archive state. Subject names are not a global fixed enum.\n- `word_entries.child_profile_id`: child ownership for learning words.\n- `word_entries.subject_id`: relation to the selected child's subject; the legacy `subject` text remains temporarily for migration compatibility.
 
 ## Implementation sequence
 
 1. Add the family/child/reward schema without applying a database migration.
-2. Implement parent family and child-profile management.
+2. Implement parent family and child-profile management.\n3. Add each child's subject catalog and migrate existing subject labels into per-child subject rows.
 3. Implement code+PIN enrollment, QR enrollment, child session cookies, and parent device revocation.
 4. Add server-side actor resolution and migrate all word/AI actions to enforce parent-or-owning-child authorization.
 5. Replace the legacy fixed profiles and hard-coded dad phone/random coupon UI with family-configured child profiles and server-created rewards.
