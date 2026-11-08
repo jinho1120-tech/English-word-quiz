@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches:
+      - main
       - feature/public-user-platform
   pull_request:
     branches:
