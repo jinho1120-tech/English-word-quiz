@@ -265,6 +265,32 @@ JSON만 반환하세요:
   return { isCorrect: wordCorrect && meaningCorrect, wordCorrect, meaningCorrect, feedback }
 }
 
+export async function getChildAzureSpeechToken() {
+  const child = await requireChild()
+  const allowed = await consumeUserRateLimit(child.ownerUserId, "azure-speech-token", 60, 3600)
+  if (!allowed) return { success: false, error: "음성 재생 요청은 1시간에 60회까지 가능합니다." }
+
+  try {
+    const key = process.env.AZURE_SPEECH_KEY
+    const region = process.env.AZURE_SPEECH_REGION
+    if (!key || !region) return { success: false, error: "Azure 음성 설정이 없습니다." }
+
+    const response = await fetch(`https://${region}.api.cognitive.microsoft.com/sts/v1.0/issueToken`, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": key,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      cache: "no-store",
+    })
+    if (!response.ok) return { success: false, error: "음성 토큰 발급에 실패했습니다." }
+    return { success: true, token: await response.text(), region }
+  } catch (error) {
+    console.error("자녀 Azure 음성 토큰 오류:", error)
+    return { success: false, error: "음성 서버에 연결하지 못했습니다." }
+  }
+}
+
 export async function scanChildWordsImage(base64Image: string, mimeType: string) {
   const child = await requireChild()
   const allowed = await consumeUserRateLimit(child.ownerUserId, "ai-word-image-scan", 10, 3600)
