@@ -24,6 +24,45 @@ async function requireOwnedSubject(childProfileId: string, subjectId: string) {
   return subject
 }
 
+export async function createChildSubject(nameInput: string) {
+  const child = await requireChild()
+  if (typeof nameInput !== "string") throw new Error("과목 이름을 입력해 주세요.")
+  const name = nameInput.trim()
+  if (!name || name.length > 60) throw new Error("과목 이름은 1~60자여야 합니다.")
+  const [existing] = await db.select({ id: childSubjects.id }).from(childSubjects)
+    .where(and(eq(childSubjects.childProfileId, child.childProfileId), eq(childSubjects.name, name))).limit(1)
+  if (existing) throw new Error("이미 등록된 과목 이름입니다.")
+  const current = await db.select({ sortOrder: childSubjects.sortOrder }).from(childSubjects)
+    .where(eq(childSubjects.childProfileId, child.childProfileId))
+  const sortOrder = current.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
+  const [created] = await db.insert(childSubjects).values({ childProfileId: child.childProfileId, name, sortOrder }).returning()
+  revalidatePath("/child")
+  return created
+}
+
+export async function renameChildSubject(subjectId: string, nameInput: string) {
+  const child = await requireChild()
+  if (typeof subjectId !== "string" || typeof nameInput !== "string") throw new Error("과목 정보가 올바르지 않습니다.")
+  const name = nameInput.trim()
+  if (!name || name.length > 60) throw new Error("과목 이름은 1~60자여야 합니다.")
+  const [updated] = await db.update(childSubjects).set({ name, updatedAt: new Date() })
+    .where(and(eq(childSubjects.id, subjectId), eq(childSubjects.childProfileId, child.childProfileId), eq(childSubjects.isArchived, false)))
+    .returning({ id: childSubjects.id })
+  if (!updated) throw new Error("과목을 찾을 수 없습니다.")
+  await db.update(wordEntries).set({ subject: name }).where(and(eq(wordEntries.subjectId, subjectId), eq(wordEntries.childProfileId, child.childProfileId)))
+  revalidatePath("/child")
+}
+
+export async function archiveChildSubject(subjectId: string) {
+  const child = await requireChild()
+  if (typeof subjectId !== "string" || !subjectId) throw new Error("과목 정보가 올바르지 않습니다.")
+  const [updated] = await db.update(childSubjects).set({ isArchived: true, updatedAt: new Date() })
+    .where(and(eq(childSubjects.id, subjectId), eq(childSubjects.childProfileId, child.childProfileId), eq(childSubjects.isArchived, false)))
+    .returning({ id: childSubjects.id })
+  if (!updated) throw new Error("과목을 찾을 수 없습니다.")
+  revalidatePath("/child")
+}
+
 export async function getChildLearningData(date: string) {
   const child = await requireChild()
   validateDate(date)
