@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { authClient } from "@/lib/auth-client"
 
 export function AuthForm({ inviteToken }: { inviteToken?: string }) {
@@ -48,6 +49,7 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy ? "처리 중..." : mode === "signup" ? "무료로 가입하기" : "로그인"}</button>
       </form>
+      {mode === "signin" && <p className="mt-4 text-right text-sm"><Link href="/forgot-password" className="font-medium text-primary underline underline-offset-4">비밀번호를 잊으셨나요?</Link></p>}
     </div>
   )
 }
