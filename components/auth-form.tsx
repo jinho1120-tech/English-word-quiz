@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 
-export function AuthForm() {
+export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<"signin" | "signup">("signup")
   const [name, setName] = useState("")
@@ -19,7 +19,7 @@ export function AuthForm() {
     setError("")
     try {
       const result = mode === "signup"
-        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL: "/" })
+        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL: inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/" })
         : await authClient.signIn.email({ email: email.trim(), password, callbackURL: "/" })
       if (result.error) {
         setError(result.error.message || "로그인에 실패했습니다.")
