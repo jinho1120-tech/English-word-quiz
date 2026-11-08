@@ -95,10 +95,11 @@ export async function addWord(input: {
 }) {
   const userId = await requireUserId()
   assertProfile(input.profile)
+  if (typeof input.word !== "string" || typeof input.meaning !== "string" || typeof input.subject !== "string" || (input.example != null && typeof input.example !== "string")) throw new Error("입력값이 올바르지 않습니다.")
   const word = input.word.trim()
   const meaning = input.meaning.trim()
   const example = input.example?.trim() || null
-  if (!word || !meaning) throw new Error("단어와 뜻을 모두 입력해 주세요.")
+  if (!word || word.length > 100 || !meaning || meaning.length > 200 || input.subject.length > 20 || (example && example.length > 2000)) throw new Error("단어, 뜻, 과목 또는 예문 길이를 확인해 주세요.")
 
   await db.insert(wordEntries).values({
     userId,
@@ -152,16 +153,22 @@ export async function addWordsBulk(inputs: {
 }) {
   const userId = await requireUserId()
   assertProfile(inputs.profile)
+  if (!Array.isArray(inputs.words) || inputs.words.length > 100) throw new Error("한 번에 최대 100개 단어까지 등록할 수 있습니다.")
   if (inputs.words.length === 0) return
 
   const values = inputs.words.map((w) => ({
+    ...(() => {
+      if (!w || typeof w.word !== "string" || typeof w.meaning !== "string" || (w.example != null && typeof w.example !== "string")) throw new Error("단어 입력값이 올바르지 않습니다.")
+      const word = w.word.trim()
+      const meaning = w.meaning.trim()
+      const example = w.example?.trim() || null
+      if (!word || word.length > 100 || !meaning || meaning.length > 200 || (example && example.length > 2000)) throw new Error("단어 또는 뜻의 길이를 확인해 주세요.")
+      return { word, meaning, example }
+    })(),
     userId,
     profile: inputs.profile,
     assignmentDate: inputs.date,
     subject: inputs.subject,
-    word: w.word.trim(),
-    meaning: w.meaning.trim(),
-    example: w.example?.trim() || null,
   }))
 
   await db.insert(wordEntries).values(values)
@@ -173,10 +180,11 @@ export async function updateWord(
   input: { subject: string; word: string; meaning: string; example?: string }
  ) {
   const userId = await requireUserId()
+  if (typeof input.word !== "string" || typeof input.meaning !== "string" || typeof input.subject !== "string" || (input.example != null && typeof input.example !== "string")) throw new Error("입력값이 올바르지 않습니다.")
   const word = input.word.trim()
   const meaning = input.meaning.trim()
   const example = input.example?.trim() || null
-  if (!word || !meaning) throw new Error("단어와 뜻을 모두 입력해 주세요.")
+  if (!word || word.length > 100 || !meaning || meaning.length > 200 || input.subject.length > 20 || (example && example.length > 2000)) throw new Error("단어, 뜻, 과목 또는 예문 길이를 확인해 주세요.")
 
   await db.update(wordEntries).set({ subject: input.subject, word, meaning, example }).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   revalidatePath("/")
