@@ -50,7 +50,7 @@ export default async function Page({
         <LogoutButton />
       </header>
       <DateNav profile={profile} date={date} today={today} accent={accent} />
-      <StudyApp profile={profile} date={date} words={words} wrongWords={wrongWords} accent={accent} userId={session.user.id} />
+      <StudyApp profile={profile} date={date} words={words} wrongWords={wrongWords} accent={accent} userId={session.user.id} userName={session.user.name} />
     </main>
   )
 }
