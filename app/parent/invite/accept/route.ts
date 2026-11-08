@@ -41,6 +41,10 @@ export async function GET(request: NextRequest) {
 
   const [existingOwnedFamily] = await db.select({ id: families.id })
     .from(families).where(eq(families.ownerUserId, session.user.id)).limit(1)
+  const [existingMembership] = await db.select({ familyId: familyMembers.familyId }).from(familyMembers).where(eq(familyMembers.userId, session.user.id)).limit(1)
+  if (existingMembership && existingMembership.familyId !== invitation.familyId) {
+    return NextResponse.redirect(new URL("/login?invite_error=already_has_family", request.url))
+  }
   if (existingOwnedFamily && existingOwnedFamily.id !== invitation.familyId) {
     return NextResponse.redirect(new URL("/login?invite_error=already_has_family", request.url))
   }
