@@ -1,0 +1,101 @@
+import { Play, Ghost } from "lucide-react"
+import { HapticButton } from "./haptic-button"
+import { cn } from "@/lib/utils"
+import type { QuizWord, QuizType } from "./word-quiz"
+
+interface Props {
+  words: QuizWord[]
+  accent: string
+  quizType: QuizType
+  setQuizType: (t: QuizType) => void
+  isGenerating: boolean
+  onBegin: () => void
+  isMonsterMode?: boolean 
+}
+
+export function QuizStart({ words, accent, quizType, setQuizType, isGenerating, onBegin, isMonsterMode = false }: Props) {
+  return (
+    <div className="flex flex-col items-center px-5 py-4 text-center">
+      <style>{`
+        @keyframes monster-hop {
+          0% { transform: translate(0px, 0px) scaleX(1); animation-timing-function: ease-out; }
+          12.5% { transform: translate(4px, -6px) scaleX(1); animation-timing-function: ease-in; }
+          24.9% { transform: translate(8px, 0px) scaleX(1); }
+          25% { transform: translate(8px, 0px) scaleX(-1); animation-timing-function: ease-out; }
+          37.5% { transform: translate(4px, -6px) scaleX(-1); animation-timing-function: ease-in; }
+          49.9% { transform: translate(0px, 0px) scaleX(-1); }
+          50% { transform: translate(0px, 0px) scaleX(-1); animation-timing-function: ease-out; }
+          62.5% { transform: translate(-4px, -6px) scaleX(-1); animation-timing-function: ease-in; }
+          74.9% { transform: translate(-8px, 0px) scaleX(-1); }
+          75% { transform: translate(-8px, 0px) scaleX(1); animation-timing-function: ease-out; }
+          87.5% { transform: translate(-4px, -6px) scaleX(1); animation-timing-function: ease-in; }
+          100% { transform: translate(0px, 0px) scaleX(1); }
+        }
+        .animate-monster-hop { animation: monster-hop 2.4s infinite; }
+      `}</style>
+
+      <div className="mb-2 flex size-10 items-center justify-center rounded-xl text-white shadow-sm" style={{ backgroundColor: accent }}>
+        {isMonsterMode ? <Ghost className="size-5 animate-monster-hop" /> : <Play className="size-5" fill="currentColor"/>}
+      </div>
+      
+      <h2 className="mb-0.5 text-base font-black text-foreground">{isMonsterMode ? "몬스터 퇴치" : "단어 퀴즈"}</h2>
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        {isMonsterMode ? `총 ${words.length}마리의 몬스터(틀린 단어)가 남아있어요!` : `총 ${words.length}개의 단어가 준비되어 있어요.`}
+      </p>
+      
+      <div className="mb-4 flex w-full flex-col gap-1.5 rounded-xl bg-muted p-1.5">
+        <div className="flex gap-1.5">
+          <HapticButton 
+            hapticLabel="뜻 보고 쓰기 모드"
+            onClick={() => setQuizType("standard")} 
+            wrapperClassName="relative flex flex-1"
+            className={cn("w-full rounded-lg py-2 text-[13px] font-bold transition-all", quizType === "standard" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted-foreground/10")}
+          >
+            📖 뜻 보고 쓰기
+          </HapticButton>
+          
+          {/* 💡 업그레이드 된 '듣고 영+한 쓰기' 버튼 */}
+          <HapticButton 
+            hapticLabel="듣고 영+한 쓰기 모드"
+            onClick={() => setQuizType("listening")} 
+            wrapperClassName="relative flex flex-1"
+            className={cn("w-full rounded-lg py-2 text-[13px] font-bold transition-all", quizType === "listening" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted-foreground/10")}
+            style={quizType === "listening" ? { boxShadow: `0 0 0 1.5px ${accent} inset` } : undefined}
+          >
+            🎧 듣고 영+한 쓰기
+          </HapticButton>
+        </div>
+
+        <HapticButton 
+          hapticLabel="AI 실전 문장 퀴즈 모드"
+          onClick={() => setQuizType("context")} 
+          wrapperClassName="relative flex w-full"
+          className={cn("w-full rounded-lg py-2 text-[13px] font-bold transition-all", quizType === "context" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted-foreground/10")}
+        >
+          🤖 AI 실전 문장 퀴즈
+        </HapticButton>
+        
+        <HapticButton 
+          hapticLabel="AI 문장 말하기 훈련 모드"
+          onClick={() => setQuizType("speaking")} 
+          wrapperClassName="relative flex w-full"
+          className={cn("w-full rounded-lg py-2 text-[13px] font-bold transition-all", quizType === "speaking" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-muted-foreground/10")}
+          style={quizType === "speaking" ? { boxShadow: `0 0 0 1.5px ${accent} inset` } : undefined}
+        >
+          🗣️ AI 문장 말하기 훈련
+        </HapticButton>
+      </div>
+
+      <HapticButton 
+        hapticLabel="퀴즈 시작하기"
+        onClick={onBegin} 
+        disabled={isGenerating} 
+        wrapperClassName="relative flex w-full"
+        className="w-full rounded-2xl py-3 text-base font-bold text-white shadow-md transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-70 disabled:cursor-wait" 
+        style={{ backgroundColor: accent }}
+      >
+        {isGenerating ? "AI가 시험지 만드는 중... 🏃💨" : (isMonsterMode ? "몬스터 무찌르기 시작!" : "퀴즈 시작하기")}
+      </HapticButton>
+    </div>
+  )
+}
