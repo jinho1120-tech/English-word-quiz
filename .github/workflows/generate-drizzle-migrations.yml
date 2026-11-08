@@ -47,4 +47,5 @@ jobs:
             exit 0
           fi
           git commit -m "chore(db): generate Drizzle schema migration"
+          git pull --rebase origin feature/public-user-platform
           git push origin feature/public-user-platform
