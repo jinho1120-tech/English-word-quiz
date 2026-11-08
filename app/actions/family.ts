@@ -14,6 +14,8 @@ import {
   couponTypes,
   families,
   familySettings,
+  familyMembers,
+  familyInvitations,
 } from "@/lib/db/schema"
 import {
   createChildDeviceSession,
@@ -28,26 +30,22 @@ async function requireParentFamily() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user?.id) throw new Error("부모 계정 로그인이 필요합니다.")
 
-  let [family] = await db.select().from(families)
-    .where(eq(families.ownerUserId, session.user.id))
-    .limit(1)
-
+  let [family] = await db.select().from(families).where(eq(families.ownerUserId, session.user.id)).limit(1)
+  let role: "owner" | "admin" = "owner"
   if (!family) {
-    const [created] = await db.insert(families)
-      .values({ ownerUserId: session.user.id })
-      .onConflictDoNothing()
-      .returning()
-    family = created ?? (await db.select().from(families)
-      .where(eq(families.ownerUserId, session.user.id)).limit(1))[0]
+    const [membership] = await db.select({ family: families, role: familyMembers.role })
+      .from(familyMembers).innerJoin(families, eq(familyMembers.familyId, families.id))
+      .where(eq(familyMembers.userId, session.user.id)).limit(1)
+    if (membership) { family = membership.family; role = "admin" }
   }
-
-  if (!family) throw new Error("가족 공간을 만들지 못했습니다.")
-
-  await db.insert(familySettings)
-    .values({ familyId: family.id })
-    .onConflictDoNothing()
-
-  return { userId: session.user.id, family }
+  if (!family) {
+    const [created] = await db.insert(families).values({ ownerUserId: session.user.id }).onConflictDoNothing().returning()
+    family = created ?? (await db.select().from(families).where(eq(families.ownerUserId, session.user.id)).limit(1))[0]
+    role = "owner"
+  }
+  if (!family) throw new Error("가족 공간을 찾거나 만들지 못했습니다.")
+  await db.insert(familySettings).values({ familyId: family.id }).onConflictDoNothing()
+  return { userId: session.user.id, family, role, email: session.user.email }
 }
 
 function validatePin(pin: string) {
@@ -61,7 +59,7 @@ function validatePhone(phone: string | null) {
 }
 
 export async function getParentFamilyDashboard() {
-  const { family } = await requireParentFamily()
+  const { family, role, userId } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
     parentPhone: familySettings.parentPhone,
@@ -100,7 +98,11 @@ export async function getParentFamilyDashboard() {
     .where(and(eq(childProfiles.familyId, family.id), isNull(childDeviceSessions.revokedAt)))
     .orderBy(asc(childProfiles.displayName), asc(childDeviceSessions.createdAt))
 
-  return { familyId: family.id, settings: settings ?? null, children, coupons, devices }
+  const members = await db.select({ userId: familyMembers.userId, role: familyMembers.role, createdAt: familyMembers.createdAt })
+    .from(familyMembers).where(eq(familyMembers.familyId, family.id))
+  const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
+    .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
+  return { familyId: family.id, settings: settings ?? null, children, coupons, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
 }
 
 export async function createChildProfile(input: { displayName: string; pin: string }) {
@@ -303,6 +305,46 @@ export async function revokeChildDeviceSession(sessionId: string) {
   await db.update(childDeviceSessions)
     .set({ revokedAt: new Date() })
     .where(and(eq(childDeviceSessions.id, sessionId), isNull(childDeviceSessions.revokedAt)))
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+function normalizeEmail(email: string): string { return email.trim().toLowerCase() }
+
+/** Only the family representative can invite or remove co-parent administrators. */
+export async function createParentInvitation(emailInput: string) {
+  const { family, userId, role, email: currentEmail } = await requireParentFamily()
+  if (role !== "owner") throw new Error("가족 대표 부모만 다른 관리자를 초대할 수 있습니다.")
+  if (typeof emailInput !== "string") throw new Error("초대할 부모의 이메일을 입력해 주세요.")
+  const email = normalizeEmail(emailInput)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) throw new Error("이메일 주소를 확인해 주세요.")
+  if (email === normalizeEmail(currentEmail || "")) throw new Error("본인 이메일은 초대할 수 없습니다.")
+  const token = randomBytes(32).toString("base64url")
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  await db.update(familyInvitations).set({ revokedAt: new Date() }).where(and(eq(familyInvitations.familyId, family.id), eq(familyInvitations.email, email), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt)))
+  await db.insert(familyInvitations).values({ familyId: family.id, email, tokenHash: hashOpaqueToken(token), invitedByUserId: userId, expiresAt })
+  const baseUrl = process.env.BETTER_AUTH_URL
+  if (!baseUrl) throw new Error("서비스 기본 주소(BETTER_AUTH_URL)가 설정되지 않았습니다.")
+  revalidatePath("/parent")
+  return { email, inviteUrl: baseUrl.replace(/\/$/, "") + "/parent/invite/accept?token=" + encodeURIComponent(token), expiresAt }
+}
+
+export async function revokeParentInvitation(invitationId: string) {
+  const { family, role } = await requireParentFamily()
+  if (role !== "owner") throw new Error("가족 대표 부모만 초대를 취소할 수 있습니다.")
+  if (typeof invitationId !== "string" || !invitationId) throw new Error("초대 정보가 올바르지 않습니다.")
+  const [revoked] = await db.update(familyInvitations).set({ revokedAt: new Date() }).where(and(eq(familyInvitations.id, invitationId), eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt))).returning({ id: familyInvitations.id })
+  if (!revoked) throw new Error("취소할 초대를 찾을 수 없습니다.")
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function removeParentAdministrator(memberUserId: string) {
+  const { family, role, userId } = await requireParentFamily()
+  if (role !== "owner") throw new Error("가족 대표 부모만 공동 관리자를 해제할 수 있습니다.")
+  if (typeof memberUserId !== "string" || !memberUserId || memberUserId === userId) throw new Error("관리자 정보가 올바르지 않습니다.")
+  const [removed] = await db.delete(familyMembers).where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.userId, memberUserId), eq(familyMembers.role, "admin"))).returning({ userId: familyMembers.userId })
+  if (!removed) throw new Error("해제할 공동 관리자를 찾을 수 없습니다.")
   revalidatePath("/parent")
   return { success: true }
 }
