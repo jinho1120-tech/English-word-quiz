@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { createChildProfile, revokeChildDeviceSession } from "@/app/actions/family"
+import { QRCodeSVG } from "qrcode.react"
+import { createChildProfile, createChildQrEnrollment, revokeChildDeviceSession } from "@/app/actions/family"
 
 type Child = { id: string; displayName: string; isActive: boolean; createdAt: Date }
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
@@ -18,6 +19,8 @@ export function ParentDashboard({
   const [name, setName] = useState("")
   const [pin, setPin] = useState("")
   const [createdCode, setCreatedCode] = useState("")
+  const [qrUrl, setQrUrl] = useState("")
+  const [qrChildName, setQrChildName] = useState("")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -67,9 +70,18 @@ export function ParentDashboard({
           <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1"><p className="font-semibold">{child.displayName}</p><p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성"}</p></div>
             <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-muted px-3 py-2 text-sm font-semibold">과목 관리</a>
+            <button disabled={isPending} onClick={() => { setError(""); startTransition(async () => { try { const enrollment = await createChildQrEnrollment(child.id); setQrUrl(enrollment.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } }) }} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">QR 등록</button>
           </div>
         ))}
       </section>
+
+      {qrUrl && (
+        <section className="space-y-3 rounded-2xl border border-border p-4">
+          <div className="flex items-center justify-between"><h2 className="font-bold">{qrChildName} 기기 등록 QR</h2><button onClick={() => setQrUrl("")} className="text-sm text-muted-foreground">닫기</button></div>
+          <div className="flex justify-center rounded-xl bg-white p-4"><QRCodeSVG value={qrUrl} size={220} level="H" /></div>
+          <p className="break-all text-xs text-muted-foreground">자녀 기기로 QR 코드를 스캔하세요. 등록 링크는 5분 동안 유효하며 한 번만 사용할 수 있습니다.</p>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold">연결된 자녀 기기</h2>
