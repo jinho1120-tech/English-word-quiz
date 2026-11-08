@@ -8,7 +8,8 @@
     "start": "next start",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "auth:migrate": "npx auth@latest migrate --config ./lib/auth.ts"
+    "auth:migrate": "npx auth@latest migrate --config ./lib/auth.ts --yes",
+    "auth:check": "npx auth@latest check schema --config ./lib/auth.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
