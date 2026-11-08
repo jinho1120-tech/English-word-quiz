@@ -203,7 +203,7 @@ export function ChildLearning({
               if (quizType === "listening") {
                 const result = await gradeChildListeningAnswer(quizWord.id, quizAnswer, quizMeaningAnswer)
                 correct = result.isCorrect
-                setQuizAiFeedback(`${result.wordCorrect ? "영어 철자: 정답" : "영어 철자: 오답 (정답: " + quizWord.word + ")"}\\n${result.feedback}`)
+                setQuizAiFeedback(`${result.wordCorrect ? "영어 철자: 정답" : "영어 철자: 오답 (정답: " + quizWord.word + ")"}\n${result.feedback}`)
               } else {
                 const normalized = quizAnswer.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
                 const expected = quizWord.word.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
