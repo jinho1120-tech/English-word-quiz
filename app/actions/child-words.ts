@@ -265,7 +265,7 @@ JSON만 반환하세요:
   return { isCorrect: wordCorrect && meaningCorrect, wordCorrect, meaningCorrect, feedback }
 }
 
-export async function getChildAzureSpeechToken() {
+export async function getChildAzureSpeechToken(): Promise<{ success: true; token: string; region: string } | { success: false; error: string }> {
   const child = await requireChild()
   const allowed = await consumeUserRateLimit(child.ownerUserId, "azure-speech-token", 60, 3600)
   if (!allowed) return { success: false, error: "음성 재생 요청은 1시간에 60회까지 가능합니다." }
