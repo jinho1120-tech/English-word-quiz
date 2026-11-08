@@ -1,11 +1,18 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult, gradeChildListeningAnswer } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
+
+const TTS_VOICES = [
+  { id: "en-US-AnaNeural", label: "어린이 목소리" },
+  { id: "en-US-JennyNeural", label: "여성 목소리" },
+  { id: "en-US-GuyNeural", label: "남성 목소리" },
+  { id: "en-US-AriaNeural", label: "표준 목소리" },
+]
 
 export function ChildLearning({
   childName,
@@ -47,8 +54,79 @@ export function ChildLearning({
   const [quizHintUsed, setQuizHintUsed] = useState(false)
   const [quizAiFeedback, setQuizAiFeedback] = useState("")
   const [quizFeedback, setQuizFeedback] = useState<"correct" | "wrong" | null>(null)
+  const [ttsVoice, setTtsVoice] = useState("en-US-AnaNeural")
+  const [isSlowMode, setIsSlowMode] = useState(false)
+  const ttsCacheRef = useRef(new Map<string, string>())
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [isPending, startTransition] = useTransition()
+
+  async function playPronunciation(targetText: string) {
+    const cleanText = targetText.replace(/\\s*\\/\\s*/g, " ").trim()
+    if (!cleanText) return
+    try {
+      if (activeAudioRef.current) {
+        activeAudioRef.current.pause()
+        activeAudioRef.current.currentTime = 0
+      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel()
+
+      const cacheKey = `${cleanText}_${ttsVoice}_${isSlowMode ? "slow" : "normal"}`
+      const playUrl = async (url: string) => {
+        const audio = activeAudioRef.current ?? new Audio()
+        activeAudioRef.current = audio
+        audio.src = url
+        try { await audio.play() }
+        catch { fallbackTTS(cleanText) }
+      }
+      const cached = ttsCacheRef.current.get(cacheKey)
+      if (cached) { await playUrl(cached); return }
+
+      const token = await getChildAzureSpeechToken()
+      if (!token.success || !token.token || !token.region) {
+        fallbackTTS(cleanText)
+        return
+      }
+
+      const sdk = await import("microsoft-cognitiveservices-speech-sdk")
+      const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region)
+      speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Riff24Khz16BitMonoPcm
+      const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null)
+      const safeText = cleanText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      const speedRate = isSlowMode ? "-20%" : "0%"
+      const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="${ttsVoice}"><prosody rate="${speedRate}">${safeText}</prosody></voice></speak>`
+
+      await new Promise<void>((resolve) => {
+        synthesizer.speakSsmlAsync(ssml, async (result) => {
+          synthesizer.close()
+          if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+            const url = URL.createObjectURL(new Blob([result.audioData], { type: "audio/wav" }))
+            ttsCacheRef.current.set(cacheKey, url)
+            await playUrl(url)
+          } else {
+            fallbackTTS(cleanText)
+          }
+          resolve()
+        }, (error) => {
+          console.error("Azure 음성 합성 오류:", error)
+          synthesizer.close()
+          fallbackTTS(cleanText)
+          resolve()
+        })
+      })
+    } catch (error) {
+      console.error("단어 발음 재생 오류:", error)
+      fallbackTTS(cleanText)
+    }
+  }
+
+  function fallbackTTS(text: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = "en-US"
+    utterance.rate = isSlowMode ? 0.75 : 0.9
+    window.speechSynthesis.speak(utterance)
+  }
 
   function run(action: () => Promise<unknown>) {
     setError("")
@@ -82,6 +160,17 @@ export function ChildLearning({
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
   const visibleWords = sourceWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
+
+  useEffect(() => {
+    const savedVoice = window.localStorage.getItem("word_quiz_tts_voice")
+    if (savedVoice && TTS_VOICES.some((voice) => voice.id === savedVoice)) setTtsVoice(savedVoice)
+  }, [])
+
+  useEffect(() => {
+    if (quizMode && quizType === "listening" && quizWord && !quizFeedback) {
+      void playPronunciation(quizWord.word)
+    }
+  }, [quizMode, quizType, quizWord?.id])
 
   function addSubject() {
     run(async () => {
@@ -183,9 +272,15 @@ export function ChildLearning({
             <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
           </div>
           <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
-          {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-2 py-3">
-            <button type="button" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(quizWord.word); utterance.lang = "en-US"; utterance.rate = 0.85; window.speechSynthesis.speak(utterance) } }} className="flex size-16 items-center justify-center rounded-full bg-foreground text-background" aria-label="단어 발음 듣기"><span className="text-2xl">🔊</span></button>
-            <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어를 입력하세요.</p>
+          {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-3 py-3">
+            <button type="button" onClick={() => void playPronunciation(quizWord.word)} className="flex size-16 items-center justify-center rounded-full bg-foreground text-background" aria-label="단어 발음 다시 듣기"><span className="text-2xl">🔊</span></button>
+            <div className="flex w-full max-w-sm items-center gap-2">
+              <select value={ttsVoice} onChange={(event) => { setTtsVoice(event.target.value); window.localStorage.setItem("word_quiz_tts_voice", event.target.value) }} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-xs">
+                {TTS_VOICES.map((voice) => <option key={voice.id} value={voice.id}>{voice.label}</option>)}
+              </select>
+              <button type="button" onClick={() => setIsSlowMode((value) => !value)} className={`rounded-lg border border-border px-3 py-2 text-xs font-semibold ${isSlowMode ? "bg-foreground text-background" : "bg-background"}`}>{isSlowMode ? "느리게 재생 중" : "느리게 듣기"}</button>
+            </div>
+            <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어와 한국어 뜻을 입력하세요.</p>
           </div>}
           {quizHintUsed && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
             <p className="font-semibold">💡 힌트</p>
@@ -219,7 +314,7 @@ export function ChildLearning({
           </form> : <div className="space-y-3 text-center">
             <p className={quizFeedback === "correct" ? "font-bold text-green-600" : "font-bold text-red-600"}>{quizFeedback === "correct" ? "정답이에요!" : "아쉬워요. 정답은 " + quizWord.word + " 입니다."}</p>
             <p className="whitespace-pre-line text-sm text-muted-foreground">{quizType === "listening" && quizAiFeedback ? quizAiFeedback : quizWord.meaning}</p>
-            <button onClick={() => { setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">다음 단어</button>
+            <button onClick={() => { setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">다음 단어</button>
           </div>}
           {!quizFeedback && <button type="button" disabled={quizHintUsed || isPending} onClick={() => setQuizHintUsed(true)} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">💡 힌트 보기</button>}
         </div>}
