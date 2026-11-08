@@ -1,8 +1,128 @@
-import { pgTable, serial, varchar, text, timestamp, integer, index, uniqueIndex } from "drizzle-orm/pg-core"
+import {
+  pgTable,
+  serial,
+  varchar,
+  text,
+  timestamp,
+  integer,
+  boolean,
+  uuid,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core"
+
+/**
+ * One family belongs to one authenticated parent account.
+ * Parent authentication remains Better Auth; children are managed profiles.
+ */
+export const families = pgTable("families", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ownerUserId: text("owner_user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  ownerUnique: uniqueIndex("families_owner_user_unique").on(table.ownerUserId),
+}))
+
+export const childProfiles = pgTable("child_profiles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  displayName: varchar("display_name", { length: 40 }).notNull(),
+  // Store only salted password hashes and hashes of access codes; never store PINs/codes in plaintext.
+  pinHash: text("pin_hash").notNull(),
+  accessCodeHash: text("access_code_hash").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  familyNameUnique: uniqueIndex("child_profiles_family_name_unique").on(table.familyId, table.displayName),
+  accessCodeHashUnique: uniqueIndex("child_profiles_access_code_hash_unique").on(table.accessCodeHash),
+  familyIdx: index("child_profiles_family_idx").on(table.familyId),
+}))
+
+/**
+ * QR enrollment tokens are one-time bearer credentials with a short expiry.
+ * The raw token is shown only once; only its SHA-256 hash is stored.
+ */
+export const childDeviceEnrollments = pgTable("child_device_enrollments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenHashUnique: uniqueIndex("child_device_enrollments_token_hash_unique").on(table.tokenHash),
+  childIdx: index("child_device_enrollments_child_idx").on(table.childProfileId),
+}))
+
+/**
+ * A child session is device-specific and independently revocable by the parent.
+ * Only a hash of the opaque session token is stored.
+ */
+export const childDeviceSessions = pgTable("child_device_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  deviceLabel: varchar("device_label", { length: 100 }),
+  expiresAt: timestamp("expires_at").notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenHashUnique: uniqueIndex("child_device_sessions_token_hash_unique").on(table.tokenHash),
+  childIdx: index("child_device_sessions_child_idx").on(table.childProfileId),
+}))
+
+export const familySettings = pgTable("family_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  couponsEnabled: boolean("coupons_enabled").default(false).notNull(),
+  parentPhone: varchar("parent_phone", { length: 30 }),
+  rewardMinScore: integer("reward_min_score").default(100).notNull(),
+  rewardMinQuestions: integer("reward_min_questions").default(10).notNull(),
+  requireNoHint: boolean("require_no_hint").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  familyUnique: uniqueIndex("family_settings_family_unique").on(table.familyId),
+}))
+
+export const couponTypes = pgTable("coupon_types", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  title: varchar("title", { length: 80 }).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  familyIdx: index("coupon_types_family_idx").on(table.familyId),
+}))
+
+export const couponRewards = pgTable("coupon_rewards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  couponTypeId: uuid("coupon_type_id").references(() => couponTypes.id, { onDelete: "set null" }),
+  couponTitleSnapshot: varchar("coupon_title_snapshot", { length: 80 }).notNull(),
+  status: varchar("status", { length: 24 }).default("earned").notNull(),
+  // Unique source key makes reward creation idempotent for a quiz attempt.
+  sourceKey: varchar("source_key", { length: 120 }).notNull(),
+  earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  notifiedAt: timestamp("notified_at"),
+  redeemedAt: timestamp("redeemed_at"),
+}, (table) => ({
+  sourceKeyUnique: uniqueIndex("coupon_rewards_source_key_unique").on(table.sourceKey),
+  childStatusIdx: index("coupon_rewards_child_status_idx").on(table.childProfileId, table.status),
+}))
 
 export const wordEntries = pgTable("word_entries", {
   id: serial("id").primaryKey(),
+  // Kept as an ownership boundary; this must match the parent who owns childProfileId.
   userId: text("user_id").notNull(),
+  // Nullable only for the transitional legacy rows. New family-owned words must set this.
+  childProfileId: uuid("child_profile_id").references(() => childProfiles.id, { onDelete: "cascade" }),
+  // Retained temporarily so the existing learning UI can be migrated incrementally.
   profile: varchar("profile", { length: 20 }).notNull(),
   assignmentDate: varchar("assignment_date", { length: 20 }).notNull(),
   subject: varchar("subject", { length: 20 }).default("단어").notNull(),
@@ -14,11 +134,12 @@ export const wordEntries = pgTable("word_entries", {
 }, (table) => ({
   userDateIdx: index("word_entries_user_date_idx").on(table.userId, table.assignmentDate),
   userWrongIdx: index("word_entries_user_wrong_idx").on(table.userId, table.wrongCount),
+  childDateIdx: index("word_entries_child_date_idx").on(table.childProfileId, table.assignmentDate),
+  childWrongIdx: index("word_entries_child_wrong_idx").on(table.childProfileId, table.wrongCount),
 }))
 
 export type WordEntry = typeof wordEntries.$inferSelect
 export type NewWordEntry = typeof wordEntries.$inferInsert
-
 
 export const rateLimits = pgTable("rate_limits", {
   userId: text("user_id").notNull(),
