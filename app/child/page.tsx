@@ -1,29 +1,41 @@
 import { redirect } from "next/navigation"
-import { getChildDeviceSession, revokeCurrentChildDeviceSession } from "@/lib/child-auth"
+import { getChildDeviceSession } from "@/lib/child-auth"
+import { getChildLearningData } from "@/app/actions/child-words"
+import { ChildLearning } from "@/components/child-learning"
 
 export const dynamic = "force-dynamic"
 
-export default async function ChildPage() {
+function todayInSeoul(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
+}
+
+export default async function ChildPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>
+}) {
   const session = await getChildDeviceSession()
   if (!session) redirect("/child/login")
 
+  const params = await searchParams
+  const today = todayInSeoul()
+  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
+  const data = await getChildLearningData(date)
+
   async function logout() {
     "use server"
+    const { revokeCurrentChildDeviceSession } = await import("@/lib/child-auth")
     await revokeCurrentChildDeviceSession()
     redirect("/child/login")
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-4 py-10">
-      <header className="space-y-1">
-        <p className="text-sm text-muted-foreground">English Word Quiz · 자녀 모드</p>
-        <h1 className="text-3xl font-black">{session.childName}의 학습 공간</h1>
+    <main className="mx-auto min-h-dvh w-full max-w-lg space-y-6 px-4 py-8">
+      <header className="flex items-center justify-between gap-3">
+        <div><p className="text-sm text-muted-foreground">English Word Quiz · 자녀 모드</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
+        <form action={logout}><button className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">로그아웃</button></form>
       </header>
-      <section className="rounded-2xl border border-border p-5">
-        <p className="font-semibold">기기 연결 완료</p>
-        <p className="mt-1 text-sm text-muted-foreground">이 기기는 부모가 연결을 해제하거나 여기서 로그아웃하기 전까지 자녀 모드로 연결됩니다.</p>
-      </section>
-      <form action={logout}><button className="self-start rounded-xl border border-border px-4 py-2 text-sm font-semibold">이 기기 로그아웃</button></form>
+      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
     </main>
   )
 }
