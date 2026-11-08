@@ -9,8 +9,8 @@
 - Initial child-device enrollment supports both:
   1. A one-time QR enrollment link displayed by the signed-in parent and scanned on the child's device.
   2. A child access code plus PIN entered on the child's device.
-- Successful enrollment creates a device-specific, revocable child session. Reopening the app on that device should restore child mode without asking for credentials again.
-- The parent can inspect and revoke a child's registered device sessions.
+- Successful enrollment creates a device-specific, revocable child session. Reopening the app on that device should restore child mode without asking for credentials again. Child sessions have no server-side expiry; they end only by parent revocation, child logout, or account/profile deactivation. The persistent browser cookie uses a long lifetime because browsers impose practical cookie lifetime limits.
+- The parent can inspect and revoke a child's registered device sessions. A session does not expire after 90 days or any other fixed server-side period.
 - Parents and the matching child can both manage that child's word database. Children cannot read or modify another child's data.
 - Parents configure whether rewards are enabled, the reward criteria, the available coupon types, and the parent's SMS destination number.
 - The child can earn an eligible coupon and explicitly request to notify the parent from the child's device.
@@ -58,7 +58,7 @@
 - `families`: one family workspace per parent user.
 - `child_profiles`: family-owned child profile, hashed PIN and hashed access code.
 - `child_device_enrollments`: expiring, one-time QR enrollment tokens.
-- `child_device_sessions`: per-device child sessions, last-seen time, expiry, and revocation.
+- `child_device_sessions`: per-device child sessions, last-seen time, and revocation (no server-side expiry).
 - `family_settings`: reward enablement, parent phone, and reward criteria.
 - `coupon_types`: parent-managed coupon catalog.
 - `coupon_rewards`: child-earned coupon snapshots and lifecycle state.
