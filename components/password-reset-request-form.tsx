@@ -18,7 +18,7 @@ export function PasswordResetRequestForm() {
     try {
       const result = await authClient.requestPasswordReset({
         email: email.trim(),
-        redirectTo: "/reset-password",
+        redirectTo: `${window.location.origin}/reset-password`,
       })
       if (result.error) {
         setError(result.error.message || "재설정 이메일을 요청하지 못했습니다.")
