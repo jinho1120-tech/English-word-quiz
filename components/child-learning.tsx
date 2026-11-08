@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { addChildWord, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -13,12 +13,14 @@ export function ChildLearning({
   initialWords,
   wrongWords,
   initialDate,
+  stats,
 }: {
   childName: string
   subjects: Subject[]
   initialWords: Word[]
   wrongWords: Word[]
   initialDate: string
+  stats: { total: number; correct: number; accuracy: number; subjects: { name: string; total: number; correct: number; accuracy: number }[] }
 }) {
   const router = useRouter()
   const [date, setDate] = useState(initialDate)
@@ -26,6 +28,9 @@ export function ChildLearning({
   const [word, setWord] = useState("")
   const [meaning, setMeaning] = useState("")
   const [example, setExample] = useState("")
+  const [aiWords, setAiWords] = useState<{ word: string; meaning: string; example: string }[]>([])
+  const [isScanning, setIsScanning] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editSubjectId, setEditSubjectId] = useState("")
   const [editWord, setEditWord] = useState("")
@@ -86,6 +91,17 @@ export function ChildLearning({
   return (
     <div className="space-y-6">
       <section className="space-y-3 rounded-2xl border border-border p-4">
+        <div className="flex items-center justify-between"><h2 className="font-bold">최근 30일 학습 현황</h2><span className="text-xs text-muted-foreground">퀴즈 응답 기준</span></div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.total}</p><p className="text-xs text-muted-foreground">푼 문제</p></div>
+          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.correct}</p><p className="text-xs text-muted-foreground">정답</p></div>
+          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.accuracy}%</p><p className="text-xs text-muted-foreground">정답률</p></div>
+        </div>
+        {stats.subjects.map((item) => <div key={item.name} className="flex items-center justify-between text-sm"><span>{item.name}</span><span className="text-muted-foreground">{item.correct}/{item.total} · {item.accuracy}%</span></div>)}
+        {!stats.total && <p className="text-xs text-muted-foreground">퀴즈를 풀면 학습 기록이 여기에 쌓입니다.</p>}
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-border p-4">
         <h2 className="font-bold">내 과목 관리</h2>
         <div className="flex gap-2">
           <input value={newSubject} onChange={(event) => setNewSubject(event.target.value)} maxLength={60} placeholder="새 과목 이름" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" />
@@ -99,6 +115,47 @@ export function ChildLearning({
           </div>)}
         </div>
         <p className="text-xs text-muted-foreground">과목을 삭제해도 기존 단어와 학습 기록은 삭제하지 않고 보관합니다.</p>
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-border p-4">
+        <h2 className="font-bold">AI 단어 입력</h2>
+        <p className="text-xs text-muted-foreground">단어장 사진을 올리면 AI가 영어 단어와 뜻을 추출합니다. 저장 전에 내용을 확인하고 수정할 수 있어요.</p>
+        <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ""
+          if (!file) return
+          if (file.size > 7.5 * 1024 * 1024) { setError("이미지는 7.5MB 이하로 올려 주세요."); return }
+          setError("")
+          setIsScanning(true)
+          try {
+            const image = new Image()
+            const objectUrl = URL.createObjectURL(file)
+            image.src = objectUrl
+            await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error("사진을 읽지 못했습니다.")) })
+            URL.revokeObjectURL(objectUrl)
+            const canvas = document.createElement("canvas")
+            const scale = Math.min(1400 / image.width, 1400 / image.height, 1)
+            canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale)
+            const context = canvas.getContext("2d")
+            if (!context) throw new Error("사진을 변환하지 못했습니다.")
+            context.drawImage(image, 0, 0, canvas.width, canvas.height)
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.78)
+            const result = await scanChildWordsImage(dataUrl.split(",")[1], "image/jpeg")
+            setAiWords(result)
+          } catch (err) { setError(err instanceof Error ? err.message : "AI 단어 추출에 실패했습니다.") }
+          finally { setIsScanning(false) }
+        }} />
+        <button type="button" disabled={isScanning || isPending || !subjectId} onClick={() => imageInputRef.current?.click()} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isScanning ? "AI가 사진을 분석하고 있어요..." : "사진에서 AI로 단어 추출"}</button>
+        {aiWords.length > 0 && <div className="space-y-2">
+          <div className="flex items-center justify-between"><p className="text-sm font-semibold">추출 결과 {aiWords.length}개 · 저장 전 확인</p><button onClick={() => setAiWords([])} className="text-xs text-muted-foreground">닫기</button></div>
+          {aiWords.map((item, index) => <div key={index} className="grid grid-cols-1 gap-2 rounded-lg bg-muted p-2">
+            <input value={item.word} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, word: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="영어 단어" />
+            <input value={item.meaning} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, meaning: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="단어 뜻" />
+            <input value={item.example} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, example: event.target.value } : value))} placeholder="예문 (선택)" className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="예문" />
+            <button onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600">제외</button>
+          </div>)}
+          <button disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</button>
+        </div>}
       </section>
 
       <section className="space-y-3 rounded-2xl border border-border p-4">
@@ -127,7 +184,7 @@ export function ChildLearning({
             <button type="button" onClick={() => { if ("speechSynthesis" in window) { window.speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(quizWord.word); utterance.lang = "en-US"; utterance.rate = 0.85; window.speechSynthesis.speak(utterance) } }} className="flex size-16 items-center justify-center rounded-full bg-foreground text-background" aria-label="단어 발음 듣기"><span className="text-2xl">🔊</span></button>
             <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어를 입력하세요.</p>
           </div>}
-          {!quizFeedback ? <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (!quizAnswer.trim() || isPending) return; const correct = quizAnswer.trim().toLocaleLowerCase() === quizWord.word.trim().toLocaleLowerCase(); run(async () => { await recordChildQuizResult(quizWord.id, correct); setQuizFeedback(correct ? "correct" : "wrong") }) }}>
+          {!quizFeedback ? <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (!quizAnswer.trim() || isPending) return; const correct = quizAnswer.trim().toLocaleLowerCase() === quizWord.word.trim().toLocaleLowerCase(); run(async () => { await recordChildQuizResult(quizWord.id, correct, quizType); setQuizFeedback(correct ? "correct" : "wrong") }) }}>
             <input autoComplete="off" value={quizAnswer} onChange={(event) => setQuizAnswer(event.target.value)} placeholder="영어 단어 입력" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-lg" />
             <button type="submit" disabled={isPending || !quizAnswer.trim()} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">정답 확인</button>
           </form> : <div className="space-y-3 text-center">
