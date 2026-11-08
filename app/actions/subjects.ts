@@ -5,16 +5,30 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { childProfiles, childSubjects, families } from "@/lib/db/schema"
+import { childProfiles, childSubjects, families, familyMembers } from "@/lib/db/schema"
 
 async function requireParentFamily(childProfileId: string) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user?.id) throw new Error("로그인이 필요합니다.")
 
+  // Resolve the same family for both the representative parent and invited co-parents.
   let [family] = await db.select({ id: families.id })
     .from(families)
     .where(eq(families.ownerUserId, session.user.id))
     .limit(1)
+
+  if (!family) {
+    const [membership] = await db.select({ familyId: familyMembers.familyId })
+      .from(familyMembers)
+      .where(eq(familyMembers.userId, session.user.id))
+      .limit(1)
+    if (membership) {
+      [family] = await db.select({ id: families.id })
+        .from(families)
+        .where(eq(families.id, membership.familyId))
+        .limit(1)
+    }
+  }
 
   if (!family) {
     await db.insert(families).values({ ownerUserId: session.user.id }).onConflictDoNothing()
