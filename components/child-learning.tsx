@@ -33,7 +33,7 @@ export function ChildLearning({
   const [newSubject, setNewSubject] = useState("")
   const [quizIndex, setQuizIndex] = useState(0)
   const [quizRevealed, setQuizRevealed] = useState(false)
-  const [quizMode, setQuizMode] = useState(false)
+  const [quizMode, setQuizMode] = useState(false)\n  const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [isPending, startTransition] = useTransition()
 
   function run(action: () => Promise<unknown>) {
@@ -65,7 +65,7 @@ export function ChildLearning({
     })
   }
 
-  const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords\n  const visibleWords = sourceWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
   function addSubject() {
@@ -108,7 +108,7 @@ export function ChildLearning({
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
 
       <section className="space-y-3 rounded-2xl border border-border p-4">
-        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">단어 퀴즈</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "이 과목 퀴즈 시작"}</button></div>
+        <div className="grid grid-cols-2 gap-2"><button onClick={() => { setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "daily" ? "bg-foreground text-background" : "bg-muted"}`}>오늘 단어</button><button onClick={() => { setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "wrong" ? "bg-foreground text-background" : "bg-muted"}`}>오답 복습 ({wrongWords.length})</button></div>\n        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습 퀴즈" : "단어 퀴즈"}</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "이 과목 퀴즈 시작"}</button></div>
         {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
           <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
           <p className="py-4 text-center text-2xl font-black">{quizWord.word}</p>
