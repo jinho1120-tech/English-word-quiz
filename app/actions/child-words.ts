@@ -201,6 +201,70 @@ export async function recordChildQuizResult(id: number, isCorrect: boolean, quiz
   revalidatePath("/child")
 }
 
+export async function gradeChildListeningAnswer(id: number, submittedWord: string, submittedMeaning: string) {
+  const child = await requireChild()
+  if (!Number.isInteger(id) || typeof submittedWord !== "string" || typeof submittedMeaning !== "string") {
+    throw new Error("답안 형식이 올바르지 않습니다.")
+  }
+  const wordGuess = submittedWord.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
+  const meaningGuess = submittedMeaning.trim()
+  if (!wordGuess || !meaningGuess || wordGuess.length > 100 || meaningGuess.length > 200) {
+    throw new Error("영어 단어와 한국어 뜻을 모두 입력해 주세요.")
+  }
+  const [word] = await db.select().from(wordEntries)
+    .where(and(eq(wordEntries.id, id), eq(wordEntries.userId, child.ownerUserId), eq(wordEntries.childProfileId, child.childProfileId)))
+    .limit(1)
+  if (!word) throw new Error("학습 단어를 찾을 수 없습니다.")
+
+  const wordCorrect = wordGuess === word.word.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
+  const allowed = await consumeUserRateLimit(child.ownerUserId, "ai-meaning-grading", 60, 3600)
+  if (!allowed) throw new Error("AI 뜻 채점은 1시간에 60회까지 가능합니다.")
+
+  let meaningCorrect = false
+  let feedback = "AI 채점 결과를 확인하지 못했습니다."
+  try {
+    const apiKey = process.env.GEMINI_API_KEY?.trim()
+    if (!apiKey) throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.")
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`
+    const prompt = `
+당신은 깐깐하지만 다정한 중학교 영어 선생님입니다.
+단어의 원래 뜻은 ${JSON.stringify(word.meaning)} 이고, 학생이 적은 뜻은 ${JSON.stringify(meaningGuess)} 입니다.
+
+[채점 기준]
+1. 품사(명사, 동사, 형용사, 부사 등)가 다르면 무조건 틀린 것(false)으로 처리하세요. 예를 들어 원래 뜻이 '~하다(동사)'인데 '~하게(부사)'로 적었으면 오답입니다.
+2. 띄어쓰기 오류나 완전히 뜻이 같은 유의어는 정답(true)으로 인정합니다. 단, 품사는 반드시 같아야 합니다.
+3. 등록된 뜻이 여러 개라면 학생이 그중 하나만 정확히 적어도 품사가 맞을 경우 정답으로 인정합니다.
+4. 의미가 비슷해 보여도 핵심 의미나 품사가 다르면 오답으로 처리합니다.
+
+JSON만 반환하세요:
+{"isCorrect":true,"feedback":"정답 여부와 이유를 설명하는 짧고 다정한 한국어 피드백"}
+`.trim()
+    let response: Response | null = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, responseMimeType: "application/json" } }),
+      })
+      if (response.ok || (response.status !== 429 && response.status < 500) || attempt === 2) break
+      await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)))
+    }
+    if (!response?.ok) throw new Error("AI 채점 API 요청에 실패했습니다.")
+    const payload = await response.json()
+    const raw = payload.candidates?.[0]?.content?.parts?.[0]?.text
+    if (typeof raw !== "string") throw new Error("AI 채점 결과가 비어 있습니다.")
+    const parsed = JSON.parse(raw.replace(/```json/g, "").replace(/```/g, "").trim()) as { isCorrect?: unknown; feedback?: unknown }
+    meaningCorrect = parsed.isCorrect === true
+    feedback = typeof parsed.feedback === "string" ? parsed.feedback.slice(0, 500) : (meaningCorrect ? "뜻을 정확하게 이해했어요!" : "뜻이나 품사를 다시 확인해 보세요.")
+  } catch (error) {
+    console.error("AI 뜻 채점 오류:", error)
+    meaningCorrect = word.meaning.replace(/\\s/g, "").includes(meaningGuess.replace(/\\s/g, ""))
+    feedback = "AI 채점 서버에 연결하지 못해 등록된 뜻과 비교해 자동 채점했습니다."
+  }
+  return { isCorrect: wordCorrect && meaningCorrect, wordCorrect, meaningCorrect, feedback }
+}
+
 export async function scanChildWordsImage(base64Image: string, mimeType: string) {
   const child = await requireChild()
   const allowed = await consumeUserRateLimit(child.ownerUserId, "ai-word-image-scan", 10, 3600)
