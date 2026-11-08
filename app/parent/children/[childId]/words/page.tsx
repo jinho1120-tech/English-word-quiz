@@ -26,7 +26,7 @@ export default async function ParentChildWordsPage({ params, searchParams }: {
   return (
     <main className="mx-auto min-h-dvh w-full max-w-xl space-y-6 px-4 py-8">
       <header className="space-y-1"><a href="/parent" className="text-sm text-muted-foreground">← 부모 화면</a><h1 className="text-2xl font-black">{data.childName}의 단어장</h1><p className="text-sm text-muted-foreground">부모도 자녀의 단어를 추가하고 관리할 수 있습니다.</p></header>
-      <ParentWordManager childProfileId={childId} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
+      <ParentWordManager childProfileId={childId} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} stats={data.stats} />
     </main>
   )
 }
