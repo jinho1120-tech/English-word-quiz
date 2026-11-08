@@ -108,7 +108,7 @@ export async function scanParentChildWordsImage(childProfileId: string, base64Im
 
 export async function addParentChildWordsBulk(childProfileId: string, input: { date: string; subjectId: string; words: { word: string; meaning: string; example?: string }[] }) {
   const child = await requireParentChild(childProfileId)
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.date) || !Array.isArray(input.words) || input.words.length < 1 || input.words.length > 100) throw new Error("날짜 또는 단어 목록을 확인해 주세요. 한 번에 1~100개까지 등록할 수 있습니다.")
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !Array.isArray(input.words) || input.words.length < 1 || input.words.length > 100) throw new Error("날짜 또는 단어 목록을 확인해 주세요. 한 번에 1~100개까지 등록할 수 있습니다.")
   const subject = await ownedSubject(child.id, input.subjectId)
   const rows = input.words.map((item) => {
     if (!item || typeof item.word !== "string" || typeof item.meaning !== "string" || (item.example != null && typeof item.example !== "string")) throw new Error("단어 데이터가 올바르지 않습니다.")
