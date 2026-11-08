@@ -1,0 +1,121 @@
+import "server-only"
+
+import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto"
+import { cookies } from "next/headers"
+import { and, eq, gt, isNull } from "drizzle-orm"
+import { db } from "@/lib/db"
+import { childDeviceSessions, childProfiles, families } from "@/lib/db/schema"
+
+const CHILD_SESSION_COOKIE = "ewq_child_session"
+const CHILD_SESSION_DAYS = 90
+
+function scryptAsync(password: string, salt: Buffer, keyLength: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keyLength, (error, derivedKey) => {
+      if (error) reject(error)
+      else resolve(derivedKey as Buffer)
+    })
+  })
+}
+
+export function hashOpaqueToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex")
+}
+
+export async function hashChildPin(pin: string): Promise<string> {
+  const salt = randomBytes(16)
+  const derived = await scryptAsync(pin, salt, 64)
+  return `scrypt:${salt.toString("hex")}:${derived.toString("hex")}`
+}
+
+export async function verifyChildPin(pin: string, encodedHash: string): Promise<boolean> {
+  const [algorithm, saltHex, expectedHex] = encodedHash.split(":")
+  if (algorithm !== "scrypt" || !saltHex || !expectedHex || !/^[a-f0-9]{32}$/i.test(saltHex) || !/^[a-f0-9]{128}$/i.test(expectedHex)) return false
+  const expected = Buffer.from(expectedHex, "hex")
+  const actual = await scryptAsync(pin, Buffer.from(saltHex, "hex"), expected.length)
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+export function generateChildAccessCode(): string {
+  const raw = randomBytes(5).toString("hex").toUpperCase()
+  return `${raw.slice(0, 5)}-${raw.slice(5)}`
+}
+
+export function normalizeChildAccessCode(value: string): string {
+  return value.replace(/[^a-f0-9]/gi, "").toUpperCase()
+}
+
+export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string): Promise<void> {
+  const token = randomBytes(32).toString("base64url")
+  const expiresAt = new Date(Date.now() + CHILD_SESSION_DAYS * 24 * 60 * 60 * 1000)
+
+  await db.insert(childDeviceSessions).values({
+    childProfileId,
+    tokenHash: hashOpaqueToken(token),
+    deviceLabel: deviceLabel?.trim().slice(0, 100) || null,
+    expiresAt,
+  })
+
+  const cookieStore = await cookies()
+  cookieStore.set(CHILD_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  })
+}
+
+export async function getChildDeviceSession() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(CHILD_SESSION_COOKIE)?.value
+  if (!token) return null
+
+  const now = new Date()
+  const tokenHash = hashOpaqueToken(token)
+  const [result] = await db
+    .select({
+      sessionId: childDeviceSessions.id,
+      childProfileId: childProfiles.id,
+      childName: childProfiles.displayName,
+      familyId: families.id,
+      ownerUserId: families.ownerUserId,
+    })
+    .from(childDeviceSessions)
+    .innerJoin(childProfiles, eq(childDeviceSessions.childProfileId, childProfiles.id))
+    .innerJoin(families, eq(childProfiles.familyId, families.id))
+    .where(and(
+      eq(childDeviceSessions.tokenHash, tokenHash),
+      isNull(childDeviceSessions.revokedAt),
+      gt(childDeviceSessions.expiresAt, now),
+      eq(childProfiles.isActive, true),
+    ))
+    .limit(1)
+
+  if (!result) return null
+
+  await db.update(childDeviceSessions)
+    .set({ lastSeenAt: now })
+    .where(eq(childDeviceSessions.id, result.sessionId))
+
+  return result
+}
+
+export async function revokeCurrentChildDeviceSession(): Promise<void> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(CHILD_SESSION_COOKIE)?.value
+  if (token) {
+    await db.update(childDeviceSessions)
+      .set({ revokedAt: new Date() })
+      .where(and(
+        eq(childDeviceSessions.tokenHash, hashOpaqueToken(token)),
+        isNull(childDeviceSessions.revokedAt),
+      ))
+  }
+  cookieStore.delete(CHILD_SESSION_COOKIE)
+}
+
+export async function clearChildSessionCookie(): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.delete(CHILD_SESSION_COOKIE)
+}
