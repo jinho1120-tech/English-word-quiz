@@ -13,7 +13,7 @@ type Mode = "quiz" | "wrong" | "script" | "manage"
 
 const ALL_SUBJECTS = ["전체", "리딩", "스피킹", "문법", "단어"]
 
-export function StudyApp({ profile, date, words, wrongWords, accent, userId }: { profile: Profile; date: string; words: QuizWord[]; wrongWords: QuizWord[]; accent: string; userId: string }) {
+export function StudyApp({ profile, date, words, wrongWords, accent, userId, userName }: { profile: Profile; date: string; words: QuizWord[]; wrongWords: QuizWord[]; accent: string; userId: string; userName: string }) {
   const [mode, setMode] = useState<Mode>("quiz")
   const [filter, setFilter] = useState("전체")
 
@@ -103,7 +103,7 @@ export function StudyApp({ profile, date, words, wrongWords, accent, userId }: {
         )
       )}
 
-      {mode === "script" && <ScriptTrainer accent={accent} profileName={`${profile}-${userId}`} />}
+      {mode === "script" && <ScriptTrainer accent={accent} profileName={userName} userId={userId} />}
       {mode === "manage" && <WordManager profile={profile} date={date} words={words} accent={accent} />}
     </div>
   )
