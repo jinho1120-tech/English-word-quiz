@@ -4,8 +4,16 @@ import { db } from "@/lib/db"
 import { wordEntries, type WordEntry } from "@/lib/db/schema"
 import { and, asc, desc, eq, gt } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
 
 export type Profile = "지온" | "예온"
+
+async function requireUserId(): Promise<string> {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user?.id) throw new Error("로그인이 필요합니다.")
+  return session.user.id
+}
 
 const PROFILES: Profile[] = ["지온", "예온"]
 
@@ -41,25 +49,28 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3, de
 }
 
 export async function getWords(profile: string, date: string): Promise<WordEntry[]> {
+  const userId = await requireUserId()
   assertProfile(profile)
   return db
     .select()
     .from(wordEntries)
-    .where(and(eq(wordEntries.profile, profile), eq(wordEntries.assignmentDate, date)))
+    .where(and(eq(wordEntries.userId, userId), eq(wordEntries.profile, profile), eq(wordEntries.assignmentDate, date)))
     .orderBy(asc(wordEntries.createdAt))
 }
 
 export async function getWrongWords(profile: string): Promise<WordEntry[]> {
+  const userId = await requireUserId()
   assertProfile(profile)
   return db
     .select()
     .from(wordEntries)
-    .where(and(eq(wordEntries.profile, profile), gt(wordEntries.wrongCount, 0)))
+    .where(and(eq(wordEntries.userId, userId), eq(wordEntries.profile, profile), gt(wordEntries.wrongCount, 0)))
     .orderBy(desc(wordEntries.wrongCount), asc(wordEntries.createdAt))
 }
 
 export async function recordQuizResult(id: number, isCorrect: boolean) {
-  const [word] = await db.select().from(wordEntries).where(eq(wordEntries.id, id))
+  const userId = await requireUserId()
+  const [word] = await db.select().from(wordEntries).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   if (!word) return
   const newCount = isCorrect ? Math.max(0, word.wrongCount - 1) : word.wrongCount + 1
   await db.update(wordEntries).set({ wrongCount: newCount }).where(eq(wordEntries.id, id))
@@ -74,6 +85,7 @@ export async function addWord(input: {
   meaning: string
   example?: string
 }) {
+  const userId = await requireUserId()
   assertProfile(input.profile)
   const word = input.word.trim()
   const meaning = input.meaning.trim()
@@ -81,6 +93,7 @@ export async function addWord(input: {
   if (!word || !meaning) throw new Error("단어와 뜻을 모두 입력해 주세요.")
 
   await db.insert(wordEntries).values({
+    userId,
     profile: input.profile,
     assignmentDate: input.date,
     subject: input.subject,
@@ -92,16 +105,19 @@ export async function addWord(input: {
 }
 
 export async function deleteWord(id: number) {
-  await db.delete(wordEntries).where(eq(wordEntries.id, id))
+  const userId = await requireUserId()
+  await db.delete(wordEntries).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   revalidatePath("/")
 }
 
 export async function clearWords(profile: string, date: string, subject?: string) {
+  const userId = await requireUserId()
   assertProfile(profile)
   
   if (subject && subject !== "전체") {
     await db.delete(wordEntries).where(
       and(
+        eq(wordEntries.userId, userId),
         eq(wordEntries.profile, profile),
         eq(wordEntries.assignmentDate, date),
         eq(wordEntries.subject, subject)
@@ -110,6 +126,7 @@ export async function clearWords(profile: string, date: string, subject?: string
   } else {
     await db.delete(wordEntries).where(
       and(
+        eq(wordEntries.userId, userId),
         eq(wordEntries.profile, profile),
         eq(wordEntries.assignmentDate, date)
       )
@@ -125,10 +142,12 @@ export async function addWordsBulk(inputs: {
   subject: string
   words: { word: string; meaning: string; example?: string }[]
 }) {
+  const userId = await requireUserId()
   assertProfile(inputs.profile)
   if (inputs.words.length === 0) return
 
   const values = inputs.words.map((w) => ({
+    userId,
     profile: inputs.profile,
     assignmentDate: inputs.date,
     subject: inputs.subject,
@@ -144,7 +163,8 @@ export async function addWordsBulk(inputs: {
 export async function updateWord(
   id: number,
   input: { subject: string; word: string; meaning: string; example?: string }
-) {
+ ) {
+  const userId = await requireUserId()
   const word = input.word.trim()
   const meaning = input.meaning.trim()
   const example = input.example?.trim() || null
@@ -156,6 +176,7 @@ export async function updateWord(
 
 // 💡 [클렌징 규칙이 강화된 사진 스캔 함수]
 export async function scanImageWithGemini(base64Image: string, mimeType: string) {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -215,12 +236,13 @@ export async function scanImageWithGemini(base64Image: string, mimeType: string)
 }
 
 export async function getActiveDates(profile: string): Promise<{ date: string, subjects: string[] }[]> {
+  const userId = await requireUserId()
   assertProfile(profile)
   
   const results = await db
     .select({ date: wordEntries.assignmentDate, subject: wordEntries.subject })
     .from(wordEntries)
-    .where(eq(wordEntries.profile, profile))
+    .where(and(eq(wordEntries.userId, userId), eq(wordEntries.profile, profile)))
 
   const dateMap = new Map<string, Set<string>>()
   results.forEach((r) => {
@@ -235,6 +257,7 @@ export async function getActiveDates(profile: string): Promise<{ date: string, s
 }
 
 export async function getLatestActiveDate(profile: string): Promise<string | null> {
+  const userId = await requireUserId()
   assertProfile(profile)
   const result = await db
     .select({ date: wordEntries.assignmentDate })
@@ -247,6 +270,7 @@ export async function getLatestActiveDate(profile: string): Promise<string | nul
 }
 
 export async function generateContextQuiz(words: { word: string, meaning: string }[], quizType: "context" | "speaking" = "context") {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -372,6 +396,7 @@ export async function generateSpeakingCoachFeedback(data: {
   wordScores: { text: string; score: number; errorType?: string; phonemes: { phoneme: string; score: number }[] }[]
   actualSpoken?: string
 }) {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -462,6 +487,7 @@ ${prosodyRule}
 
 // 💡 [추가 완료] 깐깐한 중학교 AI 선생님의 학교 시험용 뜻/품사 채점 함수
 export async function gradeKoreanMeaningWithGemini(expected: string, user: string) {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { isCorrect: false, feedback: "API 키 없음" }
@@ -511,6 +537,7 @@ export async function gradeKoreanMeaningWithGemini(expected: string, user: strin
 
 // 💡 [복구 완료] 대본 사진에서 텍스트를 추출하는 함수
 export async function extractSpeechScriptWithGemini(base64Image: string, mimeType: string) {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -559,6 +586,7 @@ export async function extractSpeechScriptWithGemini(base64Image: string, mimeTyp
 
 // 💡 [복구 완료] 대본 동시통역용 번역 함수
 export async function translateScriptWithGemini(sentences: string[]) {
+  await requireUserId()
   try {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) return { success: false, error: "API 키가 등록되지 않았습니다." }
@@ -600,6 +628,7 @@ ${JSON.stringify(sentences)}
 
 // 💡 [복구 완료] 원어민 TTS 및 발음 평가 통신을 위한 Azure 토큰 발급 함수
 export async function getAzureSpeechToken() {
+  await requireUserId()
   try {
     const key = process.env.AZURE_SPEECH_KEY || process.env.NEXT_PUBLIC_AZURE_SPEECH_KEY
     const region = process.env.AZURE_SPEECH_REGION || process.env.NEXT_PUBLIC_AZURE_SPEECH_REGION
