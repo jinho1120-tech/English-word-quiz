@@ -27,7 +27,8 @@
 
 Vercel 프로젝트의 **Settings → Environment Variables**에 등록합니다.
 
-- `DATABASE_URL`: 이 서비스 전용 PostgreSQL 연결 문자열. 기존 `word-test` 가족용 DB와 절대 공유하지 않습니다.
+- `DATABASE_URL`: Vercel에서 사용하는 이 서비스 전용 PostgreSQL 연결 문자열. 기존 `word-test` 가족용 DB와 절대 공유하지 않습니다.
+- GitHub Actions에서 DB 초기화를 실행할 때는 같은 전용 Neon 연결 문자열을 저장소 비밀값 `ENGLISH_WORD_QUIZ_DATABASE_URL`로 등록합니다. `Neon-lime-jacket` 가족용 DB 주소를 넣으면 안 됩니다.
 - `BETTER_AUTH_SECRET`: 32바이트 이상의 무작위 비밀키
 - `BETTER_AUTH_URL`: 배포된 서비스의 기본 URL
 - `GEMINI_API_KEY`: Gemini API 키
@@ -47,7 +48,7 @@ Vercel 프로젝트의 **Settings → Environment Variables**에 등록합니다
 
 ## 데이터베이스 초기화
 
-가족 계정, 자녀별 과목 및 자녀 기기 인증 구조를 코드에 반영하고 검증한 뒤 최종 마이그레이션을 생성하고 적용합니다. 현재 단계에서는 Neon 데이터베이스에 테이블을 만들거나 마이그레이션을 실행하지 않습니다.
+초기 Drizzle 마이그레이션은 `drizzle/0000_lively_luke_cage.sql`에 생성되어 있습니다. Neon의 전용 데이터베이스를 연결한 뒤 GitHub Actions의 **Apply Neon database migrations** 워크플로를 수동 실행하면 Better Auth 핵심 테이블과 앱 전용 13개 테이블을 생성합니다. 이 워크플로는 확인 입력을 선택해야 실행되며, 아직 실제 Neon DB에는 적용하지 않았습니다.
 
 ## 데이터 격리 원칙
 
