@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 interface ScriptTrainerProps {
   accent: string
   profileName: string
+  userId: string
 }
 
 interface SavedScript {
@@ -26,7 +27,7 @@ const TTS_VOICES = [
   { id: "en-US-AriaNeural", label: "👩 Aria (표준)" },
 ]
 
-export function ScriptTrainer({ accent, profileName }: ScriptTrainerProps) {
+export function ScriptTrainer({ accent, profileName, userId }: ScriptTrainerProps) {
   const [activeTab, setActiveTab] = useState<"practice" | "archive">("practice")
   const [script, setScript] = useState("")
   const [savedScripts, setSavedScripts] = useState<SavedScript[]>([])
@@ -80,7 +81,7 @@ export function ScriptTrainer({ accent, profileName }: ScriptTrainerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem(`saved_scripts_${profileName}`)
+    const saved = localStorage.getItem(`saved_scripts_${userId}`)
     if (saved) setSavedScripts(JSON.parse(saved))
     const savedVoice = localStorage.getItem("script_tts_voice")
     if (savedVoice) setTtsVoice(savedVoice)
@@ -123,7 +124,7 @@ export function ScriptTrainer({ accent, profileName }: ScriptTrainerProps) {
     }
     const updated = [newScript, ...savedScripts]
     setSavedScripts(updated)
-    localStorage.setItem(`saved_scripts_${profileName}`, JSON.stringify(updated))
+    localStorage.setItem(`saved_scripts_${userId}`, JSON.stringify(updated))
     alert(`[${title}] 대본이 보관함에 저장되었습니다! 📁`)
   }
 
@@ -131,7 +132,7 @@ export function ScriptTrainer({ accent, profileName }: ScriptTrainerProps) {
     if (!confirm("이 대본을 삭제할까요?")) return
     const updated = savedScripts.filter(s => s.id !== id)
     setSavedScripts(updated)
-    localStorage.setItem(`saved_scripts_${profileName}`, JSON.stringify(updated))
+    localStorage.setItem(`saved_scripts_${userId}`, JSON.stringify(updated))
   }
 
   const loadScript = (targetScript: string) => {
