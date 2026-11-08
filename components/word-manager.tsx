@@ -45,7 +45,7 @@ export function WordManager({ profile, date, words, accent }: { profile: Profile
       const ctx = canvas.getContext('2d'); if (!ctx) throw new Error("사진 변환 오류"); ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
       const base64Data = canvas.toDataURL('image/jpeg', 0.7).split(',')[1]; const result = await scanImageWithGemini(base64Data, 'image/jpeg');
       
-      if (!result.success) { setError(result.error); setIsScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; return }
+      if (!result.success) { setError(result.error ?? "사진에서 단어를 추출하지 못했습니다."); setIsScanning(false); if (fileInputRef.current) fileInputRef.current.value = ""; return }
       if (Array.isArray(result.words) && result.words.length > 0) {
         const formattedText = result.words.map((w: any) => (w.example && w.example.trim() !== "") ? `${w.word} | ${w.meaning} | ${w.example}` : `${w.word} | ${w.meaning}`).join('\n')
         setBulkText((prev) => prev ? prev + '\n' + formattedText : formattedText)
