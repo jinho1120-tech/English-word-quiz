@@ -98,7 +98,7 @@ export async function getParentFamilyDashboard() {
     .where(and(eq(childProfiles.familyId, family.id), isNull(childDeviceSessions.revokedAt)))
     .orderBy(asc(childProfiles.displayName), asc(childDeviceSessions.createdAt))
 
-  const members = await db.select({ userId: familyMembers.userId, role: familyMembers.role, createdAt: familyMembers.createdAt })
+  const members = await db.select({ userId: familyMembers.userId, email: familyMembers.email, role: familyMembers.role, createdAt: familyMembers.createdAt })
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
