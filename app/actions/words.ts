@@ -73,7 +73,7 @@ export async function recordQuizResult(id: number, isCorrect: boolean) {
   const [word] = await db.select().from(wordEntries).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   if (!word) return
   const newCount = isCorrect ? Math.max(0, word.wrongCount - 1) : word.wrongCount + 1
-  await db.update(wordEntries).set({ wrongCount: newCount }).where(eq(wordEntries.id, id))
+  await db.update(wordEntries).set({ wrongCount: newCount }).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   revalidatePath("/")
 }
 
@@ -170,7 +170,7 @@ export async function updateWord(
   const example = input.example?.trim() || null
   if (!word || !meaning) throw new Error("단어와 뜻을 모두 입력해 주세요.")
 
-  await db.update(wordEntries).set({ subject: input.subject, word, meaning, example }).where(eq(wordEntries.id, id))
+  await db.update(wordEntries).set({ subject: input.subject, word, meaning, example }).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, userId)))
   revalidatePath("/")
 }
 
@@ -262,7 +262,7 @@ export async function getLatestActiveDate(profile: string): Promise<string | nul
   const result = await db
     .select({ date: wordEntries.assignmentDate })
     .from(wordEntries)
-    .where(eq(wordEntries.profile, profile))
+    .where(and(eq(wordEntries.userId, userId), eq(wordEntries.profile, profile)))
     .orderBy(desc(wordEntries.assignmentDate))
     .limit(1)
 
