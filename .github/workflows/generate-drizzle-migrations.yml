@@ -1,0 +1,44 @@
+name: Generate Drizzle migrations
+
+on:
+  push:
+    branches:
+      - feature/public-user-platform
+    paths:
+      - "lib/db/schema.ts"
+      - "drizzle.config.ts"
+      - ".github/workflows/generate-drizzle-migrations.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/public-user-platform
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Generate schema migration
+        run: pnpm db:generate
+      - name: Commit generated migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add drizzle
+          if git diff --cached --quiet; then
+            echo "No new migration was generated."
+            exit 0
+          fi
+          git commit -m "chore(db): generate Drizzle schema migration"
+          git push origin feature/public-user-platform
