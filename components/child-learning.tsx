@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { addChildWord, deleteChildWord, updateChildWord } from "@/app/actions/child-words"
+import { addChildWord, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -30,6 +30,10 @@ export function ChildLearning({
   const [editMeaning, setEditMeaning] = useState("")
   const [editExample, setEditExample] = useState("")
   const [error, setError] = useState("")
+  const [newSubject, setNewSubject] = useState("")
+  const [quizIndex, setQuizIndex] = useState(0)
+  const [quizRevealed, setQuizRevealed] = useState(false)
+  const [quizMode, setQuizMode] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   function run(action: () => Promise<unknown>) {
@@ -62,9 +66,34 @@ export function ChildLearning({
   }
 
   const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
+
+  function addSubject() {
+    run(async () => {
+      const created = await createChildSubject(newSubject)
+      setNewSubject("")
+      setSubjectId(created.id)
+    })
+  }
 
   return (
     <div className="space-y-6">
+      <section className="space-y-3 rounded-2xl border border-border p-4">
+        <h2 className="font-bold">내 과목 관리</h2>
+        <div className="flex gap-2">
+          <input value={newSubject} onChange={(event) => setNewSubject(event.target.value)} maxLength={60} placeholder="새 과목 이름" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" />
+          <button disabled={isPending || !newSubject.trim()} onClick={addSubject} className="rounded-xl bg-foreground px-3 py-2 text-sm font-bold text-background disabled:opacity-50">추가</button>
+        </div>
+        <div className="space-y-2">
+          {subjects.map((subject) => <div key={subject.id} className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-sm">{subject.name}</span>
+            <button disabled={isPending} onClick={() => { const next = window.prompt("새 과목 이름", subject.name); if (next?.trim() && next.trim() !== subject.name) run(() => renameChildSubject(subject.id, next)) }} className="rounded-lg border border-border px-2 py-1 text-xs">이름 변경</button>
+            <button disabled={isPending || subjects.length < 2} onClick={() => { if (window.confirm(subject.name + " 과목을 목록에서 숨길까요? 기존 학습 기록은 보존됩니다.")) run(() => archiveChildSubject(subject.id)) }} className="rounded-lg border border-border px-2 py-1 text-xs text-red-600">삭제</button>
+          </div>)}
+        </div>
+        <p className="text-xs text-muted-foreground">과목을 삭제해도 기존 단어와 학습 기록은 삭제하지 않고 보관합니다.</p>
+      </section>
+
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <div className="flex items-center justify-between"><h2 className="font-bold">내 단어장</h2><input type="date" value={date} onChange={(event) => { setDate(event.target.value); router.push("/child?date=" + event.target.value) }} className="rounded-lg border border-border bg-background px-2 py-1 text-sm" /></div>
         <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
@@ -77,6 +106,16 @@ export function ChildLearning({
       </section>
 
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+
+      <section className="space-y-3 rounded-2xl border border-border p-4">
+        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">단어 퀴즈</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "이 과목 퀴즈 시작"}</button></div>
+        {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
+          <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
+          <p className="py-4 text-center text-2xl font-black">{quizWord.word}</p>
+          {quizRevealed ? <><p className="text-center text-lg font-semibold">{quizWord.meaning}</p><div className="grid grid-cols-2 gap-2"><button onClick={() => run(async () => { await recordChildQuizResult(quizWord.id, true); setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizRevealed(false) })} disabled={isPending} className="rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">맞았어요</button><button onClick={() => run(async () => { await recordChildQuizResult(quizWord.id, false); setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizRevealed(false) })} disabled={isPending} className="rounded-xl border border-border px-3 py-2.5 text-sm font-bold">틀렸어요</button></div></> : <button onClick={() => setQuizRevealed(true)} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">뜻 확인하기</button>}
+        </div>}
+        {!visibleWords.length && <p className="text-sm text-muted-foreground">퀴즈를 시작하려면 먼저 이 과목에 단어를 등록하세요.</p>}
+      </section>
 
       <section className="space-y-3">
         <h2 className="font-bold">{subjects.find((s) => s.id === subjectId)?.name ?? "단어"} · {visibleWords.length}개</h2>
