@@ -2,7 +2,7 @@ import "server-only"
 
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
-import { and, eq, gt, isNull } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { childDeviceSessions, childProfiles, families } from "@/lib/db/schema"
 
