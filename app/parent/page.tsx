@@ -17,7 +17,7 @@ export default async function ParentPage() {
         <div><p className="text-sm text-muted-foreground">English Word Quiz</p><h1 className="text-2xl font-black">부모 관리 화면</h1><p className="text-sm text-muted-foreground">{session.user.name}님 가족 공간</p></div>
         <a href="/" className="text-sm font-semibold text-muted-foreground">학습 앱</a>
       </header>
-      <ParentDashboard children={dashboard.children} devices={dashboard.devices} />
+      <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} />
     </main>
   )
 }
