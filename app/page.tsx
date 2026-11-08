@@ -1,14 +1,15 @@
 import { getWords, getWrongWords, getLatestActiveDate, type Profile } from "@/app/actions/words"
 import { StudyApp } from "@/components/study-app"
 import { DateNav } from "@/components/date-nav"
-import { ProfileSelector } from "@/components/profile-selector"
+import { LogoutButton } from "@/components/logout-button"
+import { redirect } from "next/navigation"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 
-const PROFILES: { name: Profile; accent: string }[] = [
-  { name: "지온", accent: "#c4b5fd" },
-  { name: "예온", accent: "#2dd4bf" },
-]
+const profile: Profile = "지온"
+const accent = "#8b5cf6"
 
 function todayInSeoul(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
@@ -17,13 +18,14 @@ function todayInSeoul(): string {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ profile?: string; date?: string }>
+  searchParams: Promise<{ date?: string }>
 }) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) redirect("/login")
+
   const params = await searchParams
-  const profile: Profile = params.profile === "예온" ? "예온" : "지온"
   const today = todayInSeoul()
-  
-  let date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined
+  let date = params.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(params.date) ? params.date : undefined
 
   if (!date) {
     const todayWords = await getWords(profile, today)
@@ -35,23 +37,20 @@ export default async function Page({
     }
   }
 
-  const active = PROFILES.find((p) => p.name === profile)!
   const words = await getWords(profile, date)
   const wrongWords = await getWrongWords(profile)
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 px-4 py-8">
-      <header className="flex flex-col gap-1 text-center">
-        <h1 className="text-2xl font-black tracking-tight text-foreground">우리집 영단어 숙제</h1>
-        <p className="text-sm text-muted-foreground">외울 단어를 골라 퀴즈로 연습해요</p>
+      <header className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">영어 단어 학습</h1>
+          <p className="text-sm text-muted-foreground">{session.user.name}님의 단어장을 관리하고 퀴즈로 연습해요.</p>
+        </div>
+        <LogoutButton />
       </header>
-
-      {/* 💡 햅틱이 적용된 클라이언트 컴포넌트로 교체 완료 */}
-      <ProfileSelector profiles={PROFILES} currentProfile={profile} date={date} />
-
-      <DateNav profile={profile} date={date} today={today} accent={active.accent} />
-
-      <StudyApp profile={profile} date={date} words={words} wrongWords={wrongWords} accent={active.accent} />
+      <DateNav profile={profile} date={date} today={today} accent={accent} />
+      <StudyApp profile={profile} date={date} words={words} wrongWords={wrongWords} accent={accent} />
     </main>
   )
 }
