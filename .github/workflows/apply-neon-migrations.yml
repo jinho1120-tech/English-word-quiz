@@ -1,0 +1,42 @@
+name: Apply Neon database migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_database_target:
+        description: "I confirm this is the English Word Quiz Neon database (neon-crimson-door), not the family database."
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm_database_target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Verify dedicated Neon connection
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Add ENGLISH_WORD_QUIZ_DATABASE_URL in GitHub Actions secrets first."
+            exit 1
+          fi
+          node -e 'const url = new URL(process.env.DATABASE_URL); if (!url.hostname.endsWith(".neon.tech")) throw new Error("The configured database host is not a Neon endpoint."); console.log("Target Neon host:", url.hostname)'
+      - name: Apply Drizzle migrations
+        run: pnpm db:migrate
+      - name: Verify Better Auth schema
+        run: pnpm auth:check

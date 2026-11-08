@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - feature/public-user-platform
+  pull_request:
+    branches:
+      - main
+      - feature/public-user-platform
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+      - name: Check Drizzle migration history
+        run: pnpm exec drizzle-kit check
+      - name: Build
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
+          BETTER_AUTH_SECRET: ci-only-secret-that-is-long-enough-for-better-auth
+          BETTER_AUTH_URL: http://localhost:3000
+          GEMINI_API_KEY: ci-placeholder
+          AZURE_SPEECH_KEY: ci-placeholder
+          AZURE_SPEECH_REGION: koreacentral
