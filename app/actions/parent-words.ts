@@ -5,18 +5,31 @@ import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { childProfiles, childSubjects, families, wordEntries } from "@/lib/db/schema"
+import { childProfiles, childSubjects, families, familyMembers, wordEntries } from "@/lib/db/schema"
 
 async function requireParentChild(childProfileId: string) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user?.id) throw new Error("부모 계정 로그인이 필요합니다.")
+  let family = await db.select({ id: families.id, ownerUserId: families.ownerUserId })
+    .from(families).where(eq(families.ownerUserId, session.user.id)).limit(1)
+  let familyRow = family[0]
+  if (!familyRow) {
+    const [membership] = await db.select({ familyId: familyMembers.familyId })
+      .from(familyMembers).where(eq(familyMembers.userId, session.user.id)).limit(1)
+    if (membership) {
+      const [joined] = await db.select({ id: families.id, ownerUserId: families.ownerUserId })
+        .from(families).where(eq(families.id, membership.familyId)).limit(1)
+      familyRow = joined
+    }
+  }
+  if (!familyRow) throw new Error("가족 정보를 찾을 수 없습니다.")
   const [child] = await db.select({
     id: childProfiles.id,
     name: childProfiles.displayName,
     ownerUserId: families.ownerUserId,
   }).from(childProfiles)
     .innerJoin(families, eq(childProfiles.familyId, families.id))
-    .where(and(eq(childProfiles.id, childProfileId), eq(families.ownerUserId, session.user.id), eq(childProfiles.isActive, true)))
+    .where(and(eq(childProfiles.id, childProfileId), eq(families.id, familyRow.id), eq(childProfiles.isActive, true)))
     .limit(1)
   if (!child) throw new Error("해당 자녀의 데이터를 관리할 권한이 없습니다.")
   return child
