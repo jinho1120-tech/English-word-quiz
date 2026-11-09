@@ -159,7 +159,7 @@ export function ParentDashboard({
             <label className="text-sm font-medium" htmlFor="child-name">자녀 이름</label>
             <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="자녀 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
             <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending ? "등록 중..." : "자녀 프로필 만들기"}</button>
-            <p className="text-xs text-muted-foreground">PIN을 만들 필요가 없습니다. 등록 후 발급되는 접속코드 또는 QR로 기기를 연결합니다.</p>
+            <p className="text-xs text-muted-foreground">PIN은 필요하지 않습니다. 접속코드는 필요할 때마다 새로 발급할 수 있으며, 새 코드를 발급하면 이전 코드는 사용할 수 없습니다. QR도 언제든 다시 만들 수 있습니다.</p>
           </div>
           <div className="space-y-3 border-t border-border pt-3">
             <h3 className="text-sm font-bold">등록된 자녀</h3>
@@ -169,7 +169,7 @@ export function ParentDashboard({
                   <div><p className="font-semibold">{child.displayName}</p><p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p></div>
                   <div className="flex flex-wrap justify-end gap-2">
                     {child.isActive && <>
-                      <button disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">접속코드 발급</button>
+                      <button disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</button>
                       <button disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</button>
                     </>}
                   </div>
