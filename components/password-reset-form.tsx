@@ -41,16 +41,16 @@ export function PasswordResetForm({ token, invalid }: { token?: string; invalid?
   return (
     <div className="w-full rounded-2xl border bg-card p-6 shadow-sm">
       <h1 className="text-xl font-bold">새 비밀번호 설정</h1>
-      <p className="mt-2 text-sm text-muted-foreground">새 비밀번호를 10자 이상 입력해 주세요.</p>
+      <p className="mt-2 text-sm text-muted-foreground">새 비밀번호를 8자 이상 입력해 주세요.</p>
       {invalid && <p role="alert" className="mt-4 text-sm text-destructive">재설정 링크가 만료되었거나 이미 사용되었습니다.</p>}
       <form onSubmit={submit} className="mt-6 space-y-4">
         <label className="block space-y-1 text-sm">
           <span className="font-medium">새 비밀번호</span>
-          <input required minLength={10} maxLength={128} type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="10자 이상" />
+          <input required minLength={8} maxLength={128} type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="8자 이상" />
         </label>
         <label className="block space-y-1 text-sm">
           <span className="font-medium">새 비밀번호 확인</span>
-          <input required minLength={10} maxLength={128} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="새 비밀번호 다시 입력" />
+          <input required minLength={8} maxLength={128} type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="새 비밀번호 다시 입력" />
         </label>
         {message && <p role="status" className="text-sm text-green-700">{message}</p>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
