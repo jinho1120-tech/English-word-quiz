@@ -52,6 +52,8 @@ export function ChildLearning({
   const [quizAnswer, setQuizAnswer] = useState("")
   const [quizMeaningAnswer, setQuizMeaningAnswer] = useState("")
   const [quizHintUsed, setQuizHintUsed] = useState(false)
+  const [quizSessionId, setQuizSessionId] = useState("")
+  const [quizSessionResult, setQuizSessionResult] = useState<{ total: number; correct: number; score: number; rewardTitle: string | null; smsSent: boolean | null } | null>(null)
   const [quizAiFeedback, setQuizAiFeedback] = useState("")
   const [quizFeedback, setQuizFeedback] = useState<"correct" | "wrong" | null>(null)
   const [ttsVoice, setTtsVoice] = useState("en-US-AnaNeural")
@@ -265,11 +267,11 @@ export function ChildLearning({
 
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <div className="grid grid-cols-2 gap-2"><button onClick={() => { setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "daily" ? "bg-foreground text-background" : "bg-muted"}`}>오늘 단어</button><button onClick={() => { setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "wrong" ? "bg-foreground text-background" : "bg-muted"}`}>오답 복습 ({wrongWords.length})</button></div>
-        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습" : "단어 퀴즈"}</h2><button onClick={() => { setQuizMode(!quizMode); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null) }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
+        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습" : "단어 퀴즈"}</h2><button onClick={() => { const starting = !quizMode; setQuizMode(starting); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionResult(null); setQuizSessionId(starting ? crypto.randomUUID() : "") }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
         {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
-            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
+            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
+            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
           </div>
           <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
           {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-3 py-3">
@@ -304,7 +306,8 @@ export function ChildLearning({
                 const expected = quizWord.word.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
                 correct = normalized === expected
               }
-              await recordChildQuizResult(quizWord.id, correct, quizType)
+              const recorded = await recordChildQuizResult(quizWord.id, correct, quizType, { quizSessionId, hintUsed: quizHintUsed, sessionQuestionCount: visibleWords.length })
+              if (recorded.sessionResult) setQuizSessionResult(recorded.sessionResult)
               setQuizFeedback(correct ? "correct" : "wrong")
             })
           }}>
@@ -314,11 +317,19 @@ export function ChildLearning({
           </form> : <div className="space-y-3 text-center">
             <p className={quizFeedback === "correct" ? "font-bold text-green-600" : "font-bold text-red-600"}>{quizFeedback === "correct" ? "정답이에요!" : "아쉬워요. 정답은 " + quizWord.word + " 입니다."}</p>
             <p className="whitespace-pre-line text-sm text-muted-foreground">{quizType === "listening" && quizAiFeedback ? quizAiFeedback : quizWord.meaning}</p>
-            <button onClick={() => { setQuizIndex((i) => (i + 1) % visibleWords.length); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">다음 단어</button>
+            <button onClick={() => { if (quizIndex >= visibleWords.length - 1) { setQuizMode(false); setQuizSessionId(""); } else { setQuizIndex((i) => i + 1); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); } if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">{quizIndex >= visibleWords.length - 1 ? "퀴즈 결과 보기" : "다음 단어"}</button>
           </div>}
           {!quizFeedback && <button type="button" disabled={quizHintUsed || isPending} onClick={() => setQuizHintUsed(true)} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">💡 힌트 보기</button>}
         </div>}
         {!visibleWords.length && <p className="text-sm text-muted-foreground">퀴즈를 시작하려면 먼저 이 과목에 단어를 등록하세요.</p>}
+        {quizSessionResult && !quizMode && <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
+          <h3 className="font-bold">퀴즈 결과</h3>
+          <p className="text-3xl font-black">{quizSessionResult.score}점</p>
+          <p className="text-sm text-muted-foreground">{quizSessionResult.correct}/{quizSessionResult.total} 정답</p>
+          {quizSessionResult.rewardTitle ? <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-amber-950"><p className="font-bold">🎁 쿠폰을 받았어요!</p><p className="mt-1 text-lg font-black">{quizSessionResult.rewardTitle}</p><p className="mt-1 text-xs">{quizSessionResult.smsSent ? "부모님께 문자 알림을 보냈어요." : "쿠폰은 지급됐어요. 문자 알림은 아직 설정되지 않았어요."}</p></div> : <p className="text-xs text-muted-foreground">이번 퀴즈는 쿠폰 지급 조건에 해당하지 않았어요.</p>}
+          <button onClick={() => { setQuizSessionResult(null); setQuizMode(true); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionId(crypto.randomUUID()) }} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold">다시 퀴즈 풀기</button>
+        </section>}
+
       </section>
 
       <section className="space-y-3">
