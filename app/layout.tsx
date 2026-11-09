@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
 }
 export const viewport: Viewport = {
-  colorScheme: "light",
+  colorScheme: "light dark",
   themeColor: "#1675d1",
   width: "device-width",
   initialScale: 1,
