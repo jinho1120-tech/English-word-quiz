@@ -371,9 +371,9 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     try {
       const sdk = await import("microsoft-cognitiveservices-speech-sdk")
       
-      const tokenRes = await getAzureSpeechToken();
+      const tokenRes = childMode ? await getChildAzureSpeechToken() : await getAzureSpeechToken();
       if (!tokenRes.success || !tokenRes.token || !tokenRes.region) {
-        alert("아빠에게 알려주세요: Azure 발음 평가 키(토큰)를 발급받지 못했습니다.")
+        alert(childMode ? "음성 평가 토큰을 발급받지 못했습니다." : "아빠에게 알려주세요: Azure 발음 평가 키(토큰)를 발급받지 못했습니다.")
         setIsRecording(false)
         return
       }
