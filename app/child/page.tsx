@@ -10,7 +10,14 @@ import { ChildProfileSettings } from "@/components/child-profile-settings"
 export const dynamic = "force-dynamic"
 
 function todayInSeoul(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")}`
 }
 
 export default async function ChildPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
