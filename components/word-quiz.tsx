@@ -1370,7 +1370,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             setQuizType={setQuizType} 
             isGenerating={isGenerating} 
             onBegin={() => begin(words)} 
-            isMonsterMode={isMonsterMode} 
+            isMonsterMode={isMonsterMode}
+            childMode={childMode}
           />
         )}
         {phase === "result" && (
