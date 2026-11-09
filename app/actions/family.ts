@@ -105,19 +105,18 @@ export async function getParentFamilyDashboard() {
   return { familyId: family.id, settings: settings ?? null, children, coupons, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
 }
 
-export async function createChildProfile(input: { displayName: string; pin: string }) {
+export async function createChildProfile(input: { displayName: string }) {
   const { family } = await requireParentFamily()
   if (typeof input?.displayName !== "string") throw new Error("자녀 이름을 입력해 주세요.")
   const displayName = input.displayName.trim()
   if (!displayName || displayName.length > 40) throw new Error("자녀 이름은 1~40자로 입력해 주세요.")
-  if (typeof input.pin !== "string") throw new Error("PIN을 입력해 주세요.")
-  validatePin(input.pin)
-
+  // Keep the legacy non-null PIN hash column populated; children no longer use a PIN.
+  const internalPinHash = await hashChildPin(randomBytes(16).toString("hex"))
   const accessCode = generateChildAccessCode()
   const [child] = await db.insert(childProfiles).values({
     familyId: family.id,
     displayName,
-    pinHash: await hashChildPin(input.pin),
+    pinHash: internalPinHash,
     accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
   }).returning({ id: childProfiles.id, displayName: childProfiles.displayName })
 
@@ -152,6 +151,53 @@ export async function resetChildCredentials(input: { childProfileId: string; pin
   return { ...updated, accessCode }
 }
 
+
+export async function regenerateChildAccessCode(childProfileId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof childProfileId !== "string" || !childProfileId) throw new Error("자녀 정보가 올바르지 않습니다.")
+  const accessCode = generateChildAccessCode()
+  const [updated] = await db.update(childProfiles).set({
+    accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
+    updatedAt: new Date(),
+  }).where(and(eq(childProfiles.id, childProfileId), eq(childProfiles.familyId, family.id), eq(childProfiles.isActive, true)))
+    .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+  if (!updated) throw new Error("활성 상태의 자녀 프로필을 찾을 수 없습니다.")
+  revalidatePath("/parent")
+  return { ...updated, accessCode }
+}
+
+export async function setChildProfileActive(input: { childProfileId: string; isActive: boolean }) {
+  const { family } = await requireParentFamily()
+  if (typeof input?.childProfileId !== "string" || typeof input.isActive !== "boolean") throw new Error("자녀 상태 정보가 올바르지 않습니다.")
+  const [updated] = await db.update(childProfiles).set({
+    isActive: input.isActive,
+    ...(input.isActive ? { accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(generateChildAccessCode())) } : {}),
+    updatedAt: new Date(),
+  }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id)))
+    .returning({ id: childProfiles.id })
+  if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
+  if (!input.isActive) {
+    await db.update(childDeviceSessions).set({ revokedAt: new Date() })
+      .where(and(eq(childDeviceSessions.childProfileId, updated.id), isNull(childDeviceSessions.revokedAt)))
+  }
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function deleteChildProfile(childProfileId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof childProfileId !== "string" || !childProfileId) throw new Error("자녀 정보가 올바르지 않습니다.")
+  const [deleted] = await db.delete(childProfiles).where(and(
+    eq(childProfiles.id, childProfileId),
+    eq(childProfiles.familyId, family.id),
+  )).returning({ id: childProfiles.id })
+  if (!deleted) throw new Error("삭제할 자녀 프로필을 찾을 수 없습니다.")
+  // Related subjects, words, learning history, rewards, QR links and device sessions
+  // are removed by the database's ON DELETE CASCADE constraints.
+  revalidatePath("/parent")
+  return { success: true }
+}
+
 export async function createChildQrEnrollment(childProfileId: string) {
   const { family } = await requireParentFamily()
   const [child] = await db.select({ id: childProfiles.id })
@@ -173,22 +219,20 @@ export async function createChildQrEnrollment(childProfileId: string) {
   return { url: `${baseUrl.replace(/\/$/, "")}/child/enroll?token=${encodeURIComponent(token)}`, expiresAt }
 }
 
-export async function loginChildWithAccessCode(input: { accessCode: string; pin: string; deviceLabel?: string }) {
-  if (typeof input?.accessCode !== "string" || typeof input.pin !== "string") throw new Error("접속 코드와 PIN을 입력해 주세요.")
-  validatePin(input.pin)
+export async function loginChildWithAccessCode(input: { accessCode: string; deviceLabel?: string }) {
+  if (typeof input?.accessCode !== "string") throw new Error("접속 코드를 입력해 주세요.")
   const normalized = normalizeChildAccessCode(input.accessCode)
   if (!/^[A-F0-9]{10}$/.test(normalized)) throw new Error("접속 코드 형식을 확인해 주세요.")
 
   const [child] = await db.select({
     id: childProfiles.id,
-    pinHash: childProfiles.pinHash,
     isActive: childProfiles.isActive,
   }).from(childProfiles)
     .where(eq(childProfiles.accessCodeHash, hashOpaqueToken(normalized)))
     .limit(1)
 
-  if (!child || !child.isActive || !(await verifyChildPin(input.pin, child.pinHash))) {
-    throw new Error("접속 코드 또는 PIN이 올바르지 않습니다.")
+  if (!child || !child.isActive) {
+    throw new Error("접속 코드가 올바르지 않거나 만료되었습니다.")
   }
 
   await createChildDeviceSession(child.id, input.deviceLabel)
