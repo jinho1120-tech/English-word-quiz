@@ -1,9 +1,11 @@
 "use server"
 
+import { randomInt } from "node:crypto"
 import { and, asc, desc, eq, gt, gte } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { childQuizAttempts, childSubjects, wordEntries } from "@/lib/db/schema"
+import { childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familySettings, wordEntries } from "@/lib/db/schema"
+import { sendSolapiSms } from "@/lib/sms"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -178,9 +180,19 @@ export async function deleteChildWord(id: number) {
   revalidatePath("/child")
 }
 
-export async function recordChildQuizResult(id: number, isCorrect: boolean, quizType: "standard" | "listening" = "standard") {
+export async function recordChildQuizResult(
+  id: number,
+  isCorrect: boolean,
+  quizType: "standard" | "listening" = "standard",
+  session: { quizSessionId: string; hintUsed: boolean; sessionQuestionCount: number },
+) {
   const child = await requireChild()
   if (!Number.isInteger(id) || typeof isCorrect !== "boolean" || !["standard", "listening"].includes(quizType)) throw new Error("채점 정보가 올바르지 않습니다.")
+  if (!session || typeof session.quizSessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(session.quizSessionId) ||
+      typeof session.hintUsed !== "boolean" || !Number.isInteger(session.sessionQuestionCount) ||
+      session.sessionQuestionCount < 1 || session.sessionQuestionCount > 500) {
+    throw new Error("퀴즈 회차 정보가 올바르지 않습니다.")
+  }
   const [word] = await db.select().from(wordEntries)
     .where(and(eq(wordEntries.id, id), eq(wordEntries.userId, child.ownerUserId), eq(wordEntries.childProfileId, child.childProfileId)))
     .limit(1)
@@ -192,13 +204,76 @@ export async function recordChildQuizResult(id: number, isCorrect: boolean, quiz
     subjectName: word.subject,
     wordSnapshot: word.word,
     assignmentDate: word.assignmentDate,
+    quizSessionId: session.quizSessionId,
+    hintUsed: session.hintUsed,
     quizType,
     isCorrect,
   })
   await db.update(wordEntries).set({
     wrongCount: isCorrect ? Math.max(0, word.wrongCount - 1) : word.wrongCount + 1,
   }).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, child.ownerUserId), eq(wordEntries.childProfileId, child.childProfileId)))
+
+  const attempts = await db.select({
+    isCorrect: childQuizAttempts.isCorrect,
+    hintUsed: childQuizAttempts.hintUsed,
+  }).from(childQuizAttempts).where(and(
+    eq(childQuizAttempts.childProfileId, child.childProfileId),
+    eq(childQuizAttempts.quizSessionId, session.quizSessionId),
+  )).orderBy(asc(childQuizAttempts.answeredAt))
+
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; smsSent: boolean | null } | null = null
+  if (attempts.length >= session.sessionQuestionCount) {
+    const completed = attempts.slice(0, session.sessionQuestionCount)
+    const correctCount = completed.filter((item) => item.isCorrect).length
+    const score = Math.round(correctCount / completed.length * 100)
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, smsSent: null }
+
+    const [childProfile] = await db.select({
+      familyId: childProfiles.familyId,
+      displayName: childProfiles.displayName,
+    }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+    if (childProfile) {
+      const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, childProfile.familyId)).limit(1)
+      const hasHint = completed.some((item) => item.hintUsed)
+      if (settings?.couponsEnabled && score >= settings.rewardMinScore &&
+          completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
+        const activeCoupons = await db.select({
+          id: couponTypes.id,
+          title: couponTypes.title,
+        }).from(couponTypes).where(and(
+          eq(couponTypes.familyId, childProfile.familyId),
+          eq(couponTypes.isActive, true),
+        ))
+        if (activeCoupons.length > 0) {
+          const chosen = activeCoupons[randomInt(activeCoupons.length)]
+          const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
+          const [reward] = await db.insert(couponRewards).values({
+            childProfileId: child.childProfileId,
+            couponTypeId: chosen.id,
+            couponTitleSnapshot: chosen.title,
+            sourceKey,
+          }).onConflictDoNothing().returning({ id: couponRewards.id })
+          if (reward) {
+            sessionResult.rewardTitle = chosen.title
+            if (settings.parentPhone) {
+              const message = `[우리 가족 단어장] ${childProfile.displayName}님이 퀴즈 ${score}점(${correctCount}/${completed.length})을 달성해 "${chosen.title}" 쿠폰을 받았어요!`
+              const sms = await sendSolapiSms({ to: settings.parentPhone, text: message })
+              sessionResult.smsSent = sms.success
+              if (sms.success) {
+                await db.update(couponRewards).set({ notifiedAt: new Date() }).where(eq(couponRewards.id, reward.id))
+              } else {
+                console.error("쿠폰 보상 문자 발송 실패:", sms.error)
+              }
+            } else {
+              sessionResult.smsSent = false
+            }
+          }
+        }
+      }
+    }
+  }
   revalidatePath("/child")
+  return { sessionResult }
 }
 
 export async function gradeChildListeningAnswer(id: number, submittedWord: string, submittedMeaning: string) {
