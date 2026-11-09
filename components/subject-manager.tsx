@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   archiveChildSubject,
@@ -20,6 +20,10 @@ export function SubjectManager({
 }) {
   const router = useRouter()
   const [subjects, setSubjects] = useState(initialSubjects)
+
+  useEffect(() => {
+    setSubjects(initialSubjects)
+  }, [initialSubjects])
   const [newName, setNewName] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
@@ -42,7 +46,8 @@ export function SubjectManager({
     const name = newName.trim()
     if (!name) return
     run(async () => {
-      await createChildSubject(childProfileId, name)
+      const created = await createChildSubject(childProfileId, name)
+      setSubjects((current) => [...current, { id: created.id, name: created.name, sortOrder: created.sortOrder }])
       setNewName("")
     })
   }
