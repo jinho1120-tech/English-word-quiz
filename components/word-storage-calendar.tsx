@@ -35,6 +35,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, on
     getChildCalendarData(key).then((rows) => { if (active) setStorage(rows) }).catch(() => {})
     return () => { active = false }
   }, [key])
+  useEffect(() => { setStorage(initialStorage) }, [initialStorage])
   useEffect(() => { setColors(Object.fromEntries(subjects.map((s) => [s.id, s.color]))) }, [subjects])
 
   const year = month.getFullYear()
