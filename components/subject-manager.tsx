@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
-  archiveChildSubject,
+  deleteChildSubject,
   createChildSubject,
   renameChildSubject,
   reorderChildSubjects,
@@ -56,7 +56,8 @@ export function SubjectManager({
     const name = editingName.trim()
     if (!name) return
     run(async () => {
-      await renameChildSubject(childProfileId, subjectId, name)
+      const updated = await renameChildSubject(childProfileId, subjectId, name)
+      setSubjects((current) => current.map((subject) => subject.id === subjectId ? { ...subject, name: updated.name } : subject))
       setEditingId(null)
       setEditingName("")
     })
@@ -107,7 +108,15 @@ export function SubjectManager({
                   <button aria-label={subject.name + " 위로 이동"} disabled={isPending || index === 0} onClick={() => move(subject.id, -1)} className="rounded-lg px-2 py-1 text-sm disabled:opacity-30">↑</button>
                   <button aria-label={subject.name + " 아래로 이동"} disabled={isPending || index === subjects.length - 1} onClick={() => move(subject.id, 1)} className="rounded-lg px-2 py-1 text-sm disabled:opacity-30">↓</button>
                   <button onClick={() => { setEditingId(subject.id); setEditingName(subject.name) }} className="text-sm font-semibold">이름 변경</button>
-                  <button disabled={isPending} onClick={() => { if (window.confirm(subject.name + " 과목을 보관할까요? 기존 단어와 학습 기록은 보존됩니다.")) run(() => archiveChildSubject(childProfileId, subject.id)) }} className="text-sm text-red-600">보관</button>
+                  <button disabled={isPending} onClick={() => {
+                    const confirmed = window.confirm(
+                      subject.name + " 과목을 삭제할까요?\n\n이 과목에 등록된 단어와 기존 학습 기록은 삭제되지 않습니다. 단어는 과목 미지정 상태가 되고, 과거 학습 기록은 당시 과목명으로 보존됩니다. 삭제한 과목 자체는 복구할 수 없습니다."
+                    )
+                    if (confirmed) run(async () => {
+                      await deleteChildSubject(childProfileId, subject.id)
+                      setSubjects((current) => current.filter((item) => item.id !== subject.id))
+                    })
+                  }} className="text-sm text-red-600">삭제</button>
                 </>
               )}
             </li>
