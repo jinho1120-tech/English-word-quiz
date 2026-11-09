@@ -222,6 +222,7 @@ export const childSubjects = pgTable("child_subjects", {
   id: uuid("id").defaultRandom().primaryKey(),
   childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 60 }).notNull(),
+  calendarColor: varchar("calendar_color", { length: 7 }).default("#2563EB").notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

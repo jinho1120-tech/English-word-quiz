@@ -20,7 +20,8 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
   const params = await searchParams
   const today = todayInSeoul()
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
-  const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
+  const month = date.slice(0, 7)
+  const [data, coupons, calendarData] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), (await import("@/app/actions/child-words")).getChildCalendarData(month)])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-5 px-4 py-5">
@@ -32,7 +33,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
       <PwaInstallGuide />
-      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
+      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name, calendarColor }) => ({ id, name, color: calendarColor }))} initialStorage={calendarData} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
     </main>
   )
 }

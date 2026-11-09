@@ -1,7 +1,7 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, lte } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familySettings, wordEntries } from "@/lib/db/schema"
@@ -111,6 +111,42 @@ export async function getChildLearningData(date: string) {
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
   return { childName: child.childName, subjects, words, wrongWords, stats }
+}
+
+const CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
+
+export async function updateChildSubjectColor(subjectId: string, color: string) {
+  const child = await requireChild()
+  if (typeof subjectId !== "string" || !subjectId || !CALENDAR_COLORS.has(color)) throw new Error("과목 색상 정보가 올바르지 않습니다.")
+  const [updated] = await db.update(childSubjects).set({ calendarColor: color, updatedAt: new Date() })
+    .where(and(eq(childSubjects.id, subjectId), eq(childSubjects.childProfileId, child.childProfileId), eq(childSubjects.isArchived, false)))
+    .returning({ id: childSubjects.id })
+  if (!updated) throw new Error("과목을 찾을 수 없습니다.")
+  revalidatePath("/child")
+}
+
+export async function getChildCalendarData(month: string) {
+  const child = await requireChild()
+  if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
+  const start = `${month}-01`
+  const end = `${month}-31`
+  const rows = await db.select({
+    date: wordEntries.assignmentDate,
+    subjectId: wordEntries.subjectId,
+    subject: wordEntries.subject,
+  }).from(wordEntries).where(and(
+    eq(wordEntries.userId, child.ownerUserId),
+    eq(wordEntries.childProfileId, child.childProfileId),
+    gte(wordEntries.assignmentDate, start),
+    lte(wordEntries.assignmentDate, end),
+  ))
+  const seen = new Set<string>()
+  return rows.filter((row) => {
+    const key = `${row.date}:${row.subjectId ?? row.subject}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 export async function addChildWord(input: {
