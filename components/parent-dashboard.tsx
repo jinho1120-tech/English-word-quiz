@@ -13,12 +13,17 @@ import {
   revokeParentInvitation,
   removeParentAdministrator,
   setChildProfileActive,
+  updateFamilyRewardSettings,
+  createCouponType,
+  setCouponTypeActive,
 } from "@/app/actions/family"
 
 type Child = { id: string; displayName: string; isActive: boolean; createdAt: Date }
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
+type FamilySettings = { couponsEnabled: boolean; parentPhone: string | null; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean } | null
+type Coupon = { id: string; title: string; description: string | null; isActive: boolean }
 
 export function ParentDashboard({
   children,
@@ -26,11 +31,15 @@ export function ParentDashboard({
   members,
   invitations,
   parentRole,
+  settings,
+  coupons,
 }: {
   children: Child[]
   devices: Device[]
   members: Member[]
   invitations: Invitation[]
+  settings: FamilySettings
+  coupons: Coupon[]
   parentRole: "owner" | "admin"
   currentUserId: string
   ownerUserId: string
@@ -43,8 +52,53 @@ export function ParentDashboard({
   const [qrChildName, setQrChildName] = useState("")
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
+  const [parentPhone, setParentPhone] = useState(settings?.parentPhone ?? "")
+  const [couponsEnabled, setCouponsEnabled] = useState(settings?.couponsEnabled ?? false)
+  const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
+  const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
+  const [requireNoHint, setRequireNoHint] = useState(settings?.requireNoHint ?? true)
+  const [couponTitle, setCouponTitle] = useState("")
+  const [couponDescription, setCouponDescription] = useState("")
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
+
+  function saveRewardSettings() {
+    setError("")
+    startTransition(async () => {
+      try {
+        await updateFamilyRewardSettings({ couponsEnabled, parentPhone, rewardMinScore, rewardMinQuestions, requireNoHint })
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
+      }
+    })
+  }
+
+  function addCouponType() {
+    setError("")
+    startTransition(async () => {
+      try {
+        await createCouponType({ title: couponTitle, description: couponDescription })
+        setCouponTitle("")
+        setCouponDescription("")
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "쿠폰을 만들지 못했습니다.")
+      }
+    })
+  }
+
+  function toggleCoupon(coupon: Coupon) {
+    setError("")
+    startTransition(async () => {
+      try {
+        await setCouponTypeActive({ couponTypeId: coupon.id, isActive: !coupon.isActive })
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "쿠폰 상태를 변경하지 못했습니다.")
+      }
+    })
+  }
 
   function addChild() {
     setError("")
@@ -138,6 +192,36 @@ export function ParentDashboard({
             </> : <span className="text-xs text-muted-foreground">비활성화된 자녀입니다</span>}
           </div>
         ))}
+      </section>
+
+      <section className="space-y-4 rounded-2xl border border-border p-4">
+        <div>
+          <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
+          <p className="text-sm text-muted-foreground">부모 연락처와 퀴즈 보상 조건, 자녀에게 제공할 쿠폰 종류를 설정합니다.</p>
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="parent-reward-phone" className="text-sm font-semibold">부모 전화번호</label>
+          <input id="parent-reward-phone" type="tel" autoComplete="tel" value={parentPhone} onChange={(event) => setParentPhone(event.target.value)} placeholder="예: 010-1234-5678" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+          <p className="text-xs text-muted-foreground">가족 보상 설정에 저장되는 연락처입니다. 현재 문자 자동 발송은 연결되어 있지 않습니다.</p>
+        </div>
+        <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
+          <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
+          <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-1 text-sm"><span className="font-medium">최소 정답률 (%)</span><input type="number" min={1} max={100} value={rewardMinScore} onChange={(event) => setRewardMinScore(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+          <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
+        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <div className="space-y-3 border-t border-border pt-4">
+          <div><h3 className="font-bold">쿠폰 종류 만들기</h3><p className="text-xs text-muted-foreground">예: 아이스크림 1개, 게임 30분, 주말 외식 메뉴 선택권</p></div>
+          <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+          <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+          <button disabled={isPending || !couponTitle.trim()} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 종류 추가</button>
+          {coupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{coupons.map((coupon) => <div key={coupon.id} className="flex items-center gap-3 rounded-xl border border-border p-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{coupon.title}</p>{coupon.description && <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">{coupon.description}</p>}<p className="mt-1 text-xs text-muted-foreground">{coupon.isActive ? "사용 중" : "중지됨"}</p></div><button disabled={isPending} onClick={() => toggleCoupon(coupon)} className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "사용"}</button></div>)}</div>}
+        </div>
+        <p className="text-xs text-muted-foreground">참고: 현재 화면에서는 연락처·보상 조건·쿠폰 종류를 저장합니다. 퀴즈 결과에 따라 쿠폰을 자동 지급하거나 문자로 알리는 연결은 별도 구현이 필요합니다.</p>
       </section>
 
       {createdCode && (
