@@ -16,7 +16,8 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
   const [word, setWord] = useState("")
   const [meaning, setMeaning] = useState("")
   const [example, setExample] = useState("")
-  const [aiWords, setAiWords] = useState<{ word: string; meaning: string; example: string }[]>([])
+  const [draftWords, setDraftWords] = useState<{ word: string; meaning: string; example: string }[]>([])
+  const [bulkText, setBulkText] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState("")
@@ -28,6 +29,27 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
       try { await action(); router.refresh() }
       catch (err) { setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.") }
     })
+  }
+
+  function addBulkTextToDraft() {
+    setError("")
+    const lines = bulkText.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean)
+    if (!lines.length) { setError("붙여넣은 단어 목록이 비어 있습니다."); return }
+    const parsed: { word: string; meaning: string; example: string }[] = []
+    for (let index = 0; index < lines.length; index++) {
+      const columns = lines[index].split("|").map((value) => value.trim())
+      if (columns.length < 2 || columns.length > 3 || !columns[0] || !columns[1]) {
+        setError(`${index + 1}번째 줄 형식이 올바르지 않습니다. 영단어 | 뜻 | 예문(선택) 형식으로 입력해 주세요.`)
+        return
+      }
+      parsed.push({ word: columns[0], meaning: columns[1], example: columns[2] ?? "" })
+    }
+    if (draftWords.length + parsed.length > 100) {
+      setError("검토 목록은 한 번에 최대 100개까지 등록할 수 있습니다.")
+      return
+    }
+    setDraftWords((items) => [...items, ...parsed])
+    setBulkText("")
   }
 
   const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
@@ -59,20 +81,41 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
             const context = canvas.getContext("2d"); if (!context) throw new Error("사진을 변환하지 못했습니다.")
             context.drawImage(image, 0, 0, canvas.width, canvas.height)
             const result = await scanParentChildWordsImage(childProfileId, canvas.toDataURL("image/jpeg", 0.78).split(",")[1], "image/jpeg")
-            setAiWords(result)
+            if (draftWords.length + result.length > 100) throw new Error("현재 검토 목록과 AI 추출 결과를 합쳐 100개를 초과합니다. 먼저 일부 항목을 저장하거나 제외해 주세요.")
+            setDraftWords((items) => [...items, ...result])
           } catch (err) { setError(err instanceof Error ? err.message : "AI 단어 추출에 실패했습니다.") }
           finally { setIsScanning(false) }
         }} />
         <button type="button" disabled={pending || isScanning || !subjectId} onClick={() => imageInputRef.current?.click()} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold disabled:opacity-50">{isScanning ? "AI 분석 중..." : "사진에서 AI로 단어 추출"}</button>
-        {aiWords.length > 0 && <div className="space-y-2">
-          <p className="text-sm font-semibold">AI 추출 결과 {aiWords.length}개 · 확인 후 저장</p>
-          {aiWords.map((item, index) => <div key={index} className="space-y-1 rounded-lg bg-muted p-2">
-            <input value={item.word} onChange={(event) => setAiWords((items) => items.map((v, i) => i === index ? { ...v, word: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-            <input value={item.meaning} onChange={(event) => setAiWords((items) => items.map((v, i) => i === index ? { ...v, meaning: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-            <input value={item.example} placeholder="예문 (선택)" onChange={(event) => setAiWords((items) => items.map((v, i) => i === index ? { ...v, example: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-            <button onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="text-xs text-red-600">제외</button>
+        <div className="space-y-2 rounded-xl bg-muted/50 p-3">
+          <div>
+            <p className="text-sm font-semibold">여러 단어 한꺼번에 입력</p>
+            <p className="text-xs text-muted-foreground">한 줄에 하나씩 입력하세요. 형식: 영단어 | 뜻 | 예문(선택)</p>
+          </div>
+          <textarea
+            value={bulkText}
+            onChange={(event) => setBulkText(event.target.value)}
+            rows={5}
+            placeholder={"apple | 사과 | I eat an apple.\nbook | 책\nbright | 밝은 | The room is bright."}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+          <button type="button" disabled={pending || !subjectId || !bulkText.trim()} onClick={addBulkTextToDraft} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold disabled:opacity-50">입력 목록에 추가</button>
+        </div>
+        {draftWords.length > 0 && <div className="space-y-2 rounded-xl border border-border p-3">
+          <div>
+            <p className="text-sm font-bold">검토 및 저장 목록 {draftWords.length}/100개</p>
+            <p className="text-xs text-muted-foreground">직접 입력하거나 AI 사진에서 추출한 단어입니다. 저장 전에 내용을 확인하고 수정하세요.</p>
+          </div>
+          {draftWords.map((item, index) => <div key={index} className="space-y-1 rounded-lg bg-muted p-2">
+            <input aria-label={`${index + 1}번 단어`} value={item.word} onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, word: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+            <input aria-label={`${index + 1}번 뜻`} value={item.meaning} onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, meaning: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+            <input aria-label={`${index + 1}번 예문`} value={item.example} placeholder="예문 (선택)" onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, example: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+            <button type="button" onClick={() => setDraftWords((items) => items.filter((_, i) => i !== index))} className="text-xs text-red-600">이 항목 제외</button>
           </div>)}
-          <button disabled={pending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addParentChildWordsBulk(childProfileId, { date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</button>
+          <div className="flex gap-2">
+            <button type="button" disabled={pending} onClick={() => setDraftWords([])} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-semibold disabled:opacity-50">목록 비우기</button>
+            <button type="button" disabled={pending || !subjectId || draftWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addParentChildWordsBulk(childProfileId, { date, subjectId, words: draftWords }); setDraftWords([]); setBulkText("") })} className="flex-1 rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">확인한 {draftWords.length}개 저장</button>
+          </div>
         </div>}
         <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="단어" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
         <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
