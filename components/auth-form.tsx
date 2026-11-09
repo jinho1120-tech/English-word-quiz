@@ -15,7 +15,9 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   const [guardianRelation, setGuardianRelation] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -26,6 +28,10 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
     try {
       const callbackURL = inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/"
       const relation = guardianRelation.trim()
+      if (mode === "signup" && password !== confirmPassword) {
+        setError("비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
+        return
+      }
       if (mode === "signup" && parentRole === "기타 보호자" && !relation) {
         setError("자녀와의 관계를 입력해 주세요.")
         return
@@ -105,6 +111,47 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
             <span className="block text-xs text-red-600">비밀번호는 8자 이상이어야 합니다.</span>
           )}
         </label>
+        {mode === "signup" && (
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">비밀번호 재입력</span>
+            <span className="relative block">
+              <input
+                required
+                type={showConfirmPassword ? "text" : "password"}
+                minLength={8}
+                maxLength={128}
+                value={confirmPassword}
+                onChange={e => {
+                  setConfirmPassword(e.target.value)
+                  setError("")
+                }}
+                autoComplete="new-password"
+                className={"w-full rounded-xl border bg-background py-3 pl-3 pr-11 outline-none transition-colors focus:ring-2 focus:ring-offset-1 " + (
+                  confirmPassword.length > 0
+                    ? confirmPassword === password
+                      ? "border-blue-500 focus:ring-blue-500"
+                      : "border-red-500 focus:ring-red-500"
+                    : "border-input focus:ring-ring"
+                )}
+                placeholder="비밀번호를 한 번 더 입력해 주세요"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(value => !value)}
+                aria-label={showConfirmPassword ? "재입력 비밀번호 숨기기" : "재입력 비밀번호 표시"}
+                aria-pressed={showConfirmPassword}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {showConfirmPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+              </button>
+            </span>
+            {confirmPassword.length > 0 && (
+              <span className={"block text-xs " + (confirmPassword === password ? "text-blue-600" : "text-red-600")}>
+                {confirmPassword === password ? "비밀번호가 일치합니다." : "비밀번호가 일치하지 않습니다."}
+              </span>
+            )}
+          </label>
+        )}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy ? "처리 중..." : mode === "signup" ? "무료로 가입하기" : "로그인"}</button>
       </form>
