@@ -1,17 +1,19 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, eq, gt, isNull } from "drizzle-orm"
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { sendSolapiSms } from "@/lib/sms"
 import {
   childDeviceEnrollments,
   childDeviceSessions,
   childProfiles,
   childSubjects,
   couponTypes,
+  couponRewards,
   families,
   familySettings,
   familyMembers,
@@ -85,6 +87,19 @@ export async function getParentFamilyDashboard() {
     .where(eq(couponTypes.familyId, family.id))
     .orderBy(asc(couponTypes.createdAt))
 
+  const rewards = await db.select({
+    id: couponRewards.id,
+    childName: childProfiles.displayName,
+    title: couponRewards.couponTitleSnapshot,
+    status: couponRewards.status,
+    earnedAt: couponRewards.earnedAt,
+    notifiedAt: couponRewards.notifiedAt,
+  }).from(couponRewards)
+    .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, family.id))
+    .orderBy(desc(couponRewards.earnedAt))
+    .limit(30)
+
   const devices = await db.select({
     id: childDeviceSessions.id,
     childProfileId: childProfiles.id,
@@ -101,7 +116,42 @@ export async function getParentFamilyDashboard() {
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
-  return { familyId: family.id, settings: settings ?? null, children, coupons, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
+  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
+}
+
+
+export async function sendParentRewardTestSms() {
+  const { family } = await requireParentFamily()
+  const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
+  if (!settings?.parentPhone) throw new Error("부모 전화번호를 먼저 저장해 주세요.")
+  const result = await sendSolapiSms({ to: settings.parentPhone, text: "[우리 가족 단어장] 쿠폰 알림 문자 테스트입니다. 문자 연동이 정상적으로 설정되었습니다." })
+  if (!result.success) throw new Error(result.error || "테스트 문자 발송에 실패했습니다.")
+  return { success: true }
+}
+
+export async function resendCouponRewardSms(rewardId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof rewardId !== "string" || !rewardId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
+  const [reward] = await db.select({
+    id: couponRewards.id,
+    childName: childProfiles.displayName,
+    title: couponRewards.couponTitleSnapshot,
+    earnedAt: couponRewards.earnedAt,
+  }).from(couponRewards)
+    .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
+    .where(and(eq(couponRewards.id, rewardId), eq(childProfiles.familyId, family.id)))
+    .limit(1)
+  if (!reward) throw new Error("쿠폰 지급 기록을 찾을 수 없습니다.")
+  const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
+  if (!settings?.parentPhone) throw new Error("부모 전화번호를 먼저 저장해 주세요.")
+  const result = await sendSolapiSms({
+    to: settings.parentPhone,
+    text: `[우리 가족 단어장] ${reward.childName}님이 "${reward.title}" 쿠폰을 받았어요. 지급일: ${reward.earnedAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`,
+  })
+  if (!result.success) throw new Error(result.error || "문자 재발송에 실패했습니다.")
+  await db.update(couponRewards).set({ notifiedAt: new Date() }).where(eq(couponRewards.id, reward.id))
+  revalidatePath("/parent")
+  return { success: true }
 }
 
 export async function createChildProfile(input: { displayName: string }) {
