@@ -196,7 +196,7 @@ export function ParentDashboard({
         ))}
       </section>
 
-      <section className="space-y-4 rounded-2xl border border-border p-4">
+      <section id="coupon-rewards" className="space-y-4 rounded-2xl border border-border p-4">
         <div>
           <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
           <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 자녀에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
