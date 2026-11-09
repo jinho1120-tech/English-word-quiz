@@ -1,6 +1,6 @@
 "use server"
 
-import { and, desc, eq, isNull } from "drizzle-orm"
+import { and, count, desc, eq, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -35,7 +35,8 @@ export async function getParentNotificationData() {
     .where(eq(parentNotifications.recipientUserId, userId))
     .orderBy(desc(parentNotifications.createdAt))
     .limit(40)
-  const unreadCount = notifications.filter((item) => !item.readAt).length
+  const [{ unreadCount }] = await db.select({ unreadCount: count() }).from(parentNotifications)
+    .where(and(eq(parentNotifications.recipientUserId, userId), isNull(parentNotifications.readAt)))
   const [stored] = await db.select().from(notificationPreferences)
     .where(and(eq(notificationPreferences.familyId, family.id), eq(notificationPreferences.userId, userId))).limit(1)
   const preferences = stored ? {
