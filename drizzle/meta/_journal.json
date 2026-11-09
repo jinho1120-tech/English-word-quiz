@@ -15,6 +15,13 @@
       "when": 1794156736735,
       "tag": "0001_wise_iron_patriot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794203655728,
+      "tag": "0002_quiz_reward_sessions",
+      "breakpoints": true
     }
   ]
 }
