@@ -169,19 +169,20 @@ export async function regenerateChildAccessCode(childProfileId: string) {
 export async function setChildProfileActive(input: { childProfileId: string; isActive: boolean }) {
   const { family } = await requireParentFamily()
   if (typeof input?.childProfileId !== "string" || typeof input.isActive !== "boolean") throw new Error("자녀 상태 정보가 올바르지 않습니다.")
+  const accessCode = input.isActive ? generateChildAccessCode() : null
   const [updated] = await db.update(childProfiles).set({
     isActive: input.isActive,
-    ...(input.isActive ? { accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(generateChildAccessCode())) } : {}),
+    ...(accessCode ? { accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)) } : {}),
     updatedAt: new Date(),
   }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id)))
-    .returning({ id: childProfiles.id })
+    .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
   if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
   if (!input.isActive) {
     await db.update(childDeviceSessions).set({ revokedAt: new Date() })
       .where(and(eq(childDeviceSessions.childProfileId, updated.id), isNull(childDeviceSessions.revokedAt)))
   }
   revalidatePath("/parent")
-  return { success: true }
+  return { success: true, accessCode, displayName: updated.displayName }
 }
 
 export async function deleteChildProfile(childProfileId: string) {
