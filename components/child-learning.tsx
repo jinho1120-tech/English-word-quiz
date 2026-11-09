@@ -182,7 +182,7 @@ export function ChildLearning({
 
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
   const visibleWords = sourceWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === filterSubjectId)?.name))
-  const managerSubjectFilter = managerFilterSubjectId || subjectId
+  const managerSubjectFilter = managerFilterSubjectId === "__all__" ? "" : managerFilterSubjectId || subjectId
   const managerWords = initialWords.filter((item) => !managerSubjectFilter || item.subjectId === managerSubjectFilter || (!item.subjectId && item.subject === subjects.find((s) => s.id === managerSubjectFilter)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
@@ -307,7 +307,7 @@ export function ChildLearning({
       )}
       {activeTab === "manage" && (
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2"><h2 className="font-bold">단어 목록 · {managerWords.length}개</h2><select value={managerSubjectFilter} onChange={(event) => setManagerFilterSubjectId(event.target.value === subjectId ? "" : event.target.value)} className="max-w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
+        <div className="flex items-center justify-between gap-2"><h2 className="font-bold">단어 목록 · {managerWords.length}개</h2><select value={managerFilterSubjectId || subjectId} onChange={(event) => setManagerFilterSubjectId(event.target.value)} className="max-w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs"><option value="__all__">전체 과목</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
         {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
         {managerWords.map((item) => (
           <article key={item.id} className="space-y-2 rounded-xl border border-border p-3">
