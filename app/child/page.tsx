@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { getChildDeviceSession } from "@/lib/child-auth"
 import { getChildLearningData } from "@/app/actions/child-words"
 import { ChildLearning } from "@/components/child-learning"
+import { PwaInstallGuide } from "@/components/pwa-install-guide"
 
 export const dynamic = "force-dynamic"
 
@@ -35,6 +36,7 @@ export default async function ChildPage({
         <div><p className="text-sm text-muted-foreground">English Word Quiz · 자녀 모드</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
         <form action={logout}><button className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">로그아웃</button></form>
       </header>
+      <PwaInstallGuide />
       <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} stats={data.stats} />
     </main>
   )
