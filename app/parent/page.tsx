@@ -9,6 +9,9 @@ import { LogoutButton } from "@/components/logout-button"
 
 export const dynamic = "force-dynamic"
 
+export const metadata = { manifest: "/parent/manifest.webmanifest", title: "영단어 마스터 매니저", applicationName: "영단어 마스터 매니저", appleWebApp: { capable: true, statusBarStyle: "default" as const, title: "영단어 마스터 매니저" }, icons: { apple: [{ url: "/icons/parent-icon-180.png", sizes: "180x180", type: "image/png" }] } }
+
+
 export default async function ParentPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) redirect("/login")
