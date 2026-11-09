@@ -61,7 +61,7 @@ export async function createCouponUseRequest(rewardId: string) {
       type: "coupon_use_requested",
       title: "쿠폰 사용 요청이 도착했어요",
       message: `${childProfile.displayName}이(가) '${reward.title}' 쿠폰 사용을 요청했어요.`,
-      href: "/parent/coupons/redeem",
+      href: "/parent#coupon-rewards",
     })
   }
   const baseUrl = process.env.BETTER_AUTH_URL
