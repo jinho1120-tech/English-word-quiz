@@ -5,7 +5,6 @@ import { ChildLearning } from "@/components/child-learning"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { getChildCouponWallet } from "@/app/actions/coupons"
 import { ChildCouponWallet } from "@/components/child-coupon-wallet"
-import { ChildLogoutButton } from "@/components/child-logout-button"
 
 export const dynamic = "force-dynamic"
 
@@ -26,7 +25,6 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-6 px-4 py-8">
       <header className="flex items-center justify-between gap-3">
         <div><p className="text-sm text-muted-foreground">영단어 마스터</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
-        <ChildLogoutButton />
       </header>
       <PwaInstallGuide />
       <ChildCouponWallet rewards={coupons} />
