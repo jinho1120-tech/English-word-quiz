@@ -22,6 +22,13 @@
       "when": 1794203655728,
       "tag": "0002_quiz_reward_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794236400000,
+      "tag": "0003_coupon_redemption_tokens",
+      "breakpoints": true
     }
   ]
 }
