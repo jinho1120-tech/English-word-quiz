@@ -13,23 +13,19 @@ function todayInSeoul(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" })
 }
 
-export default async function ChildPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ date?: string }>
-}) {
+export default async function ChildPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const session = await getChildDeviceSession()
   if (!session) redirect("/child/login")
 
   const params = await searchParams
   const today = todayInSeoul()
-  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
+  const date = params.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(params.date) ? params.date : today
   const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-6 px-4 py-8">
       <header className="flex items-center justify-between gap-3">
-        <div><p className="text-sm text-muted-foreground">English Word Quiz · 자녀 모드</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
+        <div><p className="text-sm text-muted-foreground">영단어 마스터</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
         <ChildLogoutButton />
       </header>
       <PwaInstallGuide />
