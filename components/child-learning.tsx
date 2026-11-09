@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
+import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
@@ -37,6 +38,9 @@ export function ChildLearning({
   const [meaning, setMeaning] = useState("")
   const [example, setExample] = useState("")
   const [aiWords, setAiWords] = useState<{ word: string; meaning: string; example: string }[]>([])
+  const [bulkText, setBulkText] = useState("")
+  const [isBulkMode, setIsBulkMode] = useState(false)
+  const [managerFilterSubjectId, setManagerFilterSubjectId] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -161,9 +165,25 @@ export function ChildLearning({
     })
   }
 
+  function saveBulkWords() {
+    if (!subjectId) { setError("부모에게 과목을 먼저 등록해 달라고 요청하세요."); return }
+    const parsed = bulkText.split(/\r?\n/).map((line) => {
+      const parts = line.includes("|") ? line.split("|") : line.includes("\t") ? line.split("\t") : line.split(",")
+      return { word: (parts[0] ?? "").trim(), meaning: (parts[1] ?? "").trim(), example: (parts[2] ?? "").trim() }
+    }).filter((item) => item.word && item.meaning)
+    if (!parsed.length) { setError("단어와 뜻을 구분해 입력해 주세요. 예: apple | 사과 | I eat an apple."); return }
+    if (parsed.length > 100) { setError("한 번에 최대 100개까지 등록할 수 있어요."); return }
+    run(async () => {
+      await addChildWordsBulk({ date, subjectId, words: parsed })
+      setBulkText("")
+      setIsBulkMode(false)
+    })
+  }
+
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
   const visibleWords = sourceWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === filterSubjectId)?.name))
-  const managerWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const managerSubjectFilter = managerFilterSubjectId === "__all__" ? "" : managerFilterSubjectId || subjectId
+  const managerWords = initialWords.filter((item) => !managerSubjectFilter || item.subjectId === managerSubjectFilter || (!item.subjectId && item.subject === subjects.find((s) => s.id === managerSubjectFilter)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
   useEffect(() => {
@@ -235,90 +255,59 @@ export function ChildLearning({
         </div>}
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <h2 className="font-bold">단어 추가</h2>
-        <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
-          {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-        </select>
-        <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="단어 또는 학습 항목" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
+      <section className="space-y-4 rounded-2xl border border-border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-bold">단어 추가</h2>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+            <button type="button" onClick={() => setIsBulkMode(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>하나씩 입력</button>
+            <button type="button" onClick={() => setIsBulkMode(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>일괄 입력</button>
+          </div>
+        </div>
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold text-muted-foreground">저장할 과목</span>
+          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
+            {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        {!isBulkMode ? (
+          <div className="space-y-3">
+            <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="영어 단어 (예: apple)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 또는 힌트 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">한 줄에 한 단어씩 입력하세요. 구분자는 |, 탭, 쉼표를 사용할 수 있어요. 예문은 선택입니다.</p>
+            <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder={"apple | 사과 | I eat an apple.\nbook | 책\nbeautiful | 아름다운"} className="w-full resize-y rounded-xl border border-border bg-background px-3 py-3 text-sm leading-relaxed" />
+            <button disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</button>
+          </div>
+        )}
       </section>
 
       </div>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {activeTab !== "manage" && (
-      <section className={quizMode ? "fixed inset-0 z-[100] min-h-dvh overflow-y-auto bg-background px-4 py-5 sm:px-6" : "space-y-3 rounded-2xl border border-border p-4"}>
-        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 몬스터" : "날짜별 퀴즈"}</h2><button onClick={() => { const starting = !quizMode; setQuizMode(starting); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionResult(null); setQuizSessionId(starting ? crypto.randomUUID() : "") }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
-        {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-primary text-primary-foreground" : "bg-background"}`}>기본 단어 퀴즈</button>
-            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-primary text-primary-foreground" : "bg-background"}`}>듣기 퀴즈</button>
-          </div>
-          <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
-          {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-3 py-3">
-            <button type="button" onClick={() => void playPronunciation(quizWord.word)} className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-label="단어 발음 다시 듣기"><span className="text-2xl">🔊</span></button>
-            <div className="flex w-full max-w-sm items-center gap-2">
-              <select value={ttsVoice} onChange={(event) => { setTtsVoice(event.target.value); window.localStorage.setItem("word_quiz_tts_voice", event.target.value) }} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-xs">
-                {TTS_VOICES.map((voice) => <option key={voice.id} value={voice.id}>{voice.label}</option>)}
-              </select>
-              <button type="button" onClick={() => setIsSlowMode((value) => !value)} className={`rounded-lg border border-border px-3 py-2 text-xs font-semibold ${isSlowMode ? "bg-primary text-primary-foreground" : "bg-background"}`}>{isSlowMode ? "느리게 재생 중" : "느리게 듣기"}</button>
-            </div>
-            <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어와 한국어 뜻을 입력하세요.</p>
-          </div>}
-          {quizHintUsed && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-            <p className="font-semibold">💡 힌트</p>
-            {quizType === "listening"
-              ? <p>영어 첫 글자: <strong>{quizWord.word[0]}</strong> · 뜻: {quizWord.meaning}</p>
-              : quizWord.example
-                ? <p>{quizWord.example.replace(new RegExp(quizWord.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), (match) => match[0] + "·".repeat(Math.max(0, match.length - 1)))}</p>
-                : <p>첫 글자: <strong>{quizWord.word[0]}</strong> · 글자 수: {quizWord.word.length}</p>}
-          </div>}
-          {!quizFeedback ? <form className="space-y-2" onSubmit={(event) => {
-            event.preventDefault()
-            if (!quizAnswer.trim() || isPending || (quizType === "listening" && !quizMeaningAnswer.trim())) return
-            run(async () => {
-              let correct: boolean
-              if (quizType === "listening") {
-                const result = await gradeChildListeningAnswer(quizWord.id, quizAnswer, quizMeaningAnswer)
-                correct = result.isCorrect
-                setQuizAiFeedback(`${result.wordCorrect ? "영어 철자: 정답" : "영어 철자: 오답 (정답: " + quizWord.word + ")"}\n${result.feedback}`)
-              } else {
-                const normalized = quizAnswer.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
-                const expected = quizWord.word.trim().replace(/['‘’`]/g, "'").toLocaleLowerCase()
-                correct = normalized === expected
-              }
-              const recorded = await recordChildQuizResult(quizWord.id, correct, quizType, { quizSessionId, hintUsed: quizHintUsed, sessionQuestionCount: visibleWords.length })
-              if (recorded.sessionResult) setQuizSessionResult(recorded.sessionResult)
-              setQuizFeedback(correct ? "correct" : "wrong")
-            })
-          }}>
-            <input autoComplete="off" value={quizAnswer} onChange={(event) => setQuizAnswer(event.target.value)} placeholder="영어 단어 입력" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-lg" />
-            {quizType === "listening" && <input autoComplete="off" value={quizMeaningAnswer} onChange={(event) => setQuizMeaningAnswer(event.target.value)} placeholder="한국어 뜻 입력 (품사까지 정확하게)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-base" />}
-            <button type="submit" disabled={isPending || !quizAnswer.trim() || (quizType === "listening" && !quizMeaningAnswer.trim())} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending && quizType === "listening" ? "AI 선생님이 채점 중..." : "정답 확인"}</button>
-          </form> : <div className="space-y-3 text-center">
-            <p className={quizFeedback === "correct" ? "font-bold text-green-600" : "font-bold text-red-600"}>{quizFeedback === "correct" ? "정답이에요!" : "아쉬워요. 정답은 " + quizWord.word + " 입니다."}</p>
-            <p className="whitespace-pre-line text-sm text-muted-foreground">{quizType === "listening" && quizAiFeedback ? quizAiFeedback : quizWord.meaning}</p>
-            <button onClick={() => { if (quizIndex >= visibleWords.length - 1) { setQuizMode(false); setQuizSessionId(""); } else { setQuizIndex((i) => i + 1); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); } if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground">{quizIndex >= visibleWords.length - 1 ? "퀴즈 결과 보기" : "다음 단어"}</button>
-          </div>}
-          {!quizFeedback && <button type="button" disabled={quizHintUsed || isPending} onClick={() => setQuizHintUsed(true)} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">💡 힌트 보기</button>}
-        </div>}
-        {!visibleWords.length && <p className="text-sm text-muted-foreground">퀴즈를 시작하려면 먼저 이 과목에 단어를 등록하세요.</p>}
-        {quizSessionResult && !quizMode && <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
-          <h3 className="font-bold">퀴즈 결과</h3>
-          <p className="text-3xl font-black">{quizSessionResult.score}점</p>
-          <p className="text-sm text-muted-foreground">{quizSessionResult.correct}/{quizSessionResult.total} 정답</p>
-          {quizSessionResult.rewardTitle ? <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-amber-950"><p className="font-bold">🎁 쿠폰을 받았어요!</p><p className="mt-1 text-lg font-black">{quizSessionResult.rewardTitle}</p><p className="mt-1 text-xs">"부모님 앱의 쿠폰 내역에도 표시됩니다."</p></div> : <p className="text-xs text-muted-foreground">이번 퀴즈는 쿠폰 지급 조건에 해당하지 않았어요.</p>}
-          <button onClick={() => { setQuizSessionResult(null); setQuizMode(true); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionId(crypto.randomUUID()) }} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold">다시 퀴즈 풀기</button>
-        </section>}
-
-      </section>
-
+        <section className="space-y-3">
+          <WordQuiz
+            key={`child-${activeTab}-${filterSubjectId}-${date}`}
+            words={(activeTab === "wrong" ? visibleWords : visibleWords).map((item): QuizWord => ({
+              id: item.id,
+              word: item.word,
+              meaning: item.meaning,
+              example: item.example,
+              subject: item.subject,
+            }))}
+            accent="var(--child-accent, #2563eb)"
+            isMonsterMode={activeTab === "wrong"}
+            childMode
+            childName={childName}
+          />
+        </section>
       )}
       {activeTab === "manage" && (
       <section className="space-y-3">
-        <h2 className="font-bold">{subjects.find((s) => s.id === subjectId)?.name ?? "단어"} · {managerWords.length}개</h2>
+        <div className="flex items-center justify-between gap-2"><h2 className="font-bold">단어 목록 · {managerWords.length}개</h2><select value={managerFilterSubjectId || subjectId} onChange={(event) => setManagerFilterSubjectId(event.target.value)} className="max-w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs"><option value="__all__">전체 과목</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
         {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
         {managerWords.map((item) => (
           <article key={item.id} className="space-y-2 rounded-xl border border-border p-3">

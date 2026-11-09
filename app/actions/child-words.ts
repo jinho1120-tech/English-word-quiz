@@ -276,29 +276,43 @@ export async function recordChildQuizResult(
         const activeCoupons = await db.select({
           id: couponTypes.id,
           title: couponTypes.title,
+          couponKind: couponTypes.couponKind,
+          drawWeight: couponTypes.drawWeight,
         }).from(couponTypes).where(and(
           eq(couponTypes.familyId, childProfile.familyId),
           eq(couponTypes.isActive, true),
         ))
         if (activeCoupons.length > 0) {
-          const chosen = activeCoupons[randomInt(activeCoupons.length)]
-          const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
-          const [reward] = await db.insert(couponRewards).values({
-            childProfileId: child.childProfileId,
-            couponTypeId: chosen.id,
-            couponTitleSnapshot: chosen.title,
-            sourceKey,
-          }).onConflictDoNothing().returning({ id: couponRewards.id })
-          if (reward) {
-            sessionResult.rewardTitle = chosen.title
-            await notifyFamilyParents({
-              familyId: childProfile.familyId,
+          // First choose the coupon category by the family's configured probability,
+          // then choose an item within that category using its individual weight.
+          const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
+          let candidates = activeCoupons.filter((item) => item.couponKind === preferredKind)
+          if (candidates.length === 0) candidates = activeCoupons.filter((item) => item.couponKind !== preferredKind)
+          const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
+          if (totalWeight > 0) {
+            let ticket = randomInt(totalWeight)
+            const chosen = candidates.find((item) => {
+              ticket -= item.drawWeight
+              return ticket < 0
+            }) ?? candidates[candidates.length - 1]
+            const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
+            const [reward] = await db.insert(couponRewards).values({
               childProfileId: child.childProfileId,
-              type: "coupon_issued",
-              title: "새 쿠폰이 발행됐어요",
-              message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
-              href: "/parent#coupon-rewards",
-            })
+              couponTypeId: chosen.id,
+              couponTitleSnapshot: chosen.title,
+              sourceKey,
+            }).onConflictDoNothing().returning({ id: couponRewards.id })
+            if (reward) {
+              sessionResult.rewardTitle = chosen.title
+              await notifyFamilyParents({
+                familyId: childProfile.familyId,
+                childProfileId: child.childProfileId,
+                type: "coupon_issued",
+                title: "새 쿠폰이 발행됐어요",
+                message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
+                href: "/parent#coupon-rewards",
+              })
+            }
           }
         }
       }
@@ -419,4 +433,112 @@ export async function addChildWordsBulk(input: { date: string; subjectId: string
   await db.insert(wordEntries).values(rows)
   revalidatePath("/child")
   return { count: rows.length }
+}
+
+
+/**
+ * word-test 호환 AI 문장 퀴즈 어댑터.
+ * 기존 퀴즈 UI가 기대하는 응답 형태를 유지하되, 자녀 기기 세션과
+ * 가족 계정의 사용자별 사용량 제한을 적용한다.
+ */
+export async function generateChildContextQuiz(
+  words: { word: string; meaning: string }[],
+  quizType: "context" | "speaking",
+) {
+  const child = await requireChild()
+  if (!Array.isArray(words) || words.length < 1 || words.length > 10 ||
+      !["context", "speaking"].includes(quizType) ||
+      words.some((item) => !item || typeof item.word !== "string" || typeof item.meaning !== "string" || !item.word.trim() || !item.meaning.trim())) {
+    throw new Error("AI 문장 퀴즈 입력값이 올바르지 않습니다.")
+  }
+  const allowed = await consumeUserRateLimit(child.ownerUserId, "ai-context-quiz", 20, 3600)
+  if (!allowed) return { success: false as const, isRateLimit: true, error: "AI 문장 퀴즈는 1시간에 20회까지 가능합니다." }
+
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  if (!apiKey) return { success: false as const, error: "GEMINI_API_KEY 환경변수가 설정되지 않았습니다." }
+
+  const count = quizType === "speaking" ? Math.min(5, words.length) : Math.min(10, words.length)
+  const prompt = `
+당신은 초등학생 영어 선생님입니다. 아래 단어를 사용해 영어 빈칸 문장 문제를 정확히 ${count}개 만드세요.
+학습자 이름: ${child.childName}
+유형: ${quizType === "speaking" ? "소리 내어 문장 말하기 연습" : "문맥 속 단어 선택 퀴즈"}
+단어 목록: ${JSON.stringify(words)}
+규칙:
+- 각 단어는 입력 목록에서 하나씩 선택하고 word 필드에 원문 그대로 씁니다.
+- sentence는 해당 단어 자리를 ___ 로 표시한 자연스러운 영어 문장입니다.
+- translation은 문장 전체의 자연스러운 한국어 번역입니다.
+- clue는 짧은 한국어 힌트, guide는 말하기 연습 안내입니다.
+- JSON 외의 설명은 출력하지 않습니다.
+반환 형식: {"quizData":[{"word":"...","sentence":"... ___ ...","translation":"...","clue":"...","guide":"..."}]}
+`.trim()
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.35, responseMimeType: "application/json" },
+      }),
+    })
+    if (!response.ok) return { success: false as const, error: "AI 문장 문제 생성에 실패했습니다." }
+    const payload = await response.json()
+    const raw = payload.candidates?.[0]?.content?.parts?.[0]?.text
+    if (typeof raw !== "string") return { success: false as const, error: "AI 문장 문제 결과가 비어 있습니다." }
+    const parsed = JSON.parse(raw.replace(/```json/g, "").replace(/```/g, "").trim()) as { quizData?: unknown }
+    if (!Array.isArray(parsed.quizData)) return { success: false as const, error: "AI 문장 문제 형식이 올바르지 않습니다." }
+    const allowedWords = new Set(words.map((item) => item.word.toLocaleLowerCase()))
+    const quizData = parsed.quizData.filter((item): item is { word: string; sentence: string; translation: string; clue?: string; guide?: string } =>
+      !!item && typeof item === "object" &&
+      typeof (item as any).word === "string" && allowedWords.has((item as any).word.toLocaleLowerCase()) &&
+      typeof (item as any).sentence === "string" && (item as any).sentence.includes("___") &&
+      typeof (item as any).translation === "string",
+    ).slice(0, count)
+    if (!quizData.length) return { success: false as const, error: "사용할 수 있는 문장 문제가 생성되지 않았습니다." }
+    return { success: true as const, quizData }
+  } catch (error) {
+    console.error("자녀 AI 문장 퀴즈 생성 오류:", error)
+    return { success: false as const, error: "AI 문장 문제 생성 중 오류가 발생했습니다." }
+  }
+}
+
+/** word-test의 말하기 코칭 응답 형식을 자녀 인증으로 제공한다. */
+export async function generateChildSpeakingCoachFeedback(input: {
+  sentence: string
+  pronResult: { score: number; accuracy: number; fluency: number; completeness: number; prosody: number }
+  wordScores: { text: string; score: number; errorType?: string }[]
+}) {
+  const child = await requireChild()
+  if (!input || typeof input.sentence !== "string" || input.sentence.length > 1000 ||
+      !input.pronResult || !Array.isArray(input.wordScores) || input.wordScores.length > 80) {
+    throw new Error("말하기 코칭 입력값이 올바르지 않습니다.")
+  }
+  const allowed = await consumeUserRateLimit(child.ownerUserId, "ai-speaking-coach", 30, 3600)
+  if (!allowed) return { success: false as const, error: "AI 말하기 코칭은 1시간에 30회까지 가능합니다." }
+  const apiKey = process.env.GEMINI_API_KEY?.trim()
+  if (!apiKey) return { success: false as const, error: "GEMINI_API_KEY 환경변수가 설정되지 않았습니다." }
+
+  const prompt = `
+당신은 초등학생 ${child.childName}의 다정한 영어 발음 코치입니다.
+연습 문장: ${JSON.stringify(input.sentence)}
+발음 평가 점수: ${JSON.stringify(input.pronResult)}
+단어별 평가: ${JSON.stringify(input.wordScores)}
+한국어로 2~4문장 피드백을 작성하세요. 잘한 점을 먼저 말하고 가장 개선 효과가 큰 발음 한두 가지만 구체적으로 알려주세요. 점수만 반복하지 말고 격려하는 말투를 사용하세요.
+`.trim()
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.4 } }),
+    })
+    if (!response.ok) return { success: false as const, error: "AI 말하기 코칭 요청에 실패했습니다." }
+    const payload = await response.json()
+    const feedback = payload.candidates?.[0]?.content?.parts?.[0]?.text
+    if (typeof feedback !== "string" || !feedback.trim()) return { success: false as const, error: "AI 코칭 결과가 비어 있습니다." }
+    return { success: true as const, feedback: feedback.trim().slice(0, 1200) }
+  } catch (error) {
+    console.error("자녀 AI 말하기 코칭 오류:", error)
+    return { success: false as const, error: "AI 말하기 코칭 중 오류가 발생했습니다." }
+  }
 }

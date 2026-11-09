@@ -45,6 +45,30 @@ async function requireParentFamily() {
   }
   if (!family) throw new Error("가족 공간을 찾거나 만들지 못했습니다.")
   await db.insert(familySettings).values({ familyId: family.id }).onConflictDoNothing()
+
+  // Copy the original word-test coupon examples into each family's own database once.
+  // Keep the flag and inserted rows atomic so a failed seed can safely retry.
+  await db.transaction(async (tx) => {
+    const [seedClaim] = await tx.update(familySettings)
+      .set({ couponDefaultsSeeded: true, updatedAt: new Date() })
+      .where(and(eq(familySettings.familyId, family.id), eq(familySettings.couponDefaultsSeeded, false)))
+      .returning({ familyId: familySettings.familyId })
+    if (seedClaim) {
+      const existing = await tx.select({ id: couponTypes.id }).from(couponTypes)
+        .where(eq(couponTypes.familyId, family.id)).limit(1)
+      if (existing.length === 0) {
+        await tx.insert(couponTypes).values([
+          { familyId: family.id, title: "아빠의 엉덩이 춤 관람권 🕺", description: "아빠의 신나는 엉덩이 춤을 관람해요.", couponKind: "regular", drawWeight: 15 },
+          { familyId: family.id, title: "인간 놀이기구 탑승권 ✈️", description: "아빠가 안전하게 태워주는 인간 놀이기구를 즐겨요.", couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: "침대까지 어부바 특급열차 🚂", description: "아빠 등에 업혀 침대까지 이동해요.", couponKind: "regular", drawWeight: 25 },
+          { familyId: family.id, title: "아빠의 특급 안마 3분 💆‍♀️", description: "아빠에게 3분 동안 안마를 받아요.", couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: "꽝 쿠폰: 아빠 볼에 뽀뽀 3번 하기 😘", description: "꽝 쿠폰 미션: 아빠 볼에 뽀뽀 3번 하기", couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: "꽝 쿠폰: 아빠에게 하트 날리며 사랑해요 외치기 🫶", description: "꽝 쿠폰 미션: 아빠에게 사랑한다고 표현하기", couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: "꽝 쿠폰: 아빠 어깨 1분 주물러주기 💆‍♂️", description: "꽝 쿠폰 미션: 아빠 어깨 1분 주물러주기", couponKind: "blank", drawWeight: 1 },
+        ])
+      }
+    }
+  })
   return { userId: session.user.id, family, role, email: session.user.email }
 }
 
@@ -60,6 +84,7 @@ export async function getParentFamilyDashboard() {
     rewardMinScore: familySettings.rewardMinScore,
     rewardMinQuestions: familySettings.rewardMinQuestions,
     requireNoHint: familySettings.requireNoHint,
+    blankCouponProbability: familySettings.blankCouponProbability,
   }).from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
 
   const children = await db.select({
@@ -76,6 +101,8 @@ export async function getParentFamilyDashboard() {
     title: couponTypes.title,
     description: couponTypes.description,
     isActive: couponTypes.isActive,
+    couponKind: couponTypes.couponKind,
+    drawWeight: couponTypes.drawWeight,
   }).from(couponTypes)
     .where(eq(couponTypes.familyId, family.id))
     .orderBy(asc(couponTypes.createdAt))
@@ -289,36 +316,67 @@ export async function updateFamilyRewardSettings(input: {
   rewardMinScore: number
   rewardMinQuestions: number
   requireNoHint: boolean
+  blankCouponProbability: number
 }) {
   const { family } = await requireParentFamily()
   if (typeof input?.couponsEnabled !== "boolean" || typeof input.requireNoHint !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   if (!Number.isInteger(input.rewardMinScore) || input.rewardMinScore < 1 || input.rewardMinScore > 100) throw new Error("보상 점수는 1~100점이어야 합니다.")
   if (!Number.isInteger(input.rewardMinQuestions) || input.rewardMinQuestions < 1 || input.rewardMinQuestions > 100) throw new Error("보상 최소 문제 수는 1~100개여야 합니다.")
+  if (!Number.isInteger(input.blankCouponProbability) || input.blankCouponProbability < 0 || input.blankCouponProbability > 100) throw new Error("꽝 쿠폰 확률은 0~100%여야 합니다.")
 
   await db.update(familySettings).set({
     couponsEnabled: input.couponsEnabled,
     rewardMinScore: input.rewardMinScore,
     rewardMinQuestions: input.rewardMinQuestions,
     requireNoHint: input.requireNoHint,
+    blankCouponProbability: input.blankCouponProbability,
     updatedAt: new Date(),
   }).where(eq(familySettings.familyId, family.id))
   revalidatePath("/parent")
   return { success: true }
 }
 
-export async function createCouponType(input: { title: string; description?: string }) {
+export async function createCouponType(input: { title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
   const { family } = await requireParentFamily()
-  if (typeof input?.title !== "string") throw new Error("쿠폰 이름을 입력해 주세요.")
+  if (typeof input?.title !== "string" || !["regular", "blank"].includes(input.couponKind) ||
+      !Number.isInteger(input.drawWeight) || input.drawWeight < 1 || input.drawWeight > 1000) throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   const title = input.title.trim()
   const description = typeof input.description === "string" ? input.description.trim() : ""
   if (!title || title.length > 80 || description.length > 1000) throw new Error("쿠폰 이름은 1~80자, 설명은 1,000자 이내로 입력해 주세요.")
   const [coupon] = await db.insert(couponTypes).values({
-    familyId: family.id,
-    title,
-    description: description || null,
-  }).returning({ id: couponTypes.id, title: couponTypes.title, description: couponTypes.description, isActive: couponTypes.isActive })
+    familyId: family.id, title, description: description || null,
+    couponKind: input.couponKind, drawWeight: input.drawWeight,
+  }).returning({ id: couponTypes.id, title: couponTypes.title, description: couponTypes.description, isActive: couponTypes.isActive, couponKind: couponTypes.couponKind, drawWeight: couponTypes.drawWeight })
   revalidatePath("/parent")
   return coupon
+}
+
+export async function updateCouponType(input: { couponTypeId: string; title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
+  const { family } = await requireParentFamily()
+  if (typeof input?.couponTypeId !== "string" || typeof input.title !== "string" ||
+      !["regular", "blank"].includes(input.couponKind) ||
+      !Number.isInteger(input.drawWeight) || input.drawWeight < 1 || input.drawWeight > 1000) throw new Error("쿠폰 설정값이 올바르지 않습니다.")
+  const title = input.title.trim()
+  const description = typeof input.description === "string" ? input.description.trim() : ""
+  if (!title || title.length > 80 || description.length > 1000) throw new Error("쿠폰 이름은 1~80자, 설명은 1,000자 이내로 입력해 주세요.")
+  const [updated] = await db.update(couponTypes).set({
+    title, description: description || null, couponKind: input.couponKind, drawWeight: input.drawWeight, updatedAt: new Date(),
+  }).where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id)))
+    .returning({ id: couponTypes.id })
+  if (!updated) throw new Error("쿠폰을 찾을 수 없습니다.")
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function deleteCouponType(couponTypeId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof couponTypeId !== "string" || !couponTypeId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
+  const [deleted] = await db.delete(couponTypes)
+    .where(and(eq(couponTypes.id, couponTypeId), eq(couponTypes.familyId, family.id)))
+    .returning({ id: couponTypes.id })
+  if (!deleted) throw new Error("쿠폰을 찾을 수 없습니다.")
+  revalidatePath("/parent")
+  return { success: true }
 }
 
 export async function setCouponTypeActive(input: { couponTypeId: string; isActive: boolean }) {

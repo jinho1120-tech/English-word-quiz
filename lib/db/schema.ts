@@ -120,6 +120,8 @@ export const familySettings = pgTable("family_settings", {
   rewardMinScore: integer("reward_min_score").default(100).notNull(),
   rewardMinQuestions: integer("reward_min_questions").default(10).notNull(),
   requireNoHint: boolean("require_no_hint").default(true).notNull(),
+  blankCouponProbability: integer("blank_coupon_probability").default(20).notNull(),
+  couponDefaultsSeeded: boolean("coupon_defaults_seeded").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -131,6 +133,8 @@ export const couponTypes = pgTable("coupon_types", {
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 80 }).notNull(),
   description: text("description"),
+  couponKind: varchar("coupon_kind", { length: 16 }).default("regular").notNull(),
+  drawWeight: integer("draw_weight").default(1).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

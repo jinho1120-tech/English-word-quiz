@@ -15,6 +15,8 @@ import {
   setChildProfileActive,
   updateFamilyRewardSettings,
   createCouponType,
+  updateCouponType,
+  deleteCouponType,
   setCouponTypeActive,
 } from "@/app/actions/family"
 
@@ -22,8 +24,8 @@ type Child = { id: string; displayName: string; isActive: boolean; createdAt: Da
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
-type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean } | null
-type Coupon = { id: string; title: string; description: string | null; isActive: boolean }
+type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number } | null
+type Coupon = { id: string; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
 type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date }
 
 export function ParentDashboard({
@@ -59,8 +61,16 @@ export function ParentDashboard({
   const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
   const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
   const [requireNoHint, setRequireNoHint] = useState(settings?.requireNoHint ?? true)
+  const [blankCouponProbability, setBlankCouponProbability] = useState(settings?.blankCouponProbability ?? 20)
   const [couponTitle, setCouponTitle] = useState("")
   const [couponDescription, setCouponDescription] = useState("")
+  const [couponKind, setCouponKind] = useState<"regular" | "blank">("regular")
+  const [couponWeight, setCouponWeight] = useState(1)
+  const [editingCouponId, setEditingCouponId] = useState<string | null>(null)
+  const [editingCouponTitle, setEditingCouponTitle] = useState("")
+  const [editingCouponDescription, setEditingCouponDescription] = useState("")
+  const [editingCouponKind, setEditingCouponKind] = useState<"regular" | "blank">("regular")
+  const [editingCouponWeight, setEditingCouponWeight] = useState(1)
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
@@ -68,7 +78,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await updateFamilyRewardSettings({ couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint })
+        await updateFamilyRewardSettings({ couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint, blankCouponProbability })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
@@ -80,9 +90,11 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await createCouponType({ title: couponTitle, description: couponDescription })
+        await createCouponType({ title: couponTitle, description: couponDescription, couponKind, drawWeight: couponWeight })
         setCouponTitle("")
         setCouponDescription("")
+        setCouponKind("regular")
+        setCouponWeight(1)
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰을 만들지 못했습니다.")
@@ -98,6 +110,42 @@ export function ParentDashboard({
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 상태를 변경하지 못했습니다.")
+      }
+    })
+  }
+
+  function beginEditCoupon(coupon: Coupon) {
+    setEditingCouponId(coupon.id)
+    setEditingCouponTitle(coupon.title)
+    setEditingCouponDescription(coupon.description ?? "")
+    setEditingCouponKind(coupon.couponKind === "blank" ? "blank" : "regular")
+    setEditingCouponWeight(coupon.drawWeight)
+  }
+
+  function saveCouponEdit() {
+    if (!editingCouponId) return
+    setError("")
+    startTransition(async () => {
+      try {
+        await updateCouponType({ couponTypeId: editingCouponId, title: editingCouponTitle, description: editingCouponDescription, couponKind: editingCouponKind, drawWeight: editingCouponWeight })
+        setEditingCouponId(null)
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "쿠폰을 수정하지 못했습니다.")
+      }
+    })
+  }
+
+  function removeCoupon(coupon: Coupon) {
+    if (!window.confirm("'" + coupon.title + "' 쿠폰을 삭제할까요? 이미 발급된 쿠폰의 기록은 유지됩니다.")) return
+    setError("")
+    startTransition(async () => {
+      try {
+        await deleteCouponType(coupon.id)
+        if (editingCouponId === coupon.id) setEditingCouponId(null)
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "쿠폰을 삭제하지 못했습니다.")
       }
     })
   }
@@ -210,13 +258,33 @@ export function ParentDashboard({
           <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
-        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
+        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
         <div className="space-y-3 border-t border-border pt-4">
-          <div><h3 className="font-bold">쿠폰 종류 만들기</h3><p className="text-xs text-muted-foreground">예: 아이스크림 1개, 게임 30분, 주말 외식 메뉴 선택권</p></div>
+          <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 부모 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-          <button disabled={isPending || !couponTitle.trim()} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 종류 추가</button>
-          {coupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{coupons.map((coupon) => <div key={coupon.id} className="flex items-center gap-3 rounded-xl border border-border p-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold">{coupon.title}</p>{coupon.description && <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">{coupon.description}</p>}<p className="mt-1 text-xs text-muted-foreground">{coupon.isActive ? "사용 중" : "중지됨"}</p></div><button disabled={isPending} onClick={() => toggleCoupon(coupon)} className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "사용"}</button></div>)}</div>}
+          <div className="grid grid-cols-2 gap-2">
+            <label className="space-y-1 text-xs"><span>쿠폰 종류</span><select value={couponKind} onChange={(event) => setCouponKind(event.target.value as "regular" | "blank")} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select></label>
+            <label className="space-y-1 text-xs"><span>개별 출현 가중치</span><input type="number" min={1} max={1000} value={couponWeight} onChange={(event) => setCouponWeight(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
+          </div>
+          <button disabled={isPending || !couponTitle.trim() || !Number.isInteger(couponWeight) || couponWeight < 1 || couponWeight > 1000} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 추가</button>
+          {coupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{coupons.map((coupon) => <div key={coupon.id} className="space-y-2 rounded-xl border border-border p-3">
+            {editingCouponId === coupon.id ? <div className="space-y-2">
+              <input value={editingCouponTitle} onChange={(event) => setEditingCouponTitle(event.target.value)} maxLength={80} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <textarea value={editingCouponDescription} onChange={(event) => setEditingCouponDescription(event.target.value)} maxLength={1000} rows={2} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <select value={editingCouponKind} onChange={(event) => setEditingCouponKind(event.target.value as "regular" | "blank")} className="rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select>
+                <input type="number" min={1} max={1000} value={editingCouponWeight} onChange={(event) => setEditingCouponWeight(Number(event.target.value))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              </div>
+              <div className="flex gap-2"><button disabled={isPending || !editingCouponTitle.trim() || !Number.isInteger(editingCouponWeight) || editingCouponWeight < 1 || editingCouponWeight > 1000} onClick={saveCouponEdit} className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">저장</button><button onClick={() => setEditingCouponId(null)} className="rounded-lg border border-border px-3 py-2 text-xs">취소</button></div>
+            </div> : <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{coupon.couponKind === "blank" ? "💥 꽝 쿠폰" : "🎁 일반 쿠폰"} · {coupon.title}</p>{coupon.description && <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">{coupon.description}</p>}<p className="mt-1 text-xs text-muted-foreground">{coupon.isActive ? "사용 중" : "중지됨"} · 가중치 {coupon.drawWeight}</p></div>
+              <button disabled={isPending} onClick={() => beginEditCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">수정</button>
+              <button disabled={isPending} onClick={() => toggleCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "사용"}</button>
+              <button disabled={isPending} onClick={() => removeCoupon(coupon)} className="rounded-lg border border-red-300 px-2.5 py-2 text-xs font-semibold text-red-600">삭제</button>
+            </div>}
+          </div>)}</div>}
         </div>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
