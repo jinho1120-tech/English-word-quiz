@@ -168,7 +168,7 @@ export function ChildLearning({
   function saveBulkWords() {
     if (!subjectId) { setError("부모에게 과목을 먼저 등록해 달라고 요청하세요."); return }
     const parsed = bulkText.split(/\r?\n/).map((line) => {
-      const parts = line.includes("|") ? line.split("|") : line.includes("\t") ? line.split("\\t") : line.split(",")
+      const parts = line.includes("|") ? line.split("|") : line.includes("\t") ? line.split("\t") : line.split(",")
       return { word: (parts[0] ?? "").trim(), meaning: (parts[1] ?? "").trim(), example: (parts[2] ?? "").trim() }
     }).filter((item) => item.word && item.meaning)
     if (!parsed.length) { setError("단어와 뜻을 구분해 입력해 주세요. 예: apple | 사과 | I eat an apple."); return }
