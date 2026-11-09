@@ -5,13 +5,8 @@ import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, 
 import { HapticButton } from "./haptic-button"
 import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
-import { 
-  recordQuizResult, 
-  generateContextQuiz, 
-  generateSpeakingCoachFeedback, 
-  getAzureSpeechToken, 
-  gradeKoreanMeaningWithGemini 
-} from "@/app/actions/words"
+import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
+import { recordChildQuizResult, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
 import confetti from "canvas-confetti"
 
 import { QuizStart } from "./quiz-start"
@@ -90,10 +85,12 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-export function WordQuiz({ words, accent, isMonsterMode = false }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean }) {
+export function WordQuiz({ words, accent, isMonsterMode = false, childMode = false, childName }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childMode?: boolean; childName?: string }) {
   const [phase, setPhase] = useState<Phase>("start")
   const [deck, setDeck] = useState<QuizWord[]>([])
   const [index, setIndex] = useState(0)
+  const [childQuizSessionId, setChildQuizSessionId] = useState("")
+  const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
   
   const [value, setValue] = useState("")
   // 💡 리스닝(학교 시험 대비) 모드용 뜻 입력창
@@ -141,7 +138,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
 
   const current = deck[index]
   const total = deck.length
-  const currentName = accent === "#6366f1" || accent === "#a78bfa" || accent === "#c4b5fd" ? "지온" : "예온"
+  const currentName = childName || (accent === "#6366f1" || accent === "#a78bfa" || accent === "#c4b5fd" ? "지온" : "예온")
 
   // 💡 에러의 원인이었던 배열 선언부 복구
   const loadingMessages = [
@@ -212,7 +209,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
         return;
       }
 
-      const tokenRes = await getAzureSpeechToken();
+      const tokenRes = childMode ? await getChildAzureSpeechToken() : await getAzureSpeechToken();
       if (!tokenRes.success || !tokenRes.token || !tokenRes.region) {
         fallbackTTS(cleanTargetText)
         return
@@ -471,7 +468,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
             }
 
             setIsCoachLoading(true);
-            const coachRes = await generateSpeakingCoachFeedback({
+            const coachInput = {
               sentence: cleanTargetText,
               childName: currentName,
               pronResult: finalResult,
@@ -587,7 +584,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
       const d = shuffle(list).slice(0, countToTake) 
       const reqData = d.map(w => ({ word: w.word, meaning: w.meaning }))
       
-      const res = await generateContextQuiz(reqData, quizType)
+      const res = childMode ? await generateChildContextQuiz(reqData, quizType) : await generateContextQuiz(reqData, quizType)
       setIsGenerating(false)
       
       if (!res.success || !res.quizData) {
@@ -716,7 +713,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
       }
       
       setFeedback("grading")
-      const aiRes = await gradeKoreanMeaningWithGemini(current.meaning, meaningGuess)
+      const aiRes = childMode\n        ? await gradeChildListeningAnswer(current.id, guess, meaningGuess)\n        : await gradeKoreanMeaningWithGemini(current.meaning, meaningGuess)
       
       if (isEngCorrect && aiRes.isCorrect) {
         const newStreak = streak + 1; 
@@ -725,7 +722,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
         setFeedback("correct"); 
         setHintUsed(true)
         setAiCoachMsg(aiRes.feedback) 
-        recordQuizResult(current.id, true).catch(console.error)
+        (childMode ? recordChildQuizResult(current.id, true, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, true)).catch(console.error)
       } else {
         setStreak(0); 
         setFeedback("wrong"); 
@@ -733,7 +730,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false }: { words: Quiz
         if (!isEngCorrect && !aiRes.isCorrect) setAiCoachMsg(`❌ 스펠링과 뜻 모두 틀렸어요.\n스펠링 정답: ${current.word}\nAI 해설: ${aiRes.feedback}`)
         else if (!isEngCorrect) setAiCoachMsg(`❌ 뜻은 맞았지만 스펠링이 틀렸어요!\n정답: ${current.word}`)
         else setAiCoachMsg(`❌ 스펠링은 맞았지만 뜻/품사가 틀렸어요!\nAI 해설: ${aiRes.feedback}`)
-        recordQuizResult(current.id, false).catch(console.error)
+        (childMode ? recordChildQuizResult(current.id, false, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, false)).catch(console.error)
       }
       return
     }
