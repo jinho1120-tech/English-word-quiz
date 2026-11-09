@@ -24,7 +24,7 @@ type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
 type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean } | null
 type Coupon = { id: string; title: string; description: string | null; isActive: boolean }
-type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date; notifiedAt: Date | null }
+type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date }
 
 export function ParentDashboard({
   children,
