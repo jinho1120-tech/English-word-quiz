@@ -53,7 +53,7 @@ export function ChildLearning({
   const [quizMeaningAnswer, setQuizMeaningAnswer] = useState("")
   const [quizHintUsed, setQuizHintUsed] = useState(false)
   const [quizSessionId, setQuizSessionId] = useState("")
-  const [quizSessionResult, setQuizSessionResult] = useState<{ total: number; correct: number; score: number; rewardTitle: string | null; smsSent: boolean | null } | null>(null)
+  const [quizSessionResult, setQuizSessionResult] = useState<{ total: number; correct: number; score: number; rewardTitle: string | null } | null>(null)
   const [quizAiFeedback, setQuizAiFeedback] = useState("")
   const [quizFeedback, setQuizFeedback] = useState<"correct" | "wrong" | null>(null)
   const [ttsVoice, setTtsVoice] = useState("en-US-AnaNeural")
@@ -326,7 +326,7 @@ export function ChildLearning({
           <h3 className="font-bold">퀴즈 결과</h3>
           <p className="text-3xl font-black">{quizSessionResult.score}점</p>
           <p className="text-sm text-muted-foreground">{quizSessionResult.correct}/{quizSessionResult.total} 정답</p>
-          {quizSessionResult.rewardTitle ? <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-amber-950"><p className="font-bold">🎁 쿠폰을 받았어요!</p><p className="mt-1 text-lg font-black">{quizSessionResult.rewardTitle}</p><p className="mt-1 text-xs">{quizSessionResult.smsSent ? "부모님께 문자 알림을 보냈어요." : "쿠폰은 지급됐어요. 문자 알림은 아직 설정되지 않았어요."}</p></div> : <p className="text-xs text-muted-foreground">이번 퀴즈는 쿠폰 지급 조건에 해당하지 않았어요.</p>}
+          {quizSessionResult.rewardTitle ? <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-center text-amber-950"><p className="font-bold">🎁 쿠폰을 받았어요!</p><p className="mt-1 text-lg font-black">{quizSessionResult.rewardTitle}</p><p className="mt-1 text-xs">"부모님 앱의 쿠폰 내역에도 표시됩니다."</p></div> : <p className="text-xs text-muted-foreground">이번 퀴즈는 쿠폰 지급 조건에 해당하지 않았어요.</p>}
           <button onClick={() => { setQuizSessionResult(null); setQuizMode(true); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionId(crypto.randomUUID()) }} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold">다시 퀴즈 풀기</button>
         </section>}
 
