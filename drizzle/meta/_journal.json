@@ -36,6 +36,13 @@
       "when": 1794240000000,
       "tag": "0004_remove_coupon_sms_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794243600000,
+      "tag": "0005_parent_notifications_and_push",
+      "breakpoints": true
     }
   ]
 }
