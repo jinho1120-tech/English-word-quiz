@@ -13,7 +13,12 @@ self.addEventListener("push", (event) => {
     tag: payload.tag || "family-word-quiz",
     renotify: true,
   }
-  event.waitUntil(self.registration.showNotification(title, options))
+  event.waitUntil((async () => {
+    if (Number.isInteger(payload.badgeCount) && self.navigator && "setAppBadge" in self.navigator) {
+      try { await self.navigator.setAppBadge(payload.badgeCount) } catch {}
+    }
+    await self.registration.showNotification(title, options)
+  })())
 })
 
 self.addEventListener("notificationclick", (event) => {
