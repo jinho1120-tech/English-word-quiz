@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { childProfiles, couponRedemptionTokens, couponRewards, families, familyMembers } from "@/lib/db/schema"
+import { notifyFamilyParents } from "@/lib/notifications"
 import { getChildDeviceSession, hashOpaqueToken } from "@/lib/child-auth"
 
 async function requireParentFamily() {
@@ -49,6 +50,20 @@ export async function createCouponUseRequest(rewardId: string) {
   const token = randomBytes(32).toString("base64url")
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
   await db.insert(couponRedemptionTokens).values({ rewardId, tokenHash: hashOpaqueToken(token), expiresAt })
+  const [childProfile] = await db.select({
+    familyId: childProfiles.familyId,
+    displayName: childProfiles.displayName,
+  }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  if (childProfile) {
+    await notifyFamilyParents({
+      familyId: childProfile.familyId,
+      childProfileId: child.childProfileId,
+      type: "coupon_use_requested",
+      title: "쿠폰 사용 요청이 도착했어요",
+      message: `${childProfile.displayName}이(가) '${reward.title}' 쿠폰 사용을 요청했어요.`,
+      href: "/parent/coupons/redeem",
+    })
+  }
   const baseUrl = process.env.BETTER_AUTH_URL
   if (!baseUrl) throw new Error("서비스 주소가 설정되지 않았습니다.")
   return { url: baseUrl.replace(/\/$/, "") + "/parent/coupons/redeem?token=" + encodeURIComponent(token), expiresAt }
