@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, createChildSubject, renameChildSubject, archiveChildSubject, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -20,14 +20,12 @@ export function ChildLearning({
   initialWords,
   wrongWords,
   initialDate,
-  stats,
 }: {
   childName: string
   subjects: Subject[]
   initialWords: Word[]
   wrongWords: Word[]
   initialDate: string
-  stats: { total: number; correct: number; accuracy: number; subjects: { name: string; total: number; correct: number; accuracy: number }[] }
 }) {
   const router = useRouter()
   const [date, setDate] = useState(initialDate)
@@ -44,7 +42,6 @@ export function ChildLearning({
   const [editMeaning, setEditMeaning] = useState("")
   const [editExample, setEditExample] = useState("")
   const [error, setError] = useState("")
-  const [newSubject, setNewSubject] = useState("")
   const [quizIndex, setQuizIndex] = useState(0)
   const [quizRevealed, setQuizRevealed] = useState(false)
   const [quizMode, setQuizMode] = useState(false)
@@ -61,6 +58,8 @@ export function ChildLearning({
   const ttsCacheRef = useRef(new Map<string, string>())
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
+  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "manage">("daily")
+  const [filterSubjectId, setFilterSubjectId] = useState("")
   const [isPending, startTransition] = useTransition()
 
   async function playPronunciation(targetText: string) {
@@ -160,7 +159,8 @@ export function ChildLearning({
   }
 
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
-  const visibleWords = sourceWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const visibleWords = sourceWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === filterSubjectId)?.name))
+  const managerWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
   useEffect(() => {
@@ -174,43 +174,26 @@ export function ChildLearning({
     }
   }, [quizMode, quizType, quizWord?.id, quizIndex])
 
-  function addSubject() {
-    run(async () => {
-      const created = await createChildSubject(newSubject)
-      setNewSubject("")
-      setSubjectId(created.id)
-    })
-  }
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <div className="flex items-center justify-between"><h2 className="font-bold">최근 30일 학습 현황</h2><span className="text-xs text-muted-foreground">퀴즈 응답 기준</span></div>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.total}</p><p className="text-xs text-muted-foreground">푼 문제</p></div>
-          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.correct}</p><p className="text-xs text-muted-foreground">정답</p></div>
-          <div className="rounded-xl bg-muted p-3"><p className="text-xl font-black">{stats.accuracy}%</p><p className="text-xs text-muted-foreground">정답률</p></div>
+    <div className="space-y-5">
+      <section className="space-y-3">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-muted/50 p-1">
+          <button onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined}>🎓 날짜별 퀴즈</button>
+          <button onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined}>👻 오답 몬스터</button>
+          <button onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined}>✏️ 단어 입력</button>
         </div>
-        {stats.subjects.map((item) => <div key={item.name} className="flex items-center justify-between text-sm"><span>{item.name}</span><span className="text-muted-foreground">{item.correct}/{item.total} · {item.accuracy}%</span></div>)}
-        {!stats.total && <p className="text-xs text-muted-foreground">퀴즈를 풀면 학습 기록이 여기에 쌓입니다.</p>}
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+          <div><p className="text-xs text-muted-foreground">학습 날짜</p><p className="text-sm font-bold">{date}</p></div>
+          <input type="date" value={date} onChange={(event) => { setDate(event.target.value); router.push("/child?date=" + event.target.value) }} className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm" aria-label="학습 날짜 선택" />
+        </div>
+        {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
+          <button onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
+          {subjects.map((subject) => <button key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}
+        </div>}
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <h2 className="font-bold">내 과목 관리</h2>
-        <div className="flex gap-2">
-          <input value={newSubject} onChange={(event) => setNewSubject(event.target.value)} maxLength={60} placeholder="새 과목 이름" className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-          <button disabled={isPending || !newSubject.trim()} onClick={addSubject} className="rounded-xl bg-foreground px-3 py-2 text-sm font-bold text-background disabled:opacity-50">추가</button>
-        </div>
-        <div className="space-y-2">
-          {subjects.map((subject) => <div key={subject.id} className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-sm">{subject.name}</span>
-            <button disabled={isPending} onClick={() => { const next = window.prompt("새 과목 이름", subject.name); if (next?.trim() && next.trim() !== subject.name) run(() => renameChildSubject(subject.id, next)) }} className="rounded-lg border border-border px-2 py-1 text-xs">이름 변경</button>
-            <button disabled={isPending || subjects.length < 2} onClick={() => { if (window.confirm(subject.name + " 과목을 목록에서 숨길까요? 기존 학습 기록은 보존됩니다.")) run(() => archiveChildSubject(subject.id)) }} className="rounded-lg border border-border px-2 py-1 text-xs text-red-600">삭제</button>
-          </div>)}
-        </div>
-        <p className="text-xs text-muted-foreground">과목을 삭제해도 기존 단어와 학습 기록은 삭제하지 않고 보관합니다.</p>
-      </section>
-
+      {activeTab === "manage" && <div className="space-y-6">
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <h2 className="font-bold">AI 단어 입력</h2>
         <p className="text-xs text-muted-foreground">단어장 사진을 올리면 AI가 영어 단어와 뜻을 추출합니다. 저장 전에 내용을 확인하고 수정할 수 있어요.</p>
@@ -253,7 +236,7 @@ export function ChildLearning({
       </section>
 
       <section className="space-y-3 rounded-2xl border border-border p-4">
-        <div className="flex items-center justify-between"><h2 className="font-bold">내 단어장</h2><input type="date" value={date} onChange={(event) => { setDate(event.target.value); router.push("/child?date=" + event.target.value) }} className="rounded-lg border border-border bg-background px-2 py-1 text-sm" /></div>
+        <h2 className="font-bold">단어 추가</h2>
         <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
           {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
         </select>
@@ -263,11 +246,11 @@ export function ChildLearning({
         <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">단어 추가</button>
       </section>
 
+      </div>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <div className="grid grid-cols-2 gap-2"><button onClick={() => { setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "daily" ? "bg-foreground text-background" : "bg-muted"}`}>오늘 단어</button><button onClick={() => { setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizRevealed(false) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${reviewMode === "wrong" ? "bg-foreground text-background" : "bg-muted"}`}>오답 복습 ({wrongWords.length})</button></div>
-        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 복습" : "단어 퀴즈"}</h2><button onClick={() => { const starting = !quizMode; setQuizMode(starting); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionResult(null); setQuizSessionId(starting ? crypto.randomUUID() : "") }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
+      {activeTab !== "manage" && (
+      <section className={quizMode ? "fixed inset-0 z-[100] min-h-dvh overflow-y-auto bg-background px-4 py-5 sm:px-6" : "space-y-3 rounded-2xl border border-border p-4"}>
+        <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 몬스터" : "날짜별 퀴즈"}</h2><button onClick={() => { const starting = !quizMode; setQuizMode(starting); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionResult(null); setQuizSessionId(starting ? crypto.randomUUID() : "") }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
         {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
@@ -332,10 +315,12 @@ export function ChildLearning({
 
       </section>
 
+      )}
+      {activeTab === "manage" && (
       <section className="space-y-3">
-        <h2 className="font-bold">{subjects.find((s) => s.id === subjectId)?.name ?? "단어"} · {visibleWords.length}개</h2>
-        {visibleWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
-        {visibleWords.map((item) => (
+        <h2 className="font-bold">{subjects.find((s) => s.id === subjectId)?.name ?? "단어"} · {managerWords.length}개</h2>
+        {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
+        {managerWords.map((item) => (
           <article key={item.id} className="space-y-2 rounded-xl border border-border p-3">
             {editingId === item.id ? (
               <>
@@ -354,6 +339,7 @@ export function ChildLearning({
           </article>
         ))}
       </section>
+      )}
     </div>
   )
 }

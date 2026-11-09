@@ -5,6 +5,7 @@ import { ChildLearning } from "@/components/child-learning"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { getChildCouponWallet } from "@/app/actions/coupons"
 import { ChildCouponWallet } from "@/components/child-coupon-wallet"
+import { ChildProfileSettings } from "@/components/child-profile-settings"
 
 export const dynamic = "force-dynamic"
 
@@ -22,13 +23,16 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
   const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-lg space-y-6 px-4 py-8">
+    <main className="mx-auto min-h-dvh w-full max-w-lg space-y-5 px-4 py-5">
       <header className="flex items-center justify-between gap-3">
-        <div><p className="text-sm text-muted-foreground">영단어 마스터</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
+        <div className="min-w-0"><p className="text-xs font-semibold text-muted-foreground">영단어 마스터</p><h1 className="truncate text-xl font-black">{data.childName}의 학습 공간</h1></div>
+        <div className="flex shrink-0 items-center gap-2">
+          <ChildProfileSettings profileKey={session.childProfileId} />
+          <ChildCouponWallet rewards={coupons} />
+        </div>
       </header>
       <PwaInstallGuide />
-      <ChildCouponWallet rewards={coupons} />
-      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} stats={data.stats} />
+      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
     </main>
   )
 }
