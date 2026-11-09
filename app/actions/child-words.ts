@@ -8,6 +8,7 @@ import { childProfiles, childQuizAttempts, childSubjects, couponRewards, couponT
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
+import { notifyFamilyParents } from "@/lib/notifications"
 
 async function requireChild() {
   const session = await getChildDeviceSession()
@@ -254,6 +255,14 @@ export async function recordChildQuizResult(
           }).onConflictDoNothing().returning({ id: couponRewards.id })
           if (reward) {
             sessionResult.rewardTitle = chosen.title
+            await notifyFamilyParents({
+              familyId: childProfile.familyId,
+              childProfileId: child.childProfileId,
+              type: "coupon_issued",
+              title: "새 쿠폰이 발행됐어요",
+              message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
+              href: "/parent#coupon-rewards",
+            })
           }
         }
       }
