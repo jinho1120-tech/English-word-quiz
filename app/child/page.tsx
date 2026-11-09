@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
 import { getChildDeviceSession } from "@/lib/child-auth"
 import { getChildLearningData } from "@/app/actions/child-words"
 import { ChildLearning } from "@/components/child-learning"
@@ -29,6 +31,8 @@ export default async function ChildPage({
     "use server"
     const { revokeCurrentChildDeviceSession } = await import("@/lib/child-auth")
     await revokeCurrentChildDeviceSession()
+    // 자녀 기기에서 남아 있는 부모 인증 쿠키도 함께 종료해 루트 아이콘이 부모 화면으로 진입하지 않게 한다.
+    await auth.api.signOut({ headers: await headers() })
     redirect("/child/login")
   }
 
