@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
-import { auth } from "@/lib/auth"
 import { getChildDeviceSession } from "@/lib/child-auth"
 import { getChildLearningData } from "@/app/actions/child-words"
 import { ChildLearning } from "@/components/child-learning"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { getChildCouponWallet } from "@/app/actions/coupons"
 import { ChildCouponWallet } from "@/components/child-coupon-wallet"
+import { ChildLogoutButton } from "@/components/child-logout-button"
 
 export const dynamic = "force-dynamic"
 
@@ -27,20 +26,11 @@ export default async function ChildPage({
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
   const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
 
-  async function logout() {
-    "use server"
-    const { revokeCurrentChildDeviceSession } = await import("@/lib/child-auth")
-    await revokeCurrentChildDeviceSession()
-    // 자녀 기기에서 남아 있는 부모 인증 쿠키도 함께 종료해 루트 아이콘이 부모 화면으로 진입하지 않게 한다.
-    await auth.api.signOut({ headers: await headers() })
-    redirect("/child/login")
-  }
-
   return (
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-6 px-4 py-8">
       <header className="flex items-center justify-between gap-3">
         <div><p className="text-sm text-muted-foreground">English Word Quiz · 자녀 모드</p><h1 className="text-2xl font-black">{data.childName}의 학습 공간</h1></div>
-        <form action={logout}><button className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">로그아웃</button></form>
+        <ChildLogoutButton />
       </header>
       <PwaInstallGuide />
       <ChildCouponWallet rewards={coupons} />
