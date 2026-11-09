@@ -107,6 +107,17 @@ export async function archiveChildSubject(childProfileId: string, subjectId: str
   revalidatePath("/")
 }
 
+export async function deleteChildSubject(childProfileId: string, subjectId: string) {
+  const scope = await requireParentFamily(childProfileId)
+  const [deleted] = await db.delete(childSubjects)
+    .where(and(eq(childSubjects.id, subjectId), eq(childSubjects.childProfileId, scope.childProfileId)))
+    .returning({ id: childSubjects.id })
+  if (!deleted) throw new Error("과목을 찾을 수 없습니다.")
+  // word_entries.subject_id and child_quiz_attempts.subject_id use ON DELETE SET NULL:
+  // words and immutable quiz history remain, while the deleted subject association is cleared.
+  revalidatePath("/")
+}
+
 export async function reorderChildSubjects(childProfileId: string, subjectIds: string[]) {
   const scope = await requireParentFamily(childProfileId)
   if (!Array.isArray(subjectIds) || subjectIds.length > 100 || subjectIds.some((id) => typeof id !== "string")) {
