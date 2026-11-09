@@ -159,6 +159,18 @@ export const couponRewards = pgTable("coupon_rewards", {
  * Subjects are configured independently for each child.
  * Archived subjects remain available for historical learning records.
  */
+export const couponRedemptionTokens = pgTable("coupon_redemption_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  rewardId: uuid("reward_id").notNull().references(() => couponRewards.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  consumedAt: timestamp("consumed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  tokenHashUnique: uniqueIndex("coupon_redemption_tokens_token_hash_unique").on(table.tokenHash),
+  rewardIdx: index("coupon_redemption_tokens_reward_idx").on(table.rewardId),
+}))
+
 export const childSubjects = pgTable("child_subjects", {
   id: uuid("id").defaultRandom().primaryKey(),
   childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
