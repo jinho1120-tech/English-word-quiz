@@ -276,29 +276,43 @@ export async function recordChildQuizResult(
         const activeCoupons = await db.select({
           id: couponTypes.id,
           title: couponTypes.title,
+          couponKind: couponTypes.couponKind,
+          drawWeight: couponTypes.drawWeight,
         }).from(couponTypes).where(and(
           eq(couponTypes.familyId, childProfile.familyId),
           eq(couponTypes.isActive, true),
         ))
         if (activeCoupons.length > 0) {
-          const chosen = activeCoupons[randomInt(activeCoupons.length)]
-          const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
-          const [reward] = await db.insert(couponRewards).values({
-            childProfileId: child.childProfileId,
-            couponTypeId: chosen.id,
-            couponTitleSnapshot: chosen.title,
-            sourceKey,
-          }).onConflictDoNothing().returning({ id: couponRewards.id })
-          if (reward) {
-            sessionResult.rewardTitle = chosen.title
-            await notifyFamilyParents({
-              familyId: childProfile.familyId,
+          // First choose the coupon category by the family's configured probability,
+          // then choose an item within that category using its individual weight.
+          const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
+          let candidates = activeCoupons.filter((item) => item.couponKind === preferredKind)
+          if (candidates.length === 0) candidates = activeCoupons.filter((item) => item.couponKind !== preferredKind)
+          const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
+          if (totalWeight > 0) {
+            let ticket = randomInt(totalWeight)
+            const chosen = candidates.find((item) => {
+              ticket -= item.drawWeight
+              return ticket < 0
+            }) ?? candidates[candidates.length - 1]
+            const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
+            const [reward] = await db.insert(couponRewards).values({
               childProfileId: child.childProfileId,
-              type: "coupon_issued",
-              title: "새 쿠폰이 발행됐어요",
-              message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
-              href: "/parent#coupon-rewards",
-            })
+              couponTypeId: chosen.id,
+              couponTitleSnapshot: chosen.title,
+              sourceKey,
+            }).onConflictDoNothing().returning({ id: couponRewards.id })
+            if (reward) {
+              sessionResult.rewardTitle = chosen.title
+              await notifyFamilyParents({
+                familyId: childProfile.familyId,
+                childProfileId: child.childProfileId,
+                type: "coupon_issued",
+                title: "새 쿠폰이 발행됐어요",
+                message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
+                href: "/parent#coupon-rewards",
+              })
+            }
           }
         }
       }
