@@ -23,7 +23,6 @@ import {
   hashChildPin,
   hashOpaqueToken,
   normalizeChildAccessCode,
-  verifyChildPin,
 } from "@/lib/child-auth"
 
 async function requireParentFamily() {
