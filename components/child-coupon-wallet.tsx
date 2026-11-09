@@ -13,6 +13,9 @@ export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
   const [pending, startTransition] = useTransition()
   const availableCount = rewards.filter((reward) => reward.status === "earned").length
 
+  // 발급된 쿠폰이 하나도 없으면 쿠폰함 아이콘 자체를 표시하지 않습니다.
+  if (rewards.length === 0) return null
+
   function showQr(reward: Reward) {
     setError("")
     startTransition(async () => {

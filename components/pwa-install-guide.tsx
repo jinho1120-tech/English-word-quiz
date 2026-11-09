@@ -36,9 +36,8 @@ export function PwaInstallGuide() {
     setInstallPrompt(null)
   }
 
-  if (isStandalone) {
-    return <p className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">홈 화면에서 앱으로 실행 중이에요. 다음부터 이 아이콘을 눌러 접속하세요!</p>
-  }
+  // 홈 화면에 설치된 앱에서는 별도의 실행 안내 상자를 표시하지 않습니다.
+  if (isStandalone) return null
 
   return (
     <details className="rounded-xl border border-border bg-muted/30 p-3 text-left">
