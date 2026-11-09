@@ -3,6 +3,8 @@ import { getChildDeviceSession } from "@/lib/child-auth"
 import { getChildLearningData } from "@/app/actions/child-words"
 import { ChildLearning } from "@/components/child-learning"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
+import { getChildCouponWallet } from "@/app/actions/coupons"
+import { ChildCouponWallet } from "@/components/child-coupon-wallet"
 
 export const dynamic = "force-dynamic"
 
@@ -21,7 +23,7 @@ export default async function ChildPage({
   const params = await searchParams
   const today = todayInSeoul()
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
-  const data = await getChildLearningData(date)
+  const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
 
   async function logout() {
     "use server"
@@ -37,6 +39,7 @@ export default async function ChildPage({
         <form action={logout}><button className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">로그아웃</button></form>
       </header>
       <PwaInstallGuide />
+      <ChildCouponWallet rewards={coupons} />
       <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name }) => ({ id, name }))} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} stats={data.stats} />
     </main>
   )
