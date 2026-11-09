@@ -729,7 +729,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
         setBestStreak((b) => Math.max(b, newStreak));
         setFeedback("correct"); 
         setHintUsed(true)
-        setAiCoachMsg(aiRes.feedback) 
+        setAiCoachMsg(aiRes.feedback);
         (childMode ? recordChildQuizResult(current.id, true, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, true)).catch(console.error)
       } else {
         setStreak(0); 
@@ -737,7 +737,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
         setHintUsed(true)
         if (!isEngCorrect && !aiRes.isCorrect) setAiCoachMsg(`❌ 스펠링과 뜻 모두 틀렸어요.\n스펠링 정답: ${current.word}\nAI 해설: ${aiRes.feedback}`)
         else if (!isEngCorrect) setAiCoachMsg(`❌ 뜻은 맞았지만 스펠링이 틀렸어요!\n정답: ${current.word}`)
-        else setAiCoachMsg(`❌ 스펠링은 맞았지만 뜻/품사가 틀렸어요!\nAI 해설: ${aiRes.feedback}`)
+        else setAiCoachMsg(`❌ 스펠링은 맞았지만 뜻/품사가 틀렸어요!\nAI 해설: ${aiRes.feedback}`);
         (childMode ? recordChildQuizResult(current.id, false, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, false)).catch(console.error)
       }
       return
