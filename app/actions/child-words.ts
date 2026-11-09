@@ -5,7 +5,6 @@ import { and, asc, desc, eq, gt, gte } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familySettings, wordEntries } from "@/lib/db/schema"
-import { sendSolapiSms } from "@/lib/sms"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -221,12 +220,12 @@ export async function recordChildQuizResult(
     eq(childQuizAttempts.quizSessionId, session.quizSessionId),
   )).orderBy(asc(childQuizAttempts.answeredAt))
 
-  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; smsSent: boolean | null } | null = null
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null } | null = null
   if (attempts.length >= session.sessionQuestionCount) {
     const completed = attempts.slice(0, session.sessionQuestionCount)
     const correctCount = completed.filter((item) => item.isCorrect).length
     const score = Math.round(correctCount / completed.length * 100)
-    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, smsSent: null }
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null }
 
     const [childProfile] = await db.select({
       familyId: childProfiles.familyId,
@@ -255,18 +254,7 @@ export async function recordChildQuizResult(
           }).onConflictDoNothing().returning({ id: couponRewards.id })
           if (reward) {
             sessionResult.rewardTitle = chosen.title
-            if (settings.parentPhone) {
-              const message = `[우리 가족 단어장] ${childProfile.displayName}님이 퀴즈 ${score}점(${correctCount}/${completed.length})을 달성해 "${chosen.title}" 쿠폰을 받았어요!`
-              const sms = await sendSolapiSms({ to: settings.parentPhone, text: message })
-              sessionResult.smsSent = sms.success
-              if (sms.success) {
-                await db.update(couponRewards).set({ notifiedAt: new Date() }).where(eq(couponRewards.id, reward.id))
-              } else {
-                console.error("쿠폰 보상 문자 발송 실패:", sms.error)
-              }
-            } else {
-              sessionResult.smsSent = false
-            }
+            sessionResult.rewardTitle = chosen.title
           }
         }
       }
