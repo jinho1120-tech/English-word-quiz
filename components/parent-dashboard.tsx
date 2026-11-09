@@ -80,8 +80,9 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await setChildProfileActive({ childProfileId: child.id, isActive: !child.isActive })
-        setCreatedCode("")
+        const result = await setChildProfileActive({ childProfileId: child.id, isActive: !child.isActive })
+        if (result.accessCode) { setCreatedCode(result.accessCode); setCodeChildName(result.displayName) }
+        else setCreatedCode("")
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "자녀 상태를 변경하지 못했습니다.")
