@@ -10,7 +10,7 @@ type ParentRole = "아빠" | "엄마" | "기타 보호자"
 
 export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   const router = useRouter()
-  const [mode, setMode] = useState<"signin" | "signup">("signup")
+  const [mode, setMode] = useState<"signin" | "signup">("signin")
   const [parentRole, setParentRole] = useState<ParentRole>("아빠")
   const [guardianRelation, setGuardianRelation] = useState("")
   const [email, setEmail] = useState("")
@@ -56,8 +56,8 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   return (
     <div className="w-full rounded-2xl border bg-card p-6 shadow-sm">
       <div className="mb-6 grid grid-cols-2 rounded-xl bg-muted p-1 text-sm">
-        <button type="button" onClick={() => setMode("signup")} className={`rounded-lg py-2 font-semibold ${mode === "signup" ? "bg-background shadow" : "text-muted-foreground"}`}>회원가입</button>
         <button type="button" onClick={() => setMode("signin")} className={`rounded-lg py-2 font-semibold ${mode === "signin" ? "bg-background shadow" : "text-muted-foreground"}`}>로그인</button>
+        <button type="button" onClick={() => setMode("signup")} className={`rounded-lg py-2 font-semibold ${mode === "signup" ? "bg-background shadow" : "text-muted-foreground"}`}>회원가입</button>
       </div>
       <form onSubmit={submit} className="space-y-4">
         {mode === "signup" && (
@@ -155,7 +155,16 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy ? "처리 중..." : mode === "signup" ? "무료로 가입하기" : "로그인"}</button>
       </form>
-      {mode === "signin" && <p className="mt-4 text-right text-sm"><Link href="/forgot-password" className="font-medium text-primary underline underline-offset-4">비밀번호를 잊으셨나요?</Link></p>}
+      {mode === "signin" && (
+        <div className="mt-4 flex flex-col gap-3 text-sm">
+          <p className="text-center text-muted-foreground">
+            아직 계정이 없으신가요?{" "}
+            <button type="button" onClick={() => setMode("signup")} className="font-semibold text-primary underline underline-offset-4">회원가입</button>
+            을 눌러 우리 가족 단어장을 시작해 보세요.
+          </p>
+          <p className="text-right"><Link href="/forgot-password" className="font-medium text-primary underline underline-offset-4">비밀번호를 잊으셨나요?</Link></p>
+        </div>
+      )}
     </div>
   )
 }
