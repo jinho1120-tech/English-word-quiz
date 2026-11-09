@@ -2,10 +2,9 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
 
-type Subject = { id: string; name: string; color: string }
+type Subject = { id: string; name: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
 
 const TTS_VOICES = [
@@ -21,11 +20,9 @@ export function ChildLearning({
   initialWords,
   wrongWords,
   initialDate,
-  initialStorage,
 }: {
   childName: string
   subjects: Subject[]
-  initialStorage: { date: string; subjectId: string | null; subject: string }[]
   initialWords: Word[]
   wrongWords: Word[]
   initialDate: string
@@ -186,7 +183,10 @@ export function ChildLearning({
           <button onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined}>👻 오답 몬스터</button>
           <button onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined}>✏️ 단어 입력</button>
         </div>
-        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+          <div><p className="text-xs text-muted-foreground">학습 날짜</p><p className="text-sm font-bold">{date}</p></div>
+          <input type="date" value={date} onChange={(event) => { setDate(event.target.value); router.push("/child?date=" + event.target.value) }} className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm" aria-label="학습 날짜 선택" />
+        </div>
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
           <button onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
           {subjects.map((subject) => <button key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}

@@ -670,6 +670,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "calendar_color": {
+          "name": "calendar_color",
+          "type": "varchar(7)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'#2563EB'"
         }
       },
       "indexes": {

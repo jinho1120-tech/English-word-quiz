@@ -127,7 +127,7 @@ export async function updateChildSubjectColor(subjectId: string, color: string) 
 
 export async function getChildCalendarData(month: string) {
   const child = await requireChild()
-  if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
+  if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
   const start = `${month}-01`
   const end = `${month}-31`
   const rows = await db.select({
