@@ -231,7 +231,7 @@ export function ChildLearning({
             <input value={item.example} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, example: event.target.value } : value))} placeholder="예문 (선택)" className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="예문" />
             <button onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600">제외</button>
           </div>)}
-          <button disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</button>
+          <button disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</button>
         </div>}
       </section>
 
@@ -243,7 +243,7 @@ export function ChildLearning({
         <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="단어 또는 학습 항목" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
         <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
         <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">단어 추가</button>
+        <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
       </section>
 
       </div>}
@@ -253,17 +253,17 @@ export function ChildLearning({
         <div className="flex items-center justify-between gap-3"><h2 className="font-bold">{reviewMode === "wrong" ? "오답 몬스터" : "날짜별 퀴즈"}</h2><button onClick={() => { const starting = !quizMode; setQuizMode(starting); setQuizIndex(0); setQuizRevealed(false); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizSessionResult(null); setQuizSessionId(starting ? crypto.randomUUID() : "") }} disabled={!visibleWords.length} className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold disabled:opacity-50">{quizMode ? "퀴즈 닫기" : "퀴즈 시작"}</button></div>
         {quizMode && quizWord && <div className="space-y-3 rounded-xl bg-muted p-4">
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-foreground text-background" : "bg-background"}`}>기본 단어 퀴즈</button>
-            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-foreground text-background" : "bg-background"}`}>듣기 퀴즈</button>
+            <button onClick={() => { setQuizType("standard"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "standard" ? "bg-primary text-primary-foreground" : "bg-background"}`}>기본 단어 퀴즈</button>
+            <button onClick={() => { setQuizType("listening"); setQuizIndex(0); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); setQuizRevealed(false); setQuizSessionId(crypto.randomUUID()); setQuizSessionResult(null) }} className={`rounded-lg px-3 py-2 text-sm font-semibold ${quizType === "listening" ? "bg-primary text-primary-foreground" : "bg-background"}`}>듣기 퀴즈</button>
           </div>
           <p className="text-right text-xs text-muted-foreground">{quizIndex + 1} / {visibleWords.length}</p>
           {quizType === "standard" ? <p className="py-5 text-center text-2xl font-black">{quizWord.meaning}</p> : <div className="flex flex-col items-center gap-3 py-3">
-            <button type="button" onClick={() => void playPronunciation(quizWord.word)} className="flex size-16 items-center justify-center rounded-full bg-foreground text-background" aria-label="단어 발음 다시 듣기"><span className="text-2xl">🔊</span></button>
+            <button type="button" onClick={() => void playPronunciation(quizWord.word)} className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-label="단어 발음 다시 듣기"><span className="text-2xl">🔊</span></button>
             <div className="flex w-full max-w-sm items-center gap-2">
               <select value={ttsVoice} onChange={(event) => { setTtsVoice(event.target.value); window.localStorage.setItem("word_quiz_tts_voice", event.target.value) }} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-2 text-xs">
                 {TTS_VOICES.map((voice) => <option key={voice.id} value={voice.id}>{voice.label}</option>)}
               </select>
-              <button type="button" onClick={() => setIsSlowMode((value) => !value)} className={`rounded-lg border border-border px-3 py-2 text-xs font-semibold ${isSlowMode ? "bg-foreground text-background" : "bg-background"}`}>{isSlowMode ? "느리게 재생 중" : "느리게 듣기"}</button>
+              <button type="button" onClick={() => setIsSlowMode((value) => !value)} className={`rounded-lg border border-border px-3 py-2 text-xs font-semibold ${isSlowMode ? "bg-primary text-primary-foreground" : "bg-background"}`}>{isSlowMode ? "느리게 재생 중" : "느리게 듣기"}</button>
             </div>
             <p className="text-sm text-muted-foreground">발음을 듣고 영어 단어와 한국어 뜻을 입력하세요.</p>
           </div>}
@@ -296,11 +296,11 @@ export function ChildLearning({
           }}>
             <input autoComplete="off" value={quizAnswer} onChange={(event) => setQuizAnswer(event.target.value)} placeholder="영어 단어 입력" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-lg" />
             {quizType === "listening" && <input autoComplete="off" value={quizMeaningAnswer} onChange={(event) => setQuizMeaningAnswer(event.target.value)} placeholder="한국어 뜻 입력 (품사까지 정확하게)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-center text-base" />}
-            <button type="submit" disabled={isPending || !quizAnswer.trim() || (quizType === "listening" && !quizMeaningAnswer.trim())} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending && quizType === "listening" ? "AI 선생님이 채점 중..." : "정답 확인"}</button>
+            <button type="submit" disabled={isPending || !quizAnswer.trim() || (quizType === "listening" && !quizMeaningAnswer.trim())} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending && quizType === "listening" ? "AI 선생님이 채점 중..." : "정답 확인"}</button>
           </form> : <div className="space-y-3 text-center">
             <p className={quizFeedback === "correct" ? "font-bold text-green-600" : "font-bold text-red-600"}>{quizFeedback === "correct" ? "정답이에요!" : "아쉬워요. 정답은 " + quizWord.word + " 입니다."}</p>
             <p className="whitespace-pre-line text-sm text-muted-foreground">{quizType === "listening" && quizAiFeedback ? quizAiFeedback : quizWord.meaning}</p>
-            <button onClick={() => { if (quizIndex >= visibleWords.length - 1) { setQuizMode(false); setQuizSessionId(""); } else { setQuizIndex((i) => i + 1); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); } if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-foreground px-3 py-2.5 text-sm font-bold text-background">{quizIndex >= visibleWords.length - 1 ? "퀴즈 결과 보기" : "다음 단어"}</button>
+            <button onClick={() => { if (quizIndex >= visibleWords.length - 1) { setQuizMode(false); setQuizSessionId(""); } else { setQuizIndex((i) => i + 1); setQuizAnswer(""); setQuizMeaningAnswer(""); setQuizAiFeedback(""); setQuizHintUsed(false); setQuizFeedback(null); } if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel(); if (activeAudioRef.current) { activeAudioRef.current.pause(); activeAudioRef.current.currentTime = 0 } }} className="w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground">{quizIndex >= visibleWords.length - 1 ? "퀴즈 결과 보기" : "다음 단어"}</button>
           </div>}
           {!quizFeedback && <button type="button" disabled={quizHintUsed || isPending} onClick={() => setQuizHintUsed(true)} className="w-full rounded-xl border border-border px-3 py-2 text-sm font-semibold text-muted-foreground disabled:opacity-50">💡 힌트 보기</button>}
         </div>}

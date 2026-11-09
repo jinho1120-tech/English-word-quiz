@@ -189,7 +189,7 @@ export function ParentDashboard({
               <p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
             </div>
             {child.isActive ? <>
-              <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-foreground px-3 py-2 text-sm font-semibold text-background">과목 관리</a>
+              <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">과목 관리</a>
               <a href={`/parent/children/${child.id}/words`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</a>
             </> : <span className="text-xs text-muted-foreground">비활성화된 자녀입니다</span>}
           </div>
@@ -210,7 +210,7 @@ export function ParentDashboard({
           <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
-        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
         <div className="space-y-3 border-t border-border pt-4">
           <div><h3 className="font-bold">쿠폰 종류 만들기</h3><p className="text-xs text-muted-foreground">예: 아이스크림 1개, 게임 30분, 주말 외식 메뉴 선택권</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
@@ -245,7 +245,7 @@ export function ParentDashboard({
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="child-name">자녀 이름</label>
             <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="자녀 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">{isPending ? "등록 중..." : "자녀 프로필 만들기"}</button>
+            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : "자녀 프로필 만들기"}</button>
             <p className="text-xs text-muted-foreground">PIN은 필요하지 않습니다. 접속코드는 필요할 때마다 새로 발급할 수 있으며, 새 코드를 발급하면 이전 코드는 사용할 수 없습니다. QR도 언제든 다시 만들 수 있습니다.</p>
           </div>
           <div className="space-y-3 border-t border-border pt-3">
@@ -291,7 +291,7 @@ export function ParentDashboard({
             </div>
           ))}
           {parentRole === "owner" ? <>
-            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 부모의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">부모 관리자 초대 링크 만들기</button></div>
+            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 부모의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">부모 관리자 초대 링크 만들기</button></div>
             {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">초대 링크 복사</button><p className="text-xs text-muted-foreground">초대받은 부모에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><button disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</button></div>)}
           </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 부모 초대와 관리자 해제는 가족 대표 부모만 할 수 있습니다.</p>}
