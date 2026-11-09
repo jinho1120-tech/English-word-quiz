@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useMemo, useRef, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones } from "lucide-react"
 import { HapticButton } from "./haptic-button"
 import { haptic } from "@/lib/haptics"
@@ -86,11 +87,13 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export function WordQuiz({ words, accent, isMonsterMode = false, childMode = false, childName }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childMode?: boolean; childName?: string }) {
+  const router = useRouter()
   const [phase, setPhase] = useState<Phase>("start")
   const [deck, setDeck] = useState<QuizWord[]>([])
   const [index, setIndex] = useState(0)
   const [childQuizSessionId, setChildQuizSessionId] = useState("")
   const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
+  const [childRewardTitle, setChildRewardTitle] = useState<string | null>(null)
   
   const [value, setValue] = useState("")
   // 💡 리스닝(학교 시험 대비) 모드용 뜻 입력창
@@ -639,6 +642,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setUserAudioUrl(null)
     setChildQuizSessionId(crypto.randomUUID())
     setChildSessionQuestionCount(initialDeck.length)
+    setChildRewardTitle(null)
     setPhase("quiz")
     
     if (quizType !== "speaking") {
@@ -649,6 +653,15 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       setTimeout(() => playPronunciation(initialDeck[0].word), 800)
     } else if (quizType === "speaking" && initialContext.length > 0 && initialDeck.length > 0) {
       setTimeout(() => playPronunciation(initialContext[0].sentence.replace(/___/g, initialDeck[0].word)), 800)
+    }
+  }
+
+  async function recordAnswer(id: number, isCorrect: boolean, type: "standard" | "listening") {
+    if (!childMode) { await recordQuizResult(id, isCorrect); return }
+    const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount })
+    if (result?.sessionResult) {
+      if (result.sessionResult.rewardTitle) setChildRewardTitle(result.sessionResult.rewardTitle)
+      router.refresh()
     }
   }
 
@@ -730,7 +743,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
         setFeedback("correct"); 
         setHintUsed(true)
         setAiCoachMsg(aiRes.feedback);
-        (childMode ? recordChildQuizResult(current.id, true, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, true)).catch(console.error)
+        await recordAnswer(current.id, true, "listening")
       } else {
         setStreak(0); 
         setFeedback("wrong"); 
@@ -738,7 +751,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
         if (!isEngCorrect && !aiRes.isCorrect) setAiCoachMsg(`❌ 스펠링과 뜻 모두 틀렸어요.\n스펠링 정답: ${current.word}\nAI 해설: ${aiRes.feedback}`)
         else if (!isEngCorrect) setAiCoachMsg(`❌ 뜻은 맞았지만 스펠링이 틀렸어요!\n정답: ${current.word}`)
         else setAiCoachMsg(`❌ 스펠링은 맞았지만 뜻/품사가 틀렸어요!\nAI 해설: ${aiRes.feedback}`);
-        (childMode ? recordChildQuizResult(current.id, false, quizType === "listening" ? "listening" : "standard", { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount }) : recordQuizResult(current.id, false)).catch(console.error)
+        await recordAnswer(current.id, false, "listening")
       }
       return
     }
@@ -750,17 +763,13 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       setFeedback("correct")
       setHintUsed(true) 
       
-      if (quizType !== "context" && quizType !== "speaking") {
-        recordQuizResult(current.id, true).catch(console.error)
-      }
+      if (quizType !== "context" && quizType !== "speaking") await recordAnswer(current.id, true, "standard")
     } else {
       setStreak(0)
       setFeedback("wrong")
       setHintUsed(true) 
       
-      if (quizType !== "context" && quizType !== "speaking") {
-        recordQuizResult(current.id, false).catch(console.error)
-      }
+      if (quizType !== "context" && quizType !== "speaking") await recordAnswer(current.id, false, "standard")
     }
   }
 
@@ -1382,7 +1391,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             bestStreak={bestStreak} 
             wrongWords={wrongWords} 
             accent={accent} 
-            usedHint={usedHintInQuiz} 
+            usedHint={usedHintInQuiz}
+            rewardTitle={childRewardTitle}
             quizType={quizType} 
             onRetryWrong={() => retryTest(true)} 
             onRetryAll={() => retryTest(false)} 
