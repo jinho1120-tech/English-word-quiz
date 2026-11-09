@@ -117,7 +117,6 @@ export const familySettings = pgTable("family_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
   couponsEnabled: boolean("coupons_enabled").default(false).notNull(),
-  parentPhone: varchar("parent_phone", { length: 30 }),
   rewardMinScore: integer("reward_min_score").default(100).notNull(),
   rewardMinQuestions: integer("reward_min_questions").default(10).notNull(),
   requireNoHint: boolean("require_no_hint").default(true).notNull(),
