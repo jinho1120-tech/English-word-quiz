@@ -38,6 +38,9 @@ export function ChildLearning({
   const [meaning, setMeaning] = useState("")
   const [example, setExample] = useState("")
   const [aiWords, setAiWords] = useState<{ word: string; meaning: string; example: string }[]>([])
+  const [bulkText, setBulkText] = useState("")
+  const [isBulkMode, setIsBulkMode] = useState(false)
+  const [managerFilterSubjectId, setManagerFilterSubjectId] = useState("")
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -162,9 +165,25 @@ export function ChildLearning({
     })
   }
 
+  function saveBulkWords() {
+    if (!subjectId) { setError("부모에게 과목을 먼저 등록해 달라고 요청하세요."); return }
+    const parsed = bulkText.split(/\\r?\\n/).map((line) => {
+      const parts = line.includes("|") ? line.split("|") : line.includes("\\t") ? line.split("\\t") : line.split(",")
+      return { word: (parts[0] ?? "").trim(), meaning: (parts[1] ?? "").trim(), example: (parts[2] ?? "").trim() }
+    }).filter((item) => item.word && item.meaning)
+    if (!parsed.length) { setError("단어와 뜻을 구분해 입력해 주세요. 예: apple | 사과 | I eat an apple."); return }
+    if (parsed.length > 100) { setError("한 번에 최대 100개까지 등록할 수 있어요."); return }
+    run(async () => {
+      await addChildWordsBulk({ date, subjectId, words: parsed })
+      setBulkText("")
+      setIsBulkMode(false)
+    })
+  }
+
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
   const visibleWords = sourceWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === filterSubjectId)?.name))
-  const managerWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const managerSubjectFilter = managerFilterSubjectId || subjectId
+  const managerWords = initialWords.filter((item) => !managerSubjectFilter || item.subjectId === managerSubjectFilter || (!item.subjectId && item.subject === subjects.find((s) => s.id === managerSubjectFilter)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
   useEffect(() => {
@@ -236,15 +255,34 @@ export function ChildLearning({
         </div>}
       </section>
 
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <h2 className="font-bold">단어 추가</h2>
-        <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
-          {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-        </select>
-        <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="단어 또는 학습 항목" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
-        <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
+      <section className="space-y-4 rounded-2xl border border-border p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-bold">단어 추가</h2>
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+            <button type="button" onClick={() => setIsBulkMode(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>하나씩 입력</button>
+            <button type="button" onClick={() => setIsBulkMode(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>일괄 입력</button>
+          </div>
+        </div>
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold text-muted-foreground">저장할 과목</span>
+          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
+            {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        {!isBulkMode ? (
+          <div className="space-y-3">
+            <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="영어 단어 (예: apple)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 또는 힌트 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
+            <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">한 줄에 한 단어씩 입력하세요. 구분자는 |, 탭, 쉼표를 사용할 수 있어요. 예문은 선택입니다.</p>
+            <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder={"apple | 사과 | I eat an apple.\nbook | 책\nbeautiful | 아름다운"} className="w-full resize-y rounded-xl border border-border bg-background px-3 py-3 text-sm leading-relaxed" />
+            <button disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</button>
+          </div>
+        )}
       </section>
 
       </div>}
@@ -269,7 +307,7 @@ export function ChildLearning({
       )}
       {activeTab === "manage" && (
       <section className="space-y-3">
-        <h2 className="font-bold">{subjects.find((s) => s.id === subjectId)?.name ?? "단어"} · {managerWords.length}개</h2>
+        <div className="flex items-center justify-between gap-2"><h2 className="font-bold">단어 목록 · {managerWords.length}개</h2><select value={managerSubjectFilter} onChange={(event) => setManagerFilterSubjectId(event.target.value === subjectId ? "" : event.target.value)} className="max-w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
         {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
         {managerWords.map((item) => (
           <article key={item.id} className="space-y-2 rounded-xl border border-border p-3">
