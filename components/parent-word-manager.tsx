@@ -33,7 +33,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
 
   function addBulkTextToDraft() {
     setError("")
-    const lines = bulkText.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean)
+    const lines = bulkText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
     if (!lines.length) { setError("붙여넣은 단어 목록이 비어 있습니다."); return }
     const parsed: { word: string; meaning: string; example: string }[] = []
     for (let index = 0; index < lines.length; index++) {
