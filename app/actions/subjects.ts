@@ -47,6 +47,8 @@ async function requireParentFamily(childProfileId: string) {
   return { familyId: family.id, childProfileId: child.id }
 }
 
+const SUBJECT_CALENDAR_COLORS = ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"]
+
 function validateSubjectName(name: string) {
   if (typeof name !== "string") throw new Error("과목 이름을 입력해 주세요.")
   const normalized = name.trim()
@@ -80,6 +82,7 @@ export async function createChildSubject(childProfileId: string, name: string) {
     childProfileId: scope.childProfileId,
     name: normalized,
     sortOrder: nextOrder,
+    calendarColor: SUBJECT_CALENDAR_COLORS[nextOrder % SUBJECT_CALENDAR_COLORS.length],
   }).returning()
   revalidatePath("/")
   return created
