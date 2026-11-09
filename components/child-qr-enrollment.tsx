@@ -19,7 +19,7 @@ export function ChildQrEnrollment({ token }: { token: string }) {
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "기기를 등록하지 못했습니다.")
       })
-  }, [token])
+  }, [router, token])
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md items-center px-4 py-8">
