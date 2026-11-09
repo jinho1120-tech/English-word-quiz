@@ -221,12 +221,15 @@ export const childQuizAttempts = pgTable("child_quiz_attempts", {
   subjectName: varchar("subject_name", { length: 60 }).notNull(),
   wordSnapshot: varchar("word_snapshot", { length: 100 }).notNull(),
   assignmentDate: varchar("assignment_date", { length: 10 }).notNull(),
+  quizSessionId: varchar("quiz_session_id", { length: 36 }),
+  hintUsed: boolean("hint_used").default(false).notNull(),
   quizType: varchar("quiz_type", { length: 20 }).notNull(),
   isCorrect: boolean("is_correct").notNull(),
   answeredAt: timestamp("answered_at").defaultNow().notNull(),
 }, (table) => ({
   childDateIdx: index("child_quiz_attempts_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childSubjectIdx: index("child_quiz_attempts_child_subject_idx").on(table.childProfileId, table.subjectId, table.assignmentDate),
+  quizSessionIdx: index("child_quiz_attempts_session_idx").on(table.childProfileId, table.quizSessionId),
 }))
 
 export { user, session, account, verification } from "./auth-schema"
