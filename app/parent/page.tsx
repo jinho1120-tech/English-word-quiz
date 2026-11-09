@@ -7,6 +7,7 @@ import { ParentNotifications } from "@/components/parent-notifications"
 import { getParentNotificationData } from "@/app/actions/notifications"
 import { LogoutButton } from "@/components/logout-button"
 import { ChildProfileSettings } from "@/components/child-profile-settings"
+import { AccountWithdrawal } from "@/components/account-withdrawal"
 
 export const dynamic = "force-dynamic"
 
@@ -27,6 +28,7 @@ export default async function ParentPage() {
       </header>
       <ParentNotifications initialData={notificationData} />
       <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} settings={dashboard.settings} coupons={dashboard.coupons} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} />
+      <AccountWithdrawal />
     </main>
   )
 }
