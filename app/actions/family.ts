@@ -17,6 +17,7 @@ import {
   familySettings,
   familyMembers,
   familyInvitations,
+  user,
 } from "@/lib/db/schema"
 import {
   createChildDeviceSession,
@@ -46,7 +47,15 @@ async function requireParentFamily() {
   if (!family) throw new Error("가족 공간을 찾거나 만들지 못했습니다.")
   await db.insert(familySettings).values({ familyId: family.id }).onConflictDoNothing()
 
-  // Copy the original word-test coupon examples into each family's own database once.
+  // Seed the family defaults once, using the representative parent's signup role.
+  // An invited co-admin must never determine the family's default coupon wording.
+  const [familyOwner] = await db.select({ name: user.name }).from(user)
+    .where(eq(user.id, family.ownerUserId)).limit(1)
+  const guardian = familyOwner?.name?.trim() || "보호자"
+  const lastSyllable = guardian.charCodeAt(guardian.length - 1)
+  const hasFinalConsonant = lastSyllable >= 0xac00 && lastSyllable <= 0xd7a3 && (lastSyllable - 0xac00) % 28 !== 0
+  const guardianSubject = guardian + (hasFinalConsonant ? "이" : "가")
+
   // Keep the flag and inserted rows atomic so a failed seed can safely retry.
   await db.transaction(async (tx) => {
     const [seedClaim] = await tx.update(familySettings)
@@ -58,13 +67,13 @@ async function requireParentFamily() {
         .where(eq(couponTypes.familyId, family.id)).limit(1)
       if (existing.length === 0) {
         await tx.insert(couponTypes).values([
-          { familyId: family.id, title: "아빠의 엉덩이 춤 관람권 🕺", description: "아빠의 신나는 엉덩이 춤을 관람해요.", couponKind: "regular", drawWeight: 15 },
-          { familyId: family.id, title: "인간 놀이기구 탑승권 ✈️", description: "아빠가 안전하게 태워주는 인간 놀이기구를 즐겨요.", couponKind: "regular", drawWeight: 20 },
-          { familyId: family.id, title: "침대까지 어부바 특급열차 🚂", description: "아빠 등에 업혀 침대까지 이동해요.", couponKind: "regular", drawWeight: 25 },
-          { familyId: family.id, title: "아빠의 특급 안마 3분 💆‍♀️", description: "아빠에게 3분 동안 안마를 받아요.", couponKind: "regular", drawWeight: 20 },
-          { familyId: family.id, title: "꽝 쿠폰: 아빠 볼에 뽀뽀 3번 하기 😘", description: "꽝 쿠폰 미션: 아빠 볼에 뽀뽀 3번 하기", couponKind: "blank", drawWeight: 1 },
-          { familyId: family.id, title: "꽝 쿠폰: 아빠에게 하트 날리며 사랑해요 외치기 🫶", description: "꽝 쿠폰 미션: 아빠에게 사랑한다고 표현하기", couponKind: "blank", drawWeight: 1 },
-          { familyId: family.id, title: "꽝 쿠폰: 아빠 어깨 1분 주물러주기 💆‍♂️", description: "꽝 쿠폰 미션: 아빠 어깨 1분 주물러주기", couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: `${guardian}의 엉덩이 춤 관람권 🕺`, description: `${guardian}의 신나는 엉덩이 춤을 관람해요.`, couponKind: "regular", drawWeight: 15 },
+          { familyId: family.id, title: "인간 놀이기구 탑승권 ✈️", description: `${guardianSubject} 안전하게 태워주는 인간 놀이기구를 즐겨요.`, couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: "침대까지 어부바 특급열차 🚂", description: `${guardian} 등에 업혀 침대까지 이동해요.`, couponKind: "regular", drawWeight: 25 },
+          { familyId: family.id, title: `${guardian}의 특급 안마 3분 💆‍♀️`, description: `${guardian}에게 3분 동안 안마를 받아요.`, couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: `꽝 쿠폰: ${guardian} 볼에 뽀뽀 3번 하기 😘`, description: `꽝 쿠폰 미션: ${guardian} 볼에 뽀뽀 3번 하기`, couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: `꽝 쿠폰: ${guardian}에게 하트 날리며 사랑해요 외치기 🫶`, description: `꽝 쿠폰 미션: ${guardian}에게 사랑한다고 표현하기`, couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: `꽝 쿠폰: ${guardian} 어깨 1분 주물러주기 💆‍♂️`, description: `꽝 쿠폰 미션: ${guardian} 어깨 1분 주물러주기`, couponKind: "blank", drawWeight: 1 },
         ])
       }
     }
