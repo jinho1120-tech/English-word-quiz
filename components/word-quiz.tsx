@@ -4,7 +4,6 @@ import React, { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones } from "lucide-react"
 import { HapticButton } from "./haptic-button"
-import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
 import { recordChildQuizResult, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
@@ -705,8 +704,6 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (!guess) return
     try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() } catch (e) {}
     
-    haptic()
-
     if (["아빠최고", "아빠사랑해", "지온천재", "예온천재"].includes(guess)) {
       if (!DAD_PHONE) {
         alert("아빠 전화번호 설정 오류!");
