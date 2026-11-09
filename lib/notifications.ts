@@ -1,5 +1,5 @@
 import webpush from "web-push"
-import { and, eq } from "drizzle-orm"
+import { and, count, eq, isNull } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { families, familyMembers, notificationPreferences, parentNotifications, pushSubscriptions } from "@/lib/db/schema"
 
@@ -46,7 +46,7 @@ export async function notifyFamilyParents(input: {
         message: input.message.slice(0, 1000),
         href: input.href || "/parent",
       })
-      if (!preference?.pushEnabled || !vapidPublic || !vapidPrivate) continue
+      if ((preference && !preference.pushEnabled) || !vapidPublic || !vapidPrivate) continue
       const subscriptions = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId))
       if (!subscriptions.length) continue
       try {
@@ -55,6 +55,7 @@ export async function notifyFamilyParents(input: {
         console.error("VAPID 설정 오류:", error)
         continue
       }
+      const [{ unreadCount }] = await db.select({ unreadCount: count() }).from(parentNotifications).where(and(eq(parentNotifications.recipientUserId, userId), isNull(parentNotifications.readAt)))
       await Promise.all(subscriptions.map(async (subscription) => {
         try {
           await webpush.sendNotification({
@@ -64,6 +65,7 @@ export async function notifyFamilyParents(input: {
             title: input.title,
             body: input.message,
             url: input.href || "/parent",
+            badgeCount: unreadCount,
           }), { TTL: 3600 })
         } catch (error) {
           const statusCode = typeof error === "object" && error !== null && "statusCode" in error
