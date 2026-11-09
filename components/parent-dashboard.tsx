@@ -208,7 +208,7 @@ export function ParentDashboard({
           <label htmlFor="parent-reward-phone" className="text-sm font-semibold">부모 전화번호</label>
           <input id="parent-reward-phone" type="tel" autoComplete="tel" value={parentPhone} onChange={(event) => setParentPhone(event.target.value)} placeholder="예: 010-1234-5678" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <p className="text-xs text-muted-foreground">쿠폰을 받을 때 알림 문자를 받을 번호입니다.</p>
-          <button disabled={isPending || !parentPhone.trim()} onClick={() => startTransition(async () => { setError(""); try { await sendParentRewardTestSms(); } catch (err) { setError(err instanceof Error ? err.message : "테스트 문자를 보내지 못했습니다.") } })} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">테스트 문자 보내기</button>
+          <button disabled={isPending || !parentPhone.trim()} onClick={() => startTransition(async () => { setError(""); try { await updateFamilyRewardSettings({ couponsEnabled, parentPhone, rewardMinScore, rewardMinQuestions, requireNoHint }); await sendParentRewardTestSms(); router.refresh(); } catch (err) { setError(err instanceof Error ? err.message : "테스트 문자를 보내지 못했습니다.") } })} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">테스트 문자 보내기</button>
           <p className="text-xs text-muted-foreground">문자 자동 발송을 사용하려면 Vercel 환경변수 SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_SENDER_PHONE을 설정하고 솔라피에 발신번호를 등록해야 합니다.</p>
 
         </div>
