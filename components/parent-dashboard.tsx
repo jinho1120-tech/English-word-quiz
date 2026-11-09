@@ -25,7 +25,7 @@ type Device = { id: string; childProfileId: string; childName: string; deviceLab
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
 type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number } | null
-type Coupon = { id: string; title: string; description: string | null; isActive: boolean; couponKind: "regular" | "blank"; drawWeight: number }
+type Coupon = { id: string; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
 type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date }
 
 export function ParentDashboard({
@@ -118,7 +118,7 @@ export function ParentDashboard({
     setEditingCouponId(coupon.id)
     setEditingCouponTitle(coupon.title)
     setEditingCouponDescription(coupon.description ?? "")
-    setEditingCouponKind(coupon.couponKind)
+    setEditingCouponKind(coupon.couponKind === "blank" ? "blank" : "regular")
     setEditingCouponWeight(coupon.drawWeight)
   }
 
