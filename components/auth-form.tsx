@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { authClient } from "@/lib/auth-client"
+import { Eye, EyeOff } from "lucide-react"
 
 type ParentRole = "아빠" | "엄마" | "기타 보호자"
 
@@ -14,6 +15,7 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   const [guardianRelation, setGuardianRelation] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -69,7 +71,40 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
           </div>
         )}
         <label className="block space-y-1 text-sm"><span className="font-medium">이메일</span><input required type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="name@example.com" /></label>
-        <label className="block space-y-1 text-sm"><span className="font-medium">비밀번호</span><input required type="password" minLength={8} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === "signup" ? "new-password" : "current-password"} className="w-full rounded-xl border bg-background px-3 py-3" placeholder={mode === "signup" ? "8자 이상" : "비밀번호"} /></label>
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium">비밀번호</span>
+          <span className="relative block">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              minLength={8}
+              maxLength={128}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              className={`w-full rounded-xl border bg-background py-3 pl-3 pr-11 outline-none transition-colors focus:ring-2 focus:ring-offset-1 ${
+                mode === "signup" && password.length > 0
+                  ? password.length >= 8
+                    ? "border-blue-500 focus:ring-blue-500"
+                    : "border-red-500 focus:ring-red-500"
+                  : "border-input focus:ring-ring"
+              }`}
+              placeholder={mode === "signup" ? "8자 이상" : "비밀번호"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(value => !value)}
+              aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
+            </button>
+          </span>
+          {mode === "signup" && password.length > 0 && password.length < 8 && (
+            <span className="block text-xs text-red-600">비밀번호는 8자 이상이어야 합니다.</span>
+          )}
+        </label>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground disabled:opacity-50">{busy ? "처리 중..." : mode === "signup" ? "무료로 가입하기" : "로그인"}</button>
       </form>
