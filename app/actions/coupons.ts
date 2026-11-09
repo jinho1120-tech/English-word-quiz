@@ -44,7 +44,7 @@ export async function createCouponUseRequest(rewardId: string) {
   const child = await getChildDeviceSession()
   if (!child) throw new Error("자녀 기기 로그인이 필요합니다.")
   if (typeof rewardId !== "string" || !rewardId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
-  const [reward] = await db.select({ id: couponRewards.id, status: couponRewards.status })
+  const [reward] = await db.select({ id: couponRewards.id, status: couponRewards.status, title: couponRewards.couponTitleSnapshot })
     .from(couponRewards).where(and(eq(couponRewards.id, rewardId), eq(couponRewards.childProfileId, child.childProfileId))).limit(1)
   if (!reward || reward.status !== "earned") throw new Error("사용할 수 있는 쿠폰이 아닙니다.")
   const token = randomBytes(32).toString("base64url")
