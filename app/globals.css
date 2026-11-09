@@ -182,7 +182,8 @@
   input[type="checkbox"],
   input[type="radio"],
   input[type="color"],
-  select {
+  select,
+  a[href]:not([aria-disabled="true"]) {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     transition: transform 110ms ease, filter 110ms ease, opacity 110ms ease;
@@ -194,7 +195,8 @@
   input[type="checkbox"]:active,
   input[type="radio"]:active,
   input[type="color"]:active,
-  select:active {
+  select:active,
+  a[href]:not([aria-disabled="true"]):active {
     transform: scale(0.97);
     filter: brightness(0.96);
   }
@@ -207,7 +209,8 @@
   input[type="checkbox"],
   input[type="radio"],
   input[type="color"],
-  select {
+  select,
+  a[href]:not([aria-disabled="true"]) {
     transition: none;
   }
 }
