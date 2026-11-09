@@ -201,15 +201,7 @@ export function ParentDashboard({
           <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
           <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 자녀에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
         </div>
-        <div className="space-y-2">
-          <label htmlFor="parent-reward-phone" className="text-sm font-semibold">부모 전화번호</label>
-          <input id="parent-reward-phone" type="tel" autoComplete="tel" value={parentPhone} onChange={(event) => setParentPhone(event.target.value)} placeholder="예: 010-1234-5678" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-          <p className="text-xs text-muted-foreground">쿠폰을 받을 때 알림 문자를 받을 번호입니다.</p>
-          <button disabled={isPending || !parentPhone.trim()} onClick={() => startTransition(async () => { setError(""); try { await updateFamilyRewardSettings({ couponsEnabled, parentPhone, rewardMinScore, rewardMinQuestions, requireNoHint }); await sendParentRewardTestSms(); router.refresh(); } catch (err) { setError(err instanceof Error ? err.message : "테스트 문자를 보내지 못했습니다.") } })} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold disabled:opacity-50">테스트 문자 보내기</button>
-          <p className="text-xs text-muted-foreground">문자 자동 발송을 사용하려면 Vercel 환경변수 SOLAPI_API_KEY, SOLAPI_API_SECRET, SOLAPI_SENDER_PHONE을 설정하고 솔라피에 발신번호를 등록해야 합니다.</p>
-
-        </div>
-        <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
+<label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
           <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
           <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
         </label>
@@ -230,7 +222,6 @@ export function ParentDashboard({
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {rewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : rewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
-}
           </div>)}
         </div>
 
