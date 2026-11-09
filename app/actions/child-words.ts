@@ -254,7 +254,6 @@ export async function recordChildQuizResult(
           }).onConflictDoNothing().returning({ id: couponRewards.id })
           if (reward) {
             sessionResult.rewardTitle = chosen.title
-            sessionResult.rewardTitle = chosen.title
           }
         }
       }
