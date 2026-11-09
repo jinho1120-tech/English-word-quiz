@@ -19,7 +19,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
 
   const params = await searchParams
   const today = todayInSeoul()
-  const date = params.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(params.date) ? params.date : today
+  const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
   const [data, coupons] = await Promise.all([getChildLearningData(date), getChildCouponWallet()])
 
   return (
