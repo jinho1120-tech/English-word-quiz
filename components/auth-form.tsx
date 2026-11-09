@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { authClient } from "@/lib/auth-client"
 
+type ParentRole = "아빠" | "엄마" | "기타 보호자"
+
 export function AuthForm({ inviteToken }: { inviteToken?: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<"signin" | "signup">("signup")
-  const [name, setName] = useState("")
+  const [parentRole, setParentRole] = useState<ParentRole>("아빠")
+  const [guardianRelation, setGuardianRelation] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -20,8 +23,14 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
     setError("")
     try {
       const callbackURL = inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/"
+      const relation = guardianRelation.trim()
+      if (mode === "signup" && parentRole === "기타 보호자" && !relation) {
+        setError("자녀와의 관계를 입력해 주세요.")
+        return
+      }
+      const displayName = parentRole === "기타 보호자" ? relation : parentRole
       const result = mode === "signup"
-        ? await authClient.signUp.email({ name: name.trim(), email: email.trim(), password, callbackURL })
+        ? await authClient.signUp.email({ name: displayName, email: email.trim(), password, callbackURL })
         : await authClient.signIn.email({ email: email.trim(), password, callbackURL })
       if (result.error) {
         setError(result.error.message || "로그인에 실패했습니다.")
@@ -43,7 +52,22 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
         <button type="button" onClick={() => setMode("signin")} className={`rounded-lg py-2 font-semibold ${mode === "signin" ? "bg-background shadow" : "text-muted-foreground"}`}>로그인</button>
       </div>
       <form onSubmit={submit} className="space-y-4">
-        {mode === "signup" && <label className="block space-y-1 text-sm"><span className="font-medium">이름</span><input required value={name} onChange={e => setName(e.target.value)} autoComplete="name" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="표시할 이름" /></label>}
+        {mode === "signup" && (
+          <div className="space-y-2">
+            <label htmlFor="parent-role" className="block text-sm font-medium">보호자 구분</label>
+            <select id="parent-role" required value={parentRole} onChange={event => setParentRole(event.target.value as ParentRole)} className="w-full rounded-xl border bg-background px-3 py-3 text-sm">
+              <option value="아빠">아빠</option>
+              <option value="엄마">엄마</option>
+              <option value="기타 보호자">기타 보호자</option>
+            </select>
+            {parentRole === "기타 보호자" && (
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">자녀와의 관계</span>
+                <input required value={guardianRelation} onChange={event => setGuardianRelation(event.target.value)} maxLength={30} autoComplete="off" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="예: 할머니, 할아버지, 삼촌, 이모" />
+              </label>
+            )}
+          </div>
+        )}
         <label className="block space-y-1 text-sm"><span className="font-medium">이메일</span><input required type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="name@example.com" /></label>
         <label className="block space-y-1 text-sm"><span className="font-medium">비밀번호</span><input required type="password" minLength={8} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} autoComplete={mode === "signup" ? "new-password" : "current-password"} className="w-full rounded-xl border bg-background px-3 py-3" placeholder={mode === "signup" ? "8자 이상" : "비밀번호"} /></label>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
