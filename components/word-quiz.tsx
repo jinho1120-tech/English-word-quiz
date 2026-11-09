@@ -660,7 +660,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
 
   async function recordAnswer(id: number, isCorrect: boolean, type: "standard" | "listening") {
     if (!childMode) { await recordQuizResult(id, isCorrect); return }
-    const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount })
+    const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz, sessionQuestionCount: childSessionQuestionCount })
     if (result?.sessionResult) {
       setChildRewardChecked(true)
       if (result.sessionResult.rewardTitle) setChildRewardTitle(result.sessionResult.rewardTitle)
