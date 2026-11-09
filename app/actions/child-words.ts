@@ -16,6 +16,8 @@ async function requireChild() {
   return session
 }
 
+const SUBJECT_CALENDAR_COLORS = ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"]
+
 function validateDate(date: string) {
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("날짜 형식이 올바르지 않습니다.")
 }
@@ -39,7 +41,7 @@ export async function createChildSubject(nameInput: string) {
   const current = await db.select({ sortOrder: childSubjects.sortOrder }).from(childSubjects)
     .where(eq(childSubjects.childProfileId, child.childProfileId))
   const sortOrder = current.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
-  const [created] = await db.insert(childSubjects).values({ childProfileId: child.childProfileId, name, sortOrder }).returning()
+  const [created] = await db.insert(childSubjects).values({ childProfileId: child.childProfileId, name, sortOrder, calendarColor: SUBJECT_CALENDAR_COLORS[sortOrder % SUBJECT_CALENDAR_COLORS.length] }).returning()
   revalidatePath("/child")
   return created
 }
