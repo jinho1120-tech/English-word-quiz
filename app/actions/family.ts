@@ -6,7 +6,6 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { sendSolapiSms } from "@/lib/sms"
 import {
   childDeviceEnrollments,
   childDeviceSessions,
@@ -53,17 +52,11 @@ function validatePin(pin: string) {
   if (!/^\d{4,8}$/.test(pin)) throw new Error("PIN은 숫자 4~8자리로 입력해 주세요.")
 }
 
-function validatePhone(phone: string | null) {
-  if (phone !== null && phone.trim() && !/^\+?[0-9 ()-]{8,25}$/.test(phone.trim())) {
-    throw new Error("전화번호 형식을 확인해 주세요.")
-  }
-}
 
 export async function getParentFamilyDashboard() {
   const { family, role, userId } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
-    parentPhone: familySettings.parentPhone,
     rewardMinScore: familySettings.rewardMinScore,
     rewardMinQuestions: familySettings.rewardMinQuestions,
     requireNoHint: familySettings.requireNoHint,
@@ -119,40 +112,6 @@ export async function getParentFamilyDashboard() {
   return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
 }
 
-
-export async function sendParentRewardTestSms() {
-  const { family } = await requireParentFamily()
-  const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
-  if (!settings?.parentPhone) throw new Error("부모 전화번호를 먼저 저장해 주세요.")
-  const result = await sendSolapiSms({ to: settings.parentPhone, text: "[우리 가족 단어장] 쿠폰 알림 문자 테스트입니다. 문자 연동이 정상적으로 설정되었습니다." })
-  if (!result.success) throw new Error(result.error || "테스트 문자 발송에 실패했습니다.")
-  return { success: true }
-}
-
-export async function resendCouponRewardSms(rewardId: string) {
-  const { family } = await requireParentFamily()
-  if (typeof rewardId !== "string" || !rewardId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
-  const [reward] = await db.select({
-    id: couponRewards.id,
-    childName: childProfiles.displayName,
-    title: couponRewards.couponTitleSnapshot,
-    earnedAt: couponRewards.earnedAt,
-  }).from(couponRewards)
-    .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
-    .where(and(eq(couponRewards.id, rewardId), eq(childProfiles.familyId, family.id)))
-    .limit(1)
-  if (!reward) throw new Error("쿠폰 지급 기록을 찾을 수 없습니다.")
-  const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
-  if (!settings?.parentPhone) throw new Error("부모 전화번호를 먼저 저장해 주세요.")
-  const result = await sendSolapiSms({
-    to: settings.parentPhone,
-    text: `[우리 가족 단어장] ${reward.childName}님이 "${reward.title}" 쿠폰을 받았어요. 지급일: ${reward.earnedAt.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`,
-  })
-  if (!result.success) throw new Error(result.error || "문자 재발송에 실패했습니다.")
-  await db.update(couponRewards).set({ notifiedAt: new Date() }).where(eq(couponRewards.id, reward.id))
-  revalidatePath("/parent")
-  return { success: true }
-}
 
 export async function createChildProfile(input: { displayName: string }) {
   const { family } = await requireParentFamily()
@@ -327,22 +286,17 @@ export async function completeChildQrEnrollment(input: { token: string; deviceLa
 
 export async function updateFamilyRewardSettings(input: {
   couponsEnabled: boolean
-  parentPhone: string
   rewardMinScore: number
   rewardMinQuestions: number
   requireNoHint: boolean
 }) {
   const { family } = await requireParentFamily()
   if (typeof input?.couponsEnabled !== "boolean" || typeof input.requireNoHint !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
-  if (typeof input.parentPhone !== "string") throw new Error("전화번호를 입력해 주세요.")
-  const parentPhone = input.parentPhone.trim()
-  validatePhone(parentPhone || null)
   if (!Number.isInteger(input.rewardMinScore) || input.rewardMinScore < 1 || input.rewardMinScore > 100) throw new Error("보상 점수는 1~100점이어야 합니다.")
   if (!Number.isInteger(input.rewardMinQuestions) || input.rewardMinQuestions < 1 || input.rewardMinQuestions > 100) throw new Error("보상 최소 문제 수는 1~100개여야 합니다.")
 
   await db.update(familySettings).set({
     couponsEnabled: input.couponsEnabled,
-    parentPhone: parentPhone || null,
     rewardMinScore: input.rewardMinScore,
     rewardMinQuestions: input.rewardMinQuestions,
     requireNoHint: input.requireNoHint,
