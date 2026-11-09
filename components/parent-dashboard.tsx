@@ -16,15 +16,13 @@ import {
   updateFamilyRewardSettings,
   createCouponType,
   setCouponTypeActive,
-  sendParentRewardTestSms,
-  resendCouponRewardSms,
 } from "@/app/actions/family"
 
 type Child = { id: string; displayName: string; isActive: boolean; createdAt: Date }
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
-type FamilySettings = { couponsEnabled: boolean; parentPhone: string | null; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean } | null
+type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean } | null
 type Coupon = { id: string; title: string; description: string | null; isActive: boolean }
 type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date; notifiedAt: Date | null }
 
@@ -57,7 +55,6 @@ export function ParentDashboard({
   const [qrChildName, setQrChildName] = useState("")
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
-  const [parentPhone, setParentPhone] = useState(settings?.parentPhone ?? "")
   const [couponsEnabled, setCouponsEnabled] = useState(settings?.couponsEnabled ?? false)
   const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
   const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
@@ -71,7 +68,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await updateFamilyRewardSettings({ couponsEnabled, parentPhone, rewardMinScore, rewardMinQuestions, requireNoHint })
+        await updateFamilyRewardSettings({ couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
@@ -202,7 +199,7 @@ export function ParentDashboard({
       <section className="space-y-4 rounded-2xl border border-border p-4">
         <div>
           <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
-          <p className="text-sm text-muted-foreground">부모 연락처와 퀴즈 보상 조건, 자녀에게 제공할 쿠폰 종류를 설정합니다.</p>
+          <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 자녀에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
         </div>
         <div className="space-y-2">
           <label htmlFor="parent-reward-phone" className="text-sm font-semibold">부모 전화번호</label>
@@ -232,8 +229,8 @@ export function ParentDashboard({
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {rewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : rewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.notifiedAt ? "문자 알림 발송" : "문자 알림 미발송"}</p></div>
-            {!reward.notifiedAt && <button disabled={isPending || !parentPhone.trim()} onClick={() => startTransition(async () => { setError(""); try { await resendCouponRewardSms(reward.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "문자를 다시 보내지 못했습니다.") } })} className="shrink-0 rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50">문자 재발송</button>}
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
+}
           </div>)}
         </div>
 
