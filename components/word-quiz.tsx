@@ -94,6 +94,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   const [childQuizSessionId, setChildQuizSessionId] = useState("")
   const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
   const [childRewardTitle, setChildRewardTitle] = useState<string | null>(null)
+  const [childRewardChecked, setChildRewardChecked] = useState(false)
   
   const [value, setValue] = useState("")
   // 💡 리스닝(학교 시험 대비) 모드용 뜻 입력창
@@ -643,6 +644,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setChildQuizSessionId(crypto.randomUUID())
     setChildSessionQuestionCount(initialDeck.length)
     setChildRewardTitle(null)
+    setChildRewardChecked(false)
     setPhase("quiz")
     
     if (quizType !== "speaking") {
@@ -660,6 +662,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (!childMode) { await recordQuizResult(id, isCorrect); return }
     const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz || hintUsed, sessionQuestionCount: childSessionQuestionCount })
     if (result?.sessionResult) {
+      setChildRewardChecked(true)
       if (result.sessionResult.rewardTitle) setChildRewardTitle(result.sessionResult.rewardTitle)
       router.refresh()
     }
@@ -1393,6 +1396,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             accent={accent} 
             usedHint={usedHintInQuiz}
             rewardTitle={childRewardTitle}
+            rewardChecked={childRewardChecked}
             quizType={quizType} 
             onRetryWrong={() => retryTest(true)} 
             onRetryAll={() => retryTest(false)} 
