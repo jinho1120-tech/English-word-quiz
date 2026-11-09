@@ -1,12 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { Trophy, Gift, MessageCircle, RotateCcw, Mic } from "lucide-react"
+import { Trophy, RotateCcw, Mic } from "lucide-react"
 import { HapticButton } from "./haptic-button"
 import { cn } from "@/lib/utils"
 import type { QuizWord } from "./word-quiz"
 
-const DAD_PHONE = process.env.NEXT_PUBLIC_DAD_PHONE || ""
 
 interface Props {
   score: number; correctCount: number; total: number; bestStreak: number;
@@ -15,19 +13,6 @@ interface Props {
 }
 
 export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, quizType, onRetryWrong, onRetryAll }: Props) {
-  const [drawnCoupon, setDrawnCoupon] = useState<string | null>(null)
-
-  function handleDrawCoupon() {
-    const rand = Math.random() * 100
-    if (rand < 20) {
-      const penalties = ["💥 꽝! (벌칙: 아빠 볼에 뽀뽀 3번 하기 😘)", "💥 꽝! (벌칙: 아빠한테 하트 날리며 사랑해요 외치기 🫶)", "💥 꽝! (벌칙: 아빠 어깨 1분 주물러주기 💆‍♂️)"]
-      setDrawnCoupon(penalties[Math.floor(Math.random() * penalties.length)])
-    } else if (rand < 35) setDrawnCoupon("아빠의 엉덩이 춤 관람권 🕺")
-    else if (rand < 55) setDrawnCoupon("인간 놀이기구 탑승권 ✈️")
-    else if (rand < 80) setDrawnCoupon("침대까지 어부바 특급열차 🚂")
-    else setDrawnCoupon("아빠의 특급 안마 3분 💆‍♀️")
-  }
-
   const isContextMode = quizType === "context"
   const isEligibleForReward = score === 100 && total >= 10 && !usedHint
 
@@ -92,43 +77,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           <span>최고 연속 <span className="font-bold text-foreground">{bestStreak}</span></span>
         </div>
         
-        {score === 100 && (
-          <div className="mt-6 pt-6 border-t border-border">
-            {isEligibleForReward ? (
-              !drawnCoupon ? (
-                <HapticButton 
-                  hapticLabel="보상 뽑기"
-                  onClick={handleDrawCoupon} 
-                  wrapperClassName="relative flex w-full"
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-500 py-3.5 text-base font-black text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-                >
-                  <Gift className="size-5 animate-bounce" /> 노힌트 100점 달성! 보상 뽑기
-                </HapticButton>
-              ) : (
-                <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-amber-500 bg-amber-100 p-5 animate-in zoom-in duration-500">
-                  <span className="mb-1.5 text-xs font-bold text-amber-700">{drawnCoupon.includes("꽝!") ? "앗, 이런! 😅" : "축하합니다! 쿠폰 당첨 🎉"}</span>
-                  <span className={cn("text-lg font-black text-center break-keep", drawnCoupon.includes("꽝!") ? "text-red-600" : "text-amber-950")}>{drawnCoupon}</span>
-                  <HapticButton 
-                    hapticLabel="아빠한테 문자 보내기"
-                    onClick={() => {
-                      if (!DAD_PHONE) { alert("환경변수에 아빠 전화번호가 설정되지 않았습니다!"); return; }
-                      const msg = drawnCoupon.includes("꽝!") ? `아빠! 나 영단어 만점 받았는데 뽑기에서 꽝 나왔어 ㅠㅠ\n\n🎯 ${drawnCoupon}` : `아빠! 나 영단어 만점 받아서 쿠폰 뽑았어! 빨리 약속 지켜줘!\n\n🎁 당첨된 쿠폰: ${drawnCoupon}`
-                      window.location.href = `sms:${DAD_PHONE}&body=${encodeURIComponent(msg)}`
-                    }}
-                    wrapperClassName="relative flex w-full mt-5"
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#007AFF] py-3 text-sm font-bold text-white shadow-md transition-transform hover:scale-105 active:scale-95"
-                  >
-                    <MessageCircle className="size-4" /> 아빠한테 문자 보내기
-                  </HapticButton>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center rounded-2xl bg-muted/50 p-4 text-center">
-                <span className="text-sm font-bold text-muted-foreground">💡 {usedHint ? "힌트 없이 10문제 이상 풀고 만점을 받으면" : "단어가 10개 이상일 때 만점을 받으면"}<br/>쿠폰 뽑기가 나타나요!</span>
-              </div>
-            )}
-          </div>
-        )}
+        {isEligibleForReward && <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">쿠폰은 앱의 내 쿠폰함에서 확인할 수 있어요.</p>}
       </div>
       
       {!isContextMode && wrongWords.length > 0 && (
