@@ -170,6 +170,54 @@ export const couponRedemptionTokens = pgTable("coupon_redemption_tokens", {
   rewardIdx: index("coupon_redemption_tokens_reward_idx").on(table.rewardId),
 }))
 
+
+/** Parent-facing notifications and optional Web Push delivery. */
+export const parentNotifications = pgTable("parent_notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  recipientUserId: text("recipient_user_id").notNull(),
+  childProfileId: uuid("child_profile_id").references(() => childProfiles.id, { onDelete: "set null" }),
+  type: varchar("type", { length: 40 }).notNull(),
+  title: varchar("title", { length: 120 }).notNull(),
+  message: text("message").notNull(),
+  href: varchar("href", { length: 300 }).default("/parent").notNull(),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  recipientCreatedIdx: index("parent_notifications_recipient_created_idx").on(table.recipientUserId, table.createdAt),
+  recipientReadIdx: index("parent_notifications_recipient_read_idx").on(table.recipientUserId, table.readAt),
+  familyIdx: index("parent_notifications_family_idx").on(table.familyId),
+}))
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  endpointUnique: uniqueIndex("push_subscriptions_endpoint_unique").on(table.endpoint),
+  userIdx: index("push_subscriptions_user_idx").on(table.userId),
+}))
+
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  pushEnabled: boolean("push_enabled").default(true).notNull(),
+  couponIssued: boolean("coupon_issued").default(true).notNull(),
+  couponUseRequested: boolean("coupon_use_requested").default(true).notNull(),
+  penaltyIssued: boolean("penalty_issued").default(true).notNull(),
+  penaltyCompleted: boolean("penalty_completed").default(true).notNull(),
+  deviceRegistered: boolean("device_registered").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  familyUserUnique: uniqueIndex("notification_preferences_family_user_unique").on(table.familyId, table.userId),
+}))
+
 export const childSubjects = pgTable("child_subjects", {
   id: uuid("id").defaultRandom().primaryKey(),
   childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
