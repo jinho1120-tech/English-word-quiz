@@ -201,12 +201,12 @@ export function ChildLearning({
   return (
     <div className="space-y-5">
       <section className="space-y-3">
+        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
         <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-muted/50 p-1">
           <button onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined}>🎓 날짜별 퀴즈</button>
           <button onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined}>👻 오답 몬스터</button>
           <button onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined}>✏️ 단어 입력</button>
         </div>
-        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
           <button onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
           {subjects.map((subject) => <button key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}
