@@ -470,10 +470,12 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             setIsCoachLoading(true);
             const coachInput = {
               sentence: cleanTargetText,
-              childName: currentName,
               pronResult: finalResult,
               wordScores: mappedWords
-            });
+            };
+            const coachRes = childMode
+              ? await generateChildSpeakingCoachFeedback(coachInput)
+              : await generateSpeakingCoachFeedback({ ...coachInput, childName: currentName });
             setIsCoachLoading(false);
 
             if (coachRes.success && coachRes.feedback) {
@@ -539,6 +541,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setWordScores([]);
     setAiCoachMsg(null);
     setUserAudioUrl(null);
+    setChildQuizSessionId(crypto.randomUUID());
+    setChildSessionQuestionCount(nextDeck.length);
     setPhase("quiz");
 
     if (quizType !== "speaking") {
@@ -633,6 +637,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setWordScores([])
     setAiCoachMsg(null)
     setUserAudioUrl(null)
+    setChildQuizSessionId(crypto.randomUUID())
+    setChildSessionQuestionCount(initialDeck.length)
     setPhase("quiz")
     
     if (quizType !== "speaking") {
@@ -713,7 +719,9 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       }
       
       setFeedback("grading")
-      const aiRes = childMode\n        ? await gradeChildListeningAnswer(current.id, guess, meaningGuess)\n        : await gradeKoreanMeaningWithGemini(current.meaning, meaningGuess)
+      const aiRes = childMode
+        ? await gradeChildListeningAnswer(current.id, guess, meaningGuess)
+        : await gradeKoreanMeaningWithGemini(current.meaning, meaningGuess)
       
       if (isEngCorrect && aiRes.isCorrect) {
         const newStreak = streak + 1; 
