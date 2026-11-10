@@ -153,10 +153,12 @@ export async function getParentFamilyDashboard() {
     childName: childProfiles.displayName,
     title: couponRewards.couponTitleSnapshot,
     status: couponRewards.status,
+    couponKind: couponTypes.couponKind,
     earnedAt: couponRewards.earnedAt,
     notifiedAt: couponRewards.notifiedAt,
   }).from(couponRewards)
     .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
+    .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
     .where(eq(childProfiles.familyId, family.id))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(30)

@@ -6,7 +6,7 @@ import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, 
 import { HapticButton } from "./haptic-button"
 import { cn } from "@/lib/utils"
 import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
-import { recordChildQuizResult, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
+import { recordChildQuizResult, revealChildQuizCoupon, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
 import confetti from "canvas-confetti"
 
 import { QuizStart } from "./quiz-start"
@@ -93,8 +93,11 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   const [childQuizSessionId, setChildQuizSessionId] = useState("")
   const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
   const [childRewardTitle, setChildRewardTitle] = useState<string | null>(null)
+  const [childRewardDescription, setChildRewardDescription] = useState<string | null>(null)
   const [childRewardChecked, setChildRewardChecked] = useState(false)
   const [childCouponConfigured, setChildCouponConfigured] = useState(true)
+  const [childCouponEligible, setChildCouponEligible] = useState(false)
+  const [childCouponOutcome, setChildCouponOutcome] = useState<"won" | "blank" | null>(null)
   
   const [value, setValue] = useState("")
   // 💡 리스닝(학교 시험 대비) 모드용 뜻 입력창
@@ -644,8 +647,11 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setChildQuizSessionId(crypto.randomUUID())
     setChildSessionQuestionCount(initialDeck.length)
     setChildRewardTitle(null)
+    setChildRewardDescription(null)
     setChildRewardChecked(false)
     setChildCouponConfigured(true)
+    setChildCouponEligible(false)
+    setChildCouponOutcome(null)
     setPhase("quiz")
     
     if (quizType !== "speaking") {
@@ -665,8 +671,22 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (result?.sessionResult) {
       setChildRewardChecked(true)
       setChildCouponConfigured(result.sessionResult.couponConfigured)
-      if (result.sessionResult.rewardTitle) setChildRewardTitle(result.sessionResult.rewardTitle)
+      setChildCouponEligible(result.sessionResult.couponEligible)
       router.refresh()
+    }
+  }
+
+  async function handleRevealCoupon() {
+    if (!childMode || !childQuizSessionId || childCouponOutcome) return
+    try {
+      const result = await revealChildQuizCoupon(childQuizSessionId)
+      setChildCouponOutcome(result.outcome)
+      setChildRewardTitle(result.title)
+      setChildRewardDescription(result.description)
+      router.refresh()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "쿠폰을 확인하지 못했습니다. 다시 시도해 주세요.")
+      throw error
     }
   }
 
@@ -1410,6 +1430,10 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             rewardTitle={childRewardTitle}
             rewardChecked={childRewardChecked}
             couponConfigured={childCouponConfigured}
+            couponEligible={childCouponEligible}
+            couponOutcome={childCouponOutcome}
+            rewardDescription={childRewardDescription}
+            onRevealCoupon={handleRevealCoupon}
             quizType={quizType} 
             onRetryWrong={() => retryTest(true)} 
             onRetryAll={() => retryTest(false)} 

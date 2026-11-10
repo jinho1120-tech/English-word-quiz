@@ -1,18 +1,123 @@
 "use client"
 
-import { Trophy, RotateCcw, Mic } from "lucide-react"
+import { Trophy, RotateCcw, Mic, Gift } from "lucide-react"
+import { useEffect, useRef, useState, type PointerEvent } from "react"
 import { HapticButton } from "./haptic-button"
 import { cn } from "@/lib/utils"
 import type { QuizWord } from "./word-quiz"
 
 
+function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome: "won" | "blank" | null; title: string | null; description: string | null; onReveal: () => Promise<void> }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const triggeredRef = useRef(false)
+  const [revealing, setRevealing] = useState(false)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    canvas.width = 640
+    canvas.height = 240
+    const gradient = ctx.createLinearGradient(0, 0, 640, 240)
+    gradient.addColorStop(0, "#d1d5db")
+    gradient.addColorStop(0.5, "#9ca3af")
+    gradient.addColorStop(1, "#e5e7eb")
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = "#374151"
+    ctx.font = "bold 34px sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText("여기를 긁어서 확인하세요!", 320, 130)
+    ctx.font = "24px sans-serif"
+    ctx.fillText("손가락이나 마우스로 문질러 주세요", 320, 175)
+  }, [])
+
+  async function finishScratch() {
+    if (triggeredRef.current) return
+    triggeredRef.current = true
+    setRevealing(true)
+    try {
+      await onReveal()
+    } catch {
+      triggeredRef.current = false
+      setRevealing(false)
+    }
+  }
+
+  function scratch(event: PointerEvent<HTMLCanvasElement>) {
+    if (outcome || revealing) return
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    const rect = canvas.getBoundingClientRect()
+    const x = (event.clientX - rect.left) * (canvas.width / rect.width)
+    const y = (event.clientY - rect.top) * (canvas.height / rect.height)
+    ctx.globalCompositeOperation = "destination-out"
+    ctx.beginPath()
+    ctx.arc(x, y, 34, 0, Math.PI * 2)
+    ctx.fill()
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data
+    let transparent = 0
+    let sampled = 0
+    for (let i = 3; i < pixels.length; i += 64) {
+      sampled++
+      if (pixels[i] < 24) transparent++
+    }
+    if (transparent / sampled > 0.36) void finishScratch()
+  }
+
+  return (
+    <div className="mt-5 overflow-hidden rounded-2xl border border-amber-300/70 bg-amber-50 p-3 text-center">
+      <div className="mb-3 flex items-center justify-center gap-2 font-black text-amber-900">
+        <Gift className="size-5" /> 오늘의 행운 스크래치 카드
+      </div>
+      <div className="relative h-36 overflow-hidden rounded-xl bg-white sm:h-40">
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
+          {outcome === "won" ? (
+            <>
+              <p className="text-xl font-black text-amber-700">🎉 축하해요!</p>
+              <p className="mt-2 text-base font-bold text-foreground">「{title}」 쿠폰 당첨!</p>
+              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
+              <p className="mt-1 text-xs font-medium text-muted-foreground">내 쿠폰함에서 확인해 보세요.</p>
+            </>
+          ) : outcome === "blank" ? (
+            <>
+              <p className="text-xl font-black text-slate-700">🥲 아쉬워요!</p>
+              <p className="mt-2 text-base font-bold text-foreground">「{title}」</p>
+              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
+              <p className="mt-1 text-xs font-medium text-muted-foreground">다음 도전을 응원할게요!</p>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-black text-amber-700">두근두근…</p>
+              <p className="mt-2 text-sm font-semibold text-muted-foreground">어떤 결과가 기다리고 있을까요?</p>
+            </>
+          )}
+        </div>
+        {!outcome && (
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full touch-none"
+            style={{ cursor: "crosshair" }}
+            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); scratch(event) }}
+            onPointerMove={(event) => { if (event.buttons > 0 || event.pressure > 0) scratch(event) }}
+            aria-label="스크래치 카드를 긁어 쿠폰 결과 확인하기"
+          />
+        )}
+      </div>
+      {!outcome && <p className="mt-2 text-xs font-semibold text-amber-800">{revealing ? "결과를 확인하고 있어요…" : "카드 표면을 문질러 긁어 주세요."}</p>}
+    </div>
+  )
+}
+
 interface Props {
   score: number; correctCount: number; total: number; bestStreak: number;
-  wrongWords: QuizWord[]; accent: string; usedHint?: boolean; rewardTitle?: string | null; rewardChecked?: boolean; couponConfigured?: boolean; quizType?: string;
+  wrongWords: QuizWord[]; accent: string; usedHint?: boolean; rewardTitle?: string | null; rewardChecked?: boolean; couponConfigured?: boolean;
+  couponEligible?: boolean; couponOutcome?: "won" | "blank" | null; rewardDescription?: string | null; onRevealCoupon?: () => Promise<void>; quizType?: string;
   onRetryWrong: () => void; onRetryAll: () => void;
 }
 
-export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, couponConfigured = true, quizType, onRetryWrong, onRetryAll }: Props) {
+export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, couponConfigured = true, couponEligible = false, couponOutcome = null, rewardDescription = null, onRevealCoupon = async () => {}, quizType, onRetryWrong, onRetryAll }: Props) {
   const isContextMode = quizType === "context"
   const isEligibleForReward = score === 100 && total >= 10 && !usedHint
 
@@ -77,7 +182,15 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           <span>최고 연속 <span className="font-bold text-foreground">{bestStreak}</span></span>
         </div>
         
-        {rewardTitle ? <p className="mt-5 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-800">🎉 축하해요! 「{rewardTitle}」 쿠폰을 받았어요. 내 쿠폰함을 확인해 보세요!</p> : rewardChecked && !couponConfigured ? <p className="mt-5 rounded-xl border border-border bg-background px-4 py-3 text-center text-sm font-semibold text-foreground">{score === 100 ? "완벽해! 오늘의 단어를 모두 정복했어! 정말 대단해! 🌟" : "끝까지 도전한 네가 정말 멋져! 오늘 배운 단어가 하나 더 네 것이 됐어. 👏"}</p> : rewardChecked ? <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">이번 퀴즈에서는 쿠폰 발행 조건을 충족하지 못했어요. 다음 도전도 응원할게요!</p> : isEligibleForReward && <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">쿠폰 발행 여부는 내 쿠폰함에서 확인할 수 있어요.</p>}
+        {rewardChecked && couponEligible ? (
+          <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} description={rewardDescription} onReveal={onRevealCoupon} />
+        ) : rewardChecked && !couponConfigured ? (
+          <p className="mt-5 rounded-xl border border-border bg-background px-4 py-3 text-center text-sm font-semibold text-foreground">{score === 100 ? "완벽해! 오늘의 단어를 모두 정복했어! 정말 대단해! 🌟" : "끝까지 도전한 네가 정말 멋져! 오늘 배운 단어가 하나 더 네 것이 됐어. 👏"}</p>
+        ) : rewardChecked ? (
+          <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">이번 퀴즈에서는 쿠폰 발행 조건을 충족하지 못했어요. 다음 도전도 응원할게요!</p>
+        ) : isEligibleForReward ? (
+          <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">쿠폰 조건을 확인하고 있어요…</p>
+        ) : null}
       </div>
       
       {!isContextMode && wrongWords.length > 0 && (
