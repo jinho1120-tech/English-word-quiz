@@ -57,6 +57,57 @@ jobs:
             await client.end();
           }
           NODE
+      - name: Dry-run all migration SQL with detailed errors
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import path from "node:path";
+          import pg from "pg";
+
+          const directory = path.resolve("drizzle");
+          const files = fs.readdirSync(directory)
+            .filter((name) => /^\\d+_.+\\.sql$/.test(name))
+            .sort((a, b) => a.localeCompare(b));
+
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          let currentFile = "(starting transaction)";
+          let currentStatement = "";
+          try {
+            await client.query("BEGIN");
+            for (const file of files) {
+              currentFile = file;
+              const sql = fs.readFileSync(path.join(directory, file), "utf8");
+              const statements = sql.split(/-->\\s*statement-breakpoint\\s*/g).map((s) => s.trim()).filter(Boolean);
+              for (let i = 0; i < statements.length; i++) {
+                currentStatement = statements[i];
+                try {
+                  await client.query(currentStatement);
+                } catch (error) {
+                  console.error("MIGRATION DRY-RUN FAILED");
+                  console.error("File:", currentFile);
+                  console.error("Statement number:", i + 1);
+                  console.error("PostgreSQL code:", error.code);
+                  console.error("Message:", error.message);
+                  if (error.detail) console.error("Detail:", error.detail);
+                  if (error.hint) console.error("Hint:", error.hint);
+                  console.error("SQL:", currentStatement.slice(0, 2500));
+                  throw error;
+                }
+              }
+              console.log("Dry-run OK:", file, "(" + statements.length + " statements)");
+            }
+            await client.query("ROLLBACK");
+            console.log("All migration SQL passed; dry-run changes rolled back.");
+          } catch (error) {
+            try { await client.query("ROLLBACK"); } catch {}
+            process.exitCode = 1;
+          } finally {
+            await client.end();
+          }
+          NODE
       - name: Apply all Drizzle migrations
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
