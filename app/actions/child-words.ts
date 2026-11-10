@@ -4,7 +4,7 @@ import { randomInt } from "node:crypto"
 import { and, asc, desc, eq, gt, gte, lte, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familyArcadeSettings, familySettings, wordEntries } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -269,7 +269,7 @@ export async function recordChildQuizResult(
       displayName: childProfiles.displayName,
     }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
     if (childProfile) {
-      const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, childProfile.familyId)).limit(1)
+      const [settings] = await db.select().from(childCouponSettings).where(eq(childCouponSettings.childProfileId, child.childProfileId)).limit(1)
       const hasHint = completed.some((item) => item.hintUsed)
       if (settings?.couponsEnabled) {
         const activeCoupons = await db.select({
@@ -279,12 +279,13 @@ export async function recordChildQuizResult(
           drawWeight: couponTypes.drawWeight,
         }).from(couponTypes).where(and(
           eq(couponTypes.familyId, childProfile.familyId),
+          eq(couponTypes.childProfileId, child.childProfileId),
           eq(couponTypes.isActive, true),
         ))
         sessionResult.couponConfigured = activeCoupons.length > 0
         if (activeCoupons.length > 0 && score >= settings.rewardMinScore &&
             completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
-          // First choose the coupon category by the family's configured probability,
+          // Choose this child's coupon category using their configured probability,
           // then choose an item within that category using its individual weight.
           const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
           let candidates = activeCoupons.filter((item) => item.couponKind === preferredKind)
