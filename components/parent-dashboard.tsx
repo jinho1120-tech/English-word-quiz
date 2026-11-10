@@ -25,7 +25,6 @@ type Child = { id: string; displayName: string; isActive: boolean; createdAt: Da
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
-type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number } | null
 type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }
 type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number }
 type Coupon = { id: string; childProfileId: string | null; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
@@ -37,7 +36,6 @@ export function ParentDashboard({
   members,
   invitations,
   parentRole,
-  settings,
   arcadeSettings,
   coupons,
   couponSettings,
@@ -48,7 +46,6 @@ export function ParentDashboard({
   devices: Device[]
   members: Member[]
   invitations: Invitation[]
-  settings: FamilySettings
   arcadeSettings: ArcadeSettings
   coupons: Coupon[]
   couponSettings: CouponSettings[]
@@ -94,6 +91,10 @@ export function ParentDashboard({
   const selectedCouponSettings = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
   const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
   const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
+
+  useEffect(() => {
+    if (!selectedCouponChildId && children[0]) setSelectedCouponChildId(children[0].id)
+  }, [children, selectedCouponChildId])
 
   useEffect(() => {
     const current = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
