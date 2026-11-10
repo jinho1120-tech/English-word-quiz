@@ -30,7 +30,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
   const params = await searchParams
   const today = todayInSeoul()
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
-  const [data, coupons, calendarData, pacmanStatus] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), getChildCalendarData(date.slice(0, 7)), getChildPacmanStatus()])
+  const [data, couponWallet, calendarData, pacmanStatus] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), getChildCalendarData(date.slice(0, 7)), getChildPacmanStatus()])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-5 px-4 py-5">
@@ -38,7 +38,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
         <div className="min-w-0"><p className="text-xs font-semibold text-muted-foreground">영단어 마스터</p><h1 className="truncate text-xl font-black">{data.childName}의 학습 공간</h1></div>
         <div className="flex shrink-0 items-center gap-2">
           <ChildProfileSettings profileKey={session.childProfileId} />
-          <ChildCouponWallet rewards={coupons} />
+          <ChildCouponWallet rewards={couponWallet.rewards} maxStoredCoupons={couponWallet.maxStoredCoupons} />
         </div>
       </header>
       <PwaInstallGuide />
