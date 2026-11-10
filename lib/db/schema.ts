@@ -137,6 +137,7 @@ export const childCouponSettings = pgTable("child_coupon_settings", {
   rewardMinQuestions: integer("reward_min_questions").default(10).notNull(),
   requireNoHint: boolean("require_no_hint").default(true).notNull(),
   blankCouponProbability: integer("blank_coupon_probability").default(20).notNull(),
+  maxStoredCoupons: integer("max_stored_coupons").default(20).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

@@ -97,6 +97,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   const [childRewardChecked, setChildRewardChecked] = useState(false)
   const [childCouponConfigured, setChildCouponConfigured] = useState(true)
   const [childCouponEligible, setChildCouponEligible] = useState(false)
+  const [childCouponFull, setChildCouponFull] = useState(false)
   const [childCouponOutcome, setChildCouponOutcome] = useState<"won" | "blank" | null>(null)
   
   const [value, setValue] = useState("")
@@ -651,6 +652,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setChildRewardChecked(false)
     setChildCouponConfigured(true)
     setChildCouponEligible(false)
+    setChildCouponFull(false)
     setChildCouponOutcome(null)
     setPhase("quiz")
     
@@ -672,6 +674,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       setChildRewardChecked(true)
       setChildCouponConfigured(result.sessionResult.couponConfigured)
       setChildCouponEligible(result.sessionResult.couponEligible)
+      setChildCouponFull(result.sessionResult.couponFull)
       router.refresh()
     }
   }
@@ -680,7 +683,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (!childMode || !childQuizSessionId || childCouponOutcome) return
     try {
       const result = await revealChildQuizCoupon(childQuizSessionId)
-      setChildCouponOutcome(result.outcome)
+      setChildCouponOutcome(result.outcome === "full" ? null : result.outcome)
+      if (result.outcome === "full") setChildCouponFull(true)
       setChildRewardTitle(result.title)
       setChildRewardDescription(result.description)
       router.refresh()
@@ -1431,6 +1435,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             rewardChecked={childRewardChecked}
             couponConfigured={childCouponConfigured}
             couponEligible={childCouponEligible}
+            couponFull={childCouponFull}
             couponOutcome={childCouponOutcome}
             rewardDescription={childRewardDescription}
             onRevealCoupon={handleRevealCoupon}

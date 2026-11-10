@@ -576,7 +576,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onRepla
 
   return (
     <div className="w-full flex flex-col items-center select-none relative">
-      <div className="mb-2 flex w-full justify-end"><button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</button></div>
+      <div className="mb-2 flex w-full justify-end"><HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton></div>
       {/* 점수 & 스테이지 & 목숨 표시 바 */}
       <div className="w-full flex items-center justify-between px-3 py-1.5 mb-2 rounded-2xl bg-secondary/30 border border-border">
         <div className="flex items-center gap-2">

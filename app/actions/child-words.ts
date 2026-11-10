@@ -1,7 +1,7 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte, lte, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
@@ -257,12 +257,12 @@ export async function recordChildQuizResult(
     eq(childQuizAttempts.quizSessionId, session.quizSessionId),
   )).orderBy(asc(childQuizAttempts.answeredAt))
 
-  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean; couponEligible: boolean } | null = null
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean; couponEligible: boolean; couponFull: boolean; storedCouponCount: number; maxStoredCoupons: number } | null = null
   if (attempts.length >= session.sessionQuestionCount) {
     const completed = attempts.slice(0, session.sessionQuestionCount)
     const correctCount = completed.filter((item) => item.isCorrect).length
     const score = Math.round(correctCount / completed.length * 100)
-    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false, couponEligible: false }
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false, couponEligible: false, couponFull: false, storedCouponCount: 0, maxStoredCoupons: 20 }
 
     const [childProfile] = await db.select({
       familyId: childProfiles.familyId,
@@ -283,10 +283,16 @@ export async function recordChildQuizResult(
           eq(couponTypes.isActive, true),
         ))
         sessionResult.couponConfigured = activeCoupons.length > 0
+        sessionResult.maxStoredCoupons = settings.maxStoredCoupons
         if (activeCoupons.some((item) => item.drawWeight > 0) && score >= settings.rewardMinScore &&
             completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
-          // Draw only after the child scratches the card on the result screen.
-          sessionResult.couponEligible = true
+          const storedRows = await db.select({ id: couponRewards.id }).from(couponRewards).where(and(
+            eq(couponRewards.childProfileId, child.childProfileId),
+            or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
+          ))
+          sessionResult.storedCouponCount = storedRows.length
+          sessionResult.couponFull = sessionResult.storedCouponCount >= settings.maxStoredCoupons
+          sessionResult.couponEligible = !sessionResult.couponFull
         }
       }
     }
@@ -297,119 +303,59 @@ export async function recordChildQuizResult(
 
 export async function revealChildQuizCoupon(quizSessionId: string) {
   const child = await requireChild()
-  if (typeof quizSessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(quizSessionId)) {
-    throw new Error("퀴즈 회차 정보가 올바르지 않습니다.")
-  }
-  const sourceKey = `quiz:${child.childProfileId}:${quizSessionId}`
-  const [existing] = await db.select({
-    title: couponRewards.couponTitleSnapshot,
-    status: couponRewards.status,
-    description: couponTypes.description,
-  }).from(couponRewards)
-    .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
-    .where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
-  if (existing) {
-    return {
-      outcome: existing.status === "blank" ? "blank" as const : "won" as const,
-      title: existing.title,
-      description: existing.description,
-    }
-  }
-
-  const attempts = await db.select({
-    isCorrect: childQuizAttempts.isCorrect,
-    hintUsed: childQuizAttempts.hintUsed,
-  }).from(childQuizAttempts).where(and(
-    eq(childQuizAttempts.childProfileId, child.childProfileId),
-    eq(childQuizAttempts.quizSessionId, quizSessionId),
+  if (typeof quizSessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(quizSessionId)) throw new Error("퀴즈 회차 정보가 올바르지 않습니다.")
+  const sourceKey = "quiz:" + child.childProfileId + ":" + quizSessionId
+  const [existing] = await db.select({ title: couponRewards.couponTitleSnapshot, status: couponRewards.status, description: couponTypes.description })
+    .from(couponRewards).leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
+  if (existing) return { outcome: existing.status === "blank" ? "blank" as const : "won" as const, title: existing.title, description: existing.description }
+  const attempts = await db.select({ isCorrect: childQuizAttempts.isCorrect, hintUsed: childQuizAttempts.hintUsed }).from(childQuizAttempts).where(and(
+    eq(childQuizAttempts.childProfileId, child.childProfileId), eq(childQuizAttempts.quizSessionId, quizSessionId),
   ))
   if (attempts.length === 0) throw new Error("완료된 퀴즈 기록을 찾을 수 없습니다.")
-
-  const [settings] = await db.select().from(childCouponSettings)
-    .where(eq(childCouponSettings.childProfileId, child.childProfileId)).limit(1)
-  const [childProfile] = await db.select({
-    familyId: childProfiles.familyId,
-    displayName: childProfiles.displayName,
-  }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
-  if (!settings?.couponsEnabled || !childProfile) throw new Error("쿠폰 발행 설정을 확인할 수 없습니다.")
-
+  const [childProfile] = await db.select({ familyId: childProfiles.familyId, displayName: childProfiles.displayName }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  if (!childProfile) throw new Error("자녀 프로필을 찾을 수 없습니다.")
+  const activeCoupons = await db.select({ id: couponTypes.id, title: couponTypes.title, description: couponTypes.description, couponKind: couponTypes.couponKind, drawWeight: couponTypes.drawWeight })
+    .from(couponTypes).where(and(eq(couponTypes.familyId, childProfile.familyId), eq(couponTypes.childProfileId, child.childProfileId), eq(couponTypes.isActive, true)))
+  const weightedCoupons = activeCoupons.filter((item) => item.drawWeight > 0)
+  if (weightedCoupons.length === 0) throw new Error("발행할 수 있는 활성 쿠폰이 없습니다.")
   const score = Math.round(attempts.filter((item) => item.isCorrect).length / attempts.length * 100)
   const hasHint = attempts.some((item) => item.hintUsed)
-  if (score < settings.rewardMinScore || attempts.length < settings.rewardMinQuestions ||
-      (settings.requireNoHint && hasHint)) {
-    throw new Error("쿠폰 발행 조건을 충족하지 못했습니다.")
-  }
-
-  const activeCoupons = await db.select({
-    id: couponTypes.id,
-    title: couponTypes.title,
-    description: couponTypes.description,
-    couponKind: couponTypes.couponKind,
-    drawWeight: couponTypes.drawWeight,
-  }).from(couponTypes).where(and(
-    eq(couponTypes.familyId, childProfile.familyId),
-    eq(couponTypes.childProfileId, child.childProfileId),
-    eq(couponTypes.isActive, true),
-  ))
-  if (activeCoupons.length === 0) throw new Error("발행할 수 있는 쿠폰이 없습니다.")
-
-  // First choose the coupon category using the configured overall probability.
-  const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
-  const weightedCoupons = activeCoupons.filter((item) => item.drawWeight > 0)
-  const preferredCandidates = weightedCoupons.filter((item) => item.couponKind === preferredKind)
-  // If a category has no active weighted coupons, fall back to the other available category.
-  // This guarantees that a qualifying quiz always produces one configured coupon.
-  const candidates = preferredCandidates.length > 0
-    ? preferredCandidates
-    : weightedCoupons.filter((item) => item.couponKind !== preferredKind)
-  const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
-  if (totalWeight <= 0) throw new Error("가중치가 설정된 활성 쿠폰이 없습니다.")
-  let ticket = randomInt(totalWeight)
-  const chosen = candidates.find((item) => {
-    ticket -= item.drawWeight
-    return ticket < 0
-  }) ?? candidates[candidates.length - 1]
-  const isBlank = chosen.couponKind === "blank"
-  const [reward] = await db.insert(couponRewards).values({
-    childProfileId: child.childProfileId,
-    // Blank coupons are real issued records too; retain their coupon type for history.
-    couponTypeId: chosen.id,
-    couponTitleSnapshot: chosen.title,
-    status: isBlank ? "blank" : "earned",
-    sourceKey,
-  }).onConflictDoNothing().returning({ id: couponRewards.id })
-  if (!reward) {
-    const [saved] = await db.select({
-      title: couponRewards.couponTitleSnapshot,
-      status: couponRewards.status,
-      description: couponTypes.description,
-    }).from(couponRewards)
-      .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
-      .where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
-    return {
-      outcome: saved?.status === "blank" ? "blank" as const : "won" as const,
-      title: saved?.title ?? chosen.title,
-      description: saved?.description ?? chosen.description,
+  const result = await db.transaction(async (tx) => {
+    // Lock this child settings row to prevent concurrent quiz completions exceeding the wallet limit.
+    const [settings] = await tx.select().from(childCouponSettings).where(eq(childCouponSettings.childProfileId, child.childProfileId)).for("update")
+    if (!settings?.couponsEnabled) throw new Error("쿠폰 발행 설정을 확인할 수 없습니다.")
+    if (score < settings.rewardMinScore || attempts.length < settings.rewardMinQuestions || (settings.requireNoHint && hasHint)) throw new Error("쿠폰 발행 조건을 충족하지 못했습니다.")
+    const [saved] = await tx.select({ title: couponRewards.couponTitleSnapshot, status: couponRewards.status, description: couponTypes.description })
+      .from(couponRewards).leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
+    if (saved) return { created: false, value: { outcome: saved.status === "blank" ? "blank" as const : "won" as const, title: saved.title, description: saved.description } }
+    const storedRows = await tx.select({ id: couponRewards.id }).from(couponRewards).where(and(
+      eq(couponRewards.childProfileId, child.childProfileId), or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
+    ))
+    if (storedRows.length >= settings.maxStoredCoupons) return { created: false, value: { outcome: "full" as const, title: null, description: null } }
+    const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
+    const preferredCandidates = weightedCoupons.filter((item) => item.couponKind === preferredKind)
+    const candidates = preferredCandidates.length ? preferredCandidates : weightedCoupons.filter((item) => item.couponKind !== preferredKind)
+    const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
+    if (totalWeight <= 0) throw new Error("가중치가 설정된 활성 쿠폰이 없습니다.")
+    let ticket = randomInt(totalWeight)
+    const chosen = candidates.find((item) => { ticket -= item.drawWeight; return ticket < 0 }) ?? candidates[candidates.length - 1]
+    const isBlank = chosen.couponKind === "blank"
+    const [reward] = await tx.insert(couponRewards).values({ childProfileId: child.childProfileId, couponTypeId: chosen.id, couponTitleSnapshot: chosen.title, status: isBlank ? "blank" : "earned", sourceKey }).onConflictDoNothing().returning({ id: couponRewards.id })
+    if (!reward) {
+      const [duplicate] = await tx.select({ title: couponRewards.couponTitleSnapshot, status: couponRewards.status, description: couponTypes.description }).from(couponRewards)
+        .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
+      return { created: false, value: { outcome: duplicate?.status === "blank" ? "blank" as const : "won" as const, title: duplicate?.title ?? chosen.title, description: duplicate?.description ?? chosen.description } }
     }
-  }
-
-  await notifyFamilyParents({
-    familyId: childProfile.familyId,
-    childProfileId: child.childProfileId,
-    type: "coupon_issued",
-    title: isBlank ? "꽝 쿠폰이 발행됐어요" : "새 쿠폰이 발행됐어요",
-    message: `${childProfile.displayName}에게 '${chosen.title}' ${isBlank ? "꽝 쿠폰" : "쿠폰"}이 발행됐어요.`,
-    href: "/parent#coupon-rewards",
+    return { created: true, value: { outcome: isBlank ? "blank" as const : "won" as const, title: chosen.title, description: chosen.description }, chosenTitle: chosen.title, isBlank }
   })
-  revalidatePath("/child")
-  revalidatePath("/parent")
-  return {
-    outcome: isBlank ? "blank" as const : "won" as const,
-    title: chosen.title,
-    description: chosen.description,
+  if (result.created) {
+    await notifyFamilyParents({ familyId: childProfile.familyId, childProfileId: child.childProfileId, type: "coupon_issued",
+      title: result.isBlank ? "꽝 쿠폰이 발행됐어요" : "새 쿠폰이 발행됐어요",
+      message: child.childName + "에게 " + result.chosenTitle + " " + (result.isBlank ? "꽝 쿠폰" : "쿠폰") + "이 발행됐어요.", href: "/parent#coupon-rewards" })
+    revalidatePath("/child"); revalidatePath("/parent")
   }
+  return result.value
 }
-
 export async function gradeChildListeningAnswer(id: number, submittedWord: string, submittedMeaning: string) {
   const child = await requireChild()
   if (!Number.isInteger(id) || typeof submittedWord !== "string" || typeof submittedMeaning !== "string") {

@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, desc, eq, gt, isNull } from "drizzle-orm"
+import { and, asc, desc, eq, gt, isNull, or } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -130,6 +130,7 @@ export async function getParentFamilyDashboard() {
     rewardMinQuestions: childCouponSettings.rewardMinQuestions,
     requireNoHint: childCouponSettings.requireNoHint,
     blankCouponProbability: childCouponSettings.blankCouponProbability,
+    maxStoredCoupons: childCouponSettings.maxStoredCoupons,
   }).from(childCouponSettings)
     .innerJoin(childProfiles, eq(childCouponSettings.childProfileId, childProfiles.id))
     .where(eq(childProfiles.familyId, family.id))
@@ -159,7 +160,7 @@ export async function getParentFamilyDashboard() {
   }).from(couponRewards)
     .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
     .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
-    .where(eq(childProfiles.familyId, family.id))
+    .where(and(eq(childProfiles.familyId, family.id), or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank"))))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(30)
 
@@ -400,18 +401,21 @@ export async function updateFamilyRewardSettings(input: {
   rewardMinQuestions: number
   requireNoHint: boolean
   blankCouponProbability: number
+  maxStoredCoupons: number
 }) {
   const { child } = await requireFamilyChild(input?.childProfileId)
   if (typeof input.couponsEnabled !== "boolean" || typeof input.requireNoHint !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   if (!Number.isInteger(input.rewardMinScore) || input.rewardMinScore < 1 || input.rewardMinScore > 100) throw new Error("보상 점수는 1~100점이어야 합니다.")
   if (!Number.isInteger(input.rewardMinQuestions) || input.rewardMinQuestions < 1 || input.rewardMinQuestions > 100) throw new Error("보상 최소 문제 수는 1~100개여야 합니다.")
   if (!Number.isInteger(input.blankCouponProbability) || input.blankCouponProbability < 0 || input.blankCouponProbability > 100) throw new Error("꽝 쿠폰 확률은 0~100%여야 합니다.")
+  if (!Number.isInteger(input.maxStoredCoupons) || input.maxStoredCoupons < 1 || input.maxStoredCoupons > 100) throw new Error("쿠폰 최대 보관 개수는 1~100개여야 합니다.")
   await db.update(childCouponSettings).set({
     couponsEnabled: input.couponsEnabled,
     rewardMinScore: input.rewardMinScore,
     rewardMinQuestions: input.rewardMinQuestions,
     requireNoHint: input.requireNoHint,
     blankCouponProbability: input.blankCouponProbability,
+    maxStoredCoupons: input.maxStoredCoupons,
     updatedAt: new Date(),
   }).where(eq(childCouponSettings.childProfileId, child.id))
   revalidatePath("/parent")
