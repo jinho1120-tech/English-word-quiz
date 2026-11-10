@@ -216,6 +216,23 @@ export async function deleteChildWord(id: number) {
   revalidatePath("/child")
 }
 
+export async function clearChildWords(date: string, subjectId?: string) {
+  const child = await requireChild()
+  validateDate(date)
+  if (subjectId !== undefined && subjectId !== "__all__") {
+    await requireOwnedSubject(child.childProfileId, subjectId)
+  }
+  const conditions = [
+    eq(wordEntries.userId, child.ownerUserId),
+    eq(wordEntries.childProfileId, child.childProfileId),
+    eq(wordEntries.assignmentDate, date),
+  ]
+  if (subjectId && subjectId !== "__all__") conditions.push(eq(wordEntries.subjectId, subjectId))
+  const deleted = await db.delete(wordEntries).where(and(...conditions)).returning({ id: wordEntries.id })
+  revalidatePath("/child")
+  return { count: deleted.length }
+}
+
 export async function recordChildQuizResult(
   id: number,
   isCorrect: boolean,
