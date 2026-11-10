@@ -1,6 +1,6 @@
 "use client"
 
-import { AnchorHTMLAttributes, ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react"
+import { AnchorHTMLAttributes, ButtonHTMLAttributes, HTMLAttributes, ReactNode, useRef } from "react"
 import { haptic } from "@/lib/haptics"
 
 interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
@@ -45,11 +45,11 @@ export function HapticButton({
         checked={false}
         disabled={disabled}
         aria-label={hapticLabel ?? ariaLabel ?? title ?? "버튼"}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 m-0 disabled:cursor-not-allowed"
-        onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
-        onMouseDown={(e) => e.preventDefault()}
-        onChange={(e) => {
-          e.currentTarget.checked = false
+        className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        onClick={stopPropagation ? (event) => event.stopPropagation() : undefined}
+        onMouseDown={(event) => event.preventDefault()}
+        onChange={(event) => {
+          event.currentTarget.checked = false
           haptic()
           onClick?.()
         }}
@@ -64,21 +64,40 @@ interface HapticSummaryProps extends HTMLAttributes<HTMLElement> {
 }
 
 /**
- * Uses the native summary click/keyboard activation so the parent <details>
- * keeps its built-in open/close behavior. No overlay input is placed over it.
+ * Uses the same transparent checkbox activation as HapticButton.
+ * The real summary is activated programmatically so native <details> behavior
+ * and its onClick callback are preserved while the checkbox supplies feedback.
  */
-export function HapticSummary({ hapticLabel: _hapticLabel, className, children, onClick, ...rest }: HapticSummaryProps) {
+export function HapticSummary({ hapticLabel, className, children, onClick, ...rest }: HapticSummaryProps) {
+  const summaryRef = useRef<HTMLElement>(null)
+
   return (
-    <summary
-      className={className}
-      onClick={(event) => {
-        haptic()
-        onClick?.(event)
-      }}
-      {...rest}
-    >
-      {children}
-    </summary>
+    <span className="relative block">
+      <summary
+        ref={summaryRef}
+        aria-hidden="true"
+        tabIndex={-1}
+        className={className}
+        {...rest}
+      >
+        {children}
+      </summary>
+      <input
+        type="checkbox"
+        {...({ switch: "" } as Record<string, string>)}
+        checked={false}
+        aria-label={hapticLabel ?? "항목 펼치기 또는 접기"}
+        className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0"
+        onMouseDown={(event) => event.preventDefault()}
+        onChange={(event) => {
+          event.currentTarget.checked = false
+          haptic()
+          summaryRef.current?.click()
+          // The native summary click above invokes the original callback.
+          void onClick
+        }}
+      />
+    </span>
   )
 }
 
@@ -88,20 +107,37 @@ interface HapticLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
 }
 
 /**
- * Keeps a real anchor as the only interactive element, preserving navigation,
- * open-in-new-tab, and modifier-click behavior while adding click feedback.
+ * Uses the same transparent checkbox activation as HapticButton, then activates
+ * the real anchor so Next.js/client navigation and the supplied click handler run.
  */
-export function HapticLink({ hapticLabel: _hapticLabel, className, children, onClick, ...rest }: HapticLinkProps) {
+export function HapticLink({ hapticLabel, className, children, onClick, ...rest }: HapticLinkProps) {
+  const linkRef = useRef<HTMLAnchorElement>(null)
+
   return (
-    <a
-      className={className}
-      onClick={(event) => {
-        haptic()
-        onClick?.(event)
-      }}
-      {...rest}
-    >
-      {children}
-    </a>
+    <span className={`relative inline-flex align-middle ${className?.includes("w-full") ? "w-full" : ""}`}>
+      <a
+        ref={linkRef}
+        aria-hidden="true"
+        tabIndex={-1}
+        className={className}
+        {...rest}
+        onClick={(event) => onClick?.(event)}
+      >
+        {children}
+      </a>
+      <input
+        type="checkbox"
+        {...({ switch: "" } as Record<string, string>)}
+        checked={false}
+        aria-label={hapticLabel ?? rest["aria-label"] ?? rest.title ?? "링크"}
+        className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0"
+        onMouseDown={(event) => event.preventDefault()}
+        onChange={(event) => {
+          event.currentTarget.checked = false
+          haptic()
+          linkRef.current?.click()
+        }}
+      />
+    </span>
   )
 }
