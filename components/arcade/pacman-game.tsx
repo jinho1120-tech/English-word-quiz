@@ -47,10 +47,11 @@ interface PacmanGameProps {
   dailyPlayLimit: number;
   onGameOver: () => void;
   onReplay: () => Promise<boolean>;
+  replayError?: string;
   onClose: () => void;
 }
 
-export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onReplay, onClose }: PacmanGameProps) {
+export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onReplay, replayError, onClose }: PacmanGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [score, setScore] = useState(0);
@@ -611,6 +612,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onRepla
             <p className="text-xl font-black text-rose-500 mb-0.5">GAME OVER</p>
             <p className="text-xs font-bold text-white mb-1">최종 스테이지: ST.{stage}</p>
             <p className="text-xs font-bold text-amber-300 mb-3">최종 점수: {score}점</p>
+            {replayError && <p role="alert" className="mb-2 text-[11px] font-semibold text-rose-300">{replayError}</p>}
 
             {extraPlaysLeft > 0 ? (
               <HapticButton
