@@ -10,8 +10,9 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
   let operator
   try {
     operator = await requireSuperAdmin()
-  } catch {
-    redirect("/login")
+  } catch (error) {
+    if (error instanceof Error && error.message === "운영자 로그인이 필요합니다.") redirect("/login")
+    notFound()
   }
 
   const params = await searchParams
