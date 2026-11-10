@@ -87,9 +87,12 @@ function validatePin(pin: string) {
 
 
 export async function getFamilyDisplayTerms() {
-  const { currentUserName } = await requireParentFamily()
-  const usesParentTerms = currentUserName === "아빠" || currentUserName === "엄마"
-  return { guardian: usesParentTerms ? "부모" : "보호자", child: usesParentTerms ? "자녀" : "아이" }
+  const { role, currentUserName } = await requireParentFamily()
+  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
+  if (role === "owner") {
+    return { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
+  }
+  return { guardian: currentUserName || "공동관리자", child: "아이" }
 }
 
 export async function getParentFamilyDashboard() {
