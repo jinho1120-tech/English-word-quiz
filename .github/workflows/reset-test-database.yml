@@ -68,7 +68,7 @@ jobs:
 
           const directory = path.resolve("drizzle");
           const files = fs.readdirSync(directory)
-            .filter((name) => /^\\d+_.+\\.sql$/.test(name))
+            .filter((name) => /^\d+_.+\.sql$/.test(name))
             .sort((a, b) => a.localeCompare(b));
 
           const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
@@ -80,7 +80,7 @@ jobs:
             for (const file of files) {
               currentFile = file;
               const sql = fs.readFileSync(path.join(directory, file), "utf8");
-              const statements = sql.split(/-->\\s*statement-breakpoint\\s*/g).map((s) => s.trim()).filter(Boolean);
+              const statements = sql.split(/-->\s*statement-breakpoint\s*/g).map((s) => s.trim()).filter(Boolean);
               for (let i = 0; i < statements.length; i++) {
                 currentStatement = statements[i];
                 try {
