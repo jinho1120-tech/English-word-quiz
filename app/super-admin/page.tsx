@@ -101,7 +101,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
             <h3 className="font-bold">운영 변경 기록</h3>
             {detail.audit.map((entry) => <div key={entry.id} className="rounded-lg bg-muted p-3 text-xs">
               <p className="font-semibold">{entry.action}</p>
-              <p className="text-muted-foreground">{entry.actor_email} · {new Date(entry.created_at).toLocaleString("ko-KR")}</p>
+              <p className="text-muted-foreground">{entry.actorEmail} · {new Date(entry.createdAt).toLocaleString("ko-KR")}</p>
               <p>{JSON.stringify(entry.details)}</p>
             </div>)}
             {detail.audit.length === 0 && <p className="text-sm text-muted-foreground">아직 운영자 변경 기록이 없습니다.</p>}
