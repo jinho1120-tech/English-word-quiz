@@ -8,9 +8,10 @@ export function HapticFeedback() {
   useEffect(() => {
     const selector = [
       "button", "a[href]", "[role='button']", "[role='link']",
-      "input[type='button']", "input[type='submit']",
-      "input[type='checkbox']", "input[type='radio']", "input[type='color']",
-      "select", "summary", "[data-haptic]",
+      "input[type='button']", "input[type='submit']", "input[type='checkbox']",
+      "input[type='radio']", "input[type='color']", "input[type='range']",
+      "select", "summary", "label", "[onclick]", "[tabindex]:not([tabindex='-1'])",
+      "[class~='cursor-pointer']", "[data-haptic]",
     ].join(", ")
 
     const handlePointerDown = (event: PointerEvent) => {
