@@ -20,6 +20,7 @@ const TTS_VOICES = [
 ]
 
 export function ChildLearning({
+  pacmanStatus,
   childName,
   subjects,
   initialWords,
@@ -27,6 +28,7 @@ export function ChildLearning({
   initialDate,
   initialStorage,
 }: {
+  pacmanStatus: { enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number }
   childName: string
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
