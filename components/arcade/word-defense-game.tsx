@@ -22,7 +22,7 @@ type WordDefenseGameProps = {
 
 const WIDTH = 760
 const HEIGHT = 620
-const LANES = [-0.58, 0, 0.58]
+const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'")
@@ -121,7 +121,10 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       if (time - lastSpawnRef.current > spawnInterval && monstersRef.current.length < maxMonsters) {
         const occupied = monstersRef.current.map((monster) => monster.lane)
         const available = LANES.filter((lane) => !occupied.includes(lane))
-        const lane = available.length ? available[Math.floor(Math.random() * available.length)] : LANES[Math.floor(Math.random() * LANES.length)]
+        const lane = available.length ? available[Math.floor(Math.random() * available.length)] : LANES.reduce((best, candidate) => {
+          const nearestDepth = (value: number) => monstersRef.current.filter((monster) => monster.lane === value).reduce((min, monster) => Math.min(min, monster.depth), 1)
+          return nearestDepth(candidate) > nearestDepth(best) ? candidate : best
+        }, LANES[0])
         const usedWords = new Set(monstersRef.current.map((monster) => normalizeWord(monster.word.word)))
         const candidates = cleanWords.filter((item) => !usedWords.has(normalizeWord(item.word)))
         const selected = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : cleanWords[Math.floor(Math.random() * cleanWords.length)]
@@ -198,18 +201,17 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         }
         const depth = monster.depth
         const perspective = depth * depth
-        const x = WIDTH / 2 + monster.lane * (70 + perspective * 360) + Math.sin(monster.phase) * (2 + depth * 5)
+        const x = WIDTH / 2 + monster.lane * (170 + perspective * 180) + Math.sin(monster.phase) * (2 + depth * 5)
         const y = horizonY + 26 + perspective * (HEIGHT - horizonY - 112)
         const radius = 9 + perspective * 47
         const labelFont = 10 + perspective * 19
         const label = monster.word.meaning
-        const labelWidth = Math.min(210, Math.max(66, ctx.measureText(label).width + labelFont * 1.5))
         const labelY = y - radius - 16
         const prefixMatch = typed.length > 0 && normalizeWord(monster.word.word).startsWith(normalizeWord(typed))
         drawGhost(ctx, x, y, radius, monster.phase, prefixMatch)
         ctx.font = `bold ${labelFont}px sans-serif`
         const measured = ctx.measureText(label).width
-        const boxWidth = Math.min(230, Math.max(72, measured + 24))
+        const boxWidth = Math.min(230, Math.max(76, measured + 24))
         const boxHeight = 22 + perspective * 12
         ctx.fillStyle = prefixMatch ? "#fde68a" : "rgba(255,255,255,0.94)"
         ctx.beginPath()
