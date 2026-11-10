@@ -26,7 +26,7 @@ type Device = { id: string; childProfileId: string; childName: string; deviceLab
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
 type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }
-type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number }
+type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number; maxStoredCoupons: number }
 type Coupon = { id: string; childProfileId: string | null; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
 type Reward = { id: string; childProfileId: string; childName: string; title: string; status: string; couponKind: string | null; earnedAt: Date }
 
@@ -72,6 +72,7 @@ export function ParentDashboard({
   const [rewardMinQuestions, setRewardMinQuestions] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.rewardMinQuestions ?? 10)
   const [requireNoHint, setRequireNoHint] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.requireNoHint ?? true)
   const [blankCouponProbability, setBlankCouponProbability] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.blankCouponProbability ?? 20)
+  const [maxStoredCoupons, setMaxStoredCoupons] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.maxStoredCoupons ?? 20)
   const [pacmanEnabled, setPacmanEnabled] = useState(arcadeSettings.pacmanEnabled)
   const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit)
   const [pacmanMinDailyQuestions, setPacmanMinDailyQuestions] = useState(arcadeSettings.pacmanMinDailyQuestions)
@@ -103,6 +104,7 @@ export function ParentDashboard({
     setRewardMinQuestions(current?.rewardMinQuestions ?? 10)
     setRequireNoHint(current?.requireNoHint ?? true)
     setBlankCouponProbability(current?.blankCouponProbability ?? 20)
+    setMaxStoredCoupons(current?.maxStoredCoupons ?? 20)
     setCouponTitle("")
     setCouponDescription("")
     setEditingCouponId(null)
@@ -112,7 +114,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await updateFamilyRewardSettings({ childProfileId: selectedCouponChildId, couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint, blankCouponProbability })
+        await updateFamilyRewardSettings({ childProfileId: selectedCouponChildId, couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint, blankCouponProbability, maxStoredCoupons })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
@@ -329,7 +331,8 @@ export function ParentDashboard({
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
         <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
-        <button disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰함 최대 저장 개수</span><input type="number" min={1} max={100} value={maxStoredCoupons} onChange={(event) => setMaxStoredCoupons(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">자녀별 설정 · 1~100개 · 꽝 쿠폰도 포함됩니다. 가득 차면 새 쿠폰 발급이 잠시 중단됩니다.</span></label>
+        <button disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100 || !Number.isInteger(maxStoredCoupons) || maxStoredCoupons < 1 || maxStoredCoupons > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
         <div className="space-y-3 border-t border-border pt-4">
           <div><h3 className="font-bold">🎮 학습 후 팩맨 게임</h3><p className="text-xs text-muted-foreground">원할 때만 게임을 허용할 수 있어요. 플레이 횟수는 아이별로 관리되며 매일 한국 시간 자정에 초기화됩니다.</p></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pacmanEnabled} onChange={(event) => setPacmanEnabled(event.target.checked)} className="size-4 accent-foreground" />자녀에게 팩맨 게임 허용</label>
