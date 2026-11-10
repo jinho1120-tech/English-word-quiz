@@ -159,21 +159,18 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
           }
         }
         let deckIndex = wordDeckRef.current.findIndex((item) => !usedWords.has(normalizeWord(item.word)))
-        if (deckIndex < 0) {
-          lastSpawnRef.current = time
-          frame = window.requestAnimationFrame(draw)
-          return
+        if (deckIndex >= 0) {
+          const [selected] = wordDeckRef.current.splice(deckIndex, 1)
+          lastDeckWordRef.current = normalizeWord(selected.word)
+          monstersRef.current.push({
+            id: nextIdRef.current++,
+            word: selected,
+            lane,
+            depth: 0,
+            speed: 0.035 + Math.min(0.055, currentScore / 18000),
+            phase: Math.random() * Math.PI * 2,
+          })
         }
-        const [selected] = wordDeckRef.current.splice(deckIndex, 1)
-        lastDeckWordRef.current = normalizeWord(selected.word)
-        monstersRef.current.push({
-          id: nextIdRef.current++,
-          word: selected,
-          lane,
-          depth: 0,
-          speed: 0.035 + Math.min(0.055, currentScore / 18000),
-          phase: Math.random() * Math.PI * 2,
-        })
         lastSpawnRef.current = time
       }
 
