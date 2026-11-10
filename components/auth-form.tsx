@@ -69,11 +69,15 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError 
         setError("비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
         return
       }
+      if (mode === "signup" && inviteToken && !relation) {
+        setError("가족 내 관계를 입력해 주세요. 예: 삼촌, 이모, 할머니")
+        return
+      }
       if (!inviteToken && mode === "signup" && parentRole === "기타 보호자" && !relation) {
         setError("자녀와의 관계를 입력해 주세요.")
         return
       }
-      const displayName = inviteToken ? "공동 관리자" : parentRole === "기타 보호자" ? relation : parentRole
+      const displayName = inviteToken ? relation : parentRole === "기타 보호자" ? relation : parentRole
       const result = mode === "signup"
         ? await authClient.signUp.email({ name: displayName, email: email.trim(), password, callbackURL })
         : await authClient.signIn.email({ email: email.trim(), password, callbackURL })
@@ -97,6 +101,13 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError 
         <button type="button" onClick={() => setMode("signup")} className={`rounded-lg py-2 font-semibold ${mode === "signup" ? "bg-background shadow" : "text-muted-foreground"}`}>회원가입</button>
       </div>
       <form onSubmit={submit} className="space-y-4">
+        {inviteToken && mode === "signup" && (
+          <label className="block space-y-1 text-sm">
+            <span className="font-medium">가족 내 관계</span>
+            <input required value={guardianRelation} onChange={event => setGuardianRelation(event.target.value)} maxLength={30} autoComplete="off" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="예: 삼촌, 이모, 할머니, 할아버지" />
+            <span className="block text-xs text-muted-foreground">가입 후 관리 화면에 표시할 호칭으로 사용됩니다.</span>
+          </label>
+        )}
         {!inviteToken && mode === "signup" && (
           <div className="space-y-2">
             <label htmlFor="parent-role" className="block text-sm font-medium">보호자 구분</label>
