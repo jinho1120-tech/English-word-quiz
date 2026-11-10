@@ -1,14 +1,17 @@
 "use client"
 
 import { useRef, useState, useTransition } from "react"
+import { Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord } from "@/app/actions/parent-words"
+import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord, updateParentChildWord } from "@/app/actions/parent-words"
+import { WordStorageCalendar } from "@/components/word-storage-calendar"
 
-type Subject = { id: string; name: string }
+type Subject = { id: string; name: string; color: string }
+type StorageDate = { date: string; subjectId: string | null; subject: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
 
-export function ParentWordManager({ childProfileId, subjects, initialWords, initialDate, stats }: {
-  childProfileId: string; subjects: Subject[]; initialWords: Word[]; initialDate: string; stats: { total: number; correct: number; accuracy: number; subjects: { name: string; total: number; correct: number; accuracy: number }[] }
+export function ParentWordManager({ childProfileId, subjects, initialWords, initialDate, initialStorage, stats }: {
+  childProfileId: string; subjects: Subject[]; initialWords: Word[]; initialDate: string; initialStorage: StorageDate[]; stats: { total: number; correct: number; accuracy: number; subjects: { name: string; total: number; correct: number; accuracy: number }[] }
 }) {
   const router = useRouter()
   const [date, setDate] = useState(initialDate)
@@ -21,6 +24,11 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState("")
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editSubjectId, setEditSubjectId] = useState("")
+  const [editWord, setEditWord] = useState("")
+  const [editMeaning, setEditMeaning] = useState("")
+  const [editExample, setEditExample] = useState("")
   const [pending, startTransition] = useTransition()
 
   function run(action: () => Promise<unknown>) {
@@ -54,6 +62,22 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
 
   const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
 
+  function beginEdit(item: Word) {
+    setEditingId(item.id)
+    setEditSubjectId(item.subjectId ?? subjects.find((subject) => subject.name === item.subject)?.id ?? subjects[0]?.id ?? "")
+    setEditWord(item.word)
+    setEditMeaning(item.meaning)
+    setEditExample(item.example ?? "")
+  }
+
+  function saveEdit() {
+    if (editingId === null) return
+    run(async () => {
+      await updateParentChildWord(childProfileId, editingId, { subjectId: editSubjectId, word: editWord, meaning: editMeaning, example: editExample })
+      setEditingId(null)
+    })
+  }
+
   return (
     <div className="space-y-5">
       <section className="space-y-3 rounded-2xl border border-border p-4">
@@ -67,7 +91,8 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
         {!stats.total && <p className="text-xs text-muted-foreground">자녀가 퀴즈를 풀면 학습 기록이 쌓입니다.</p>}
       </section>
       <section className="space-y-3 rounded-2xl border border-border p-4">
-        <div className="flex items-center justify-between"><h2 className="font-bold">단어 추가</h2><input type="date" value={date} onChange={(event) => { setDate(event.target.value); router.push("?date=" + event.target.value) }} className="rounded-lg border border-border bg-background px-2 py-1 text-sm" /></div>
+        <div className="flex items-center justify-between"><h2 className="font-bold">단어 추가</h2><span className="text-xs font-semibold text-muted-foreground">{date}</span></div>
+        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} parentChildProfileId={childProfileId} onSelectDate={(nextDate) => { setDate(nextDate); router.push("?date=" + nextDate) }} />
         <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>
         <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => {
           const file = event.target.files?.[0]; event.target.value = ""; if (!file) return
@@ -125,7 +150,15 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <section className="space-y-3">
         <div className="flex items-center justify-between"><h2 className="font-bold">등록된 단어</h2><select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="rounded-lg border border-border bg-background px-2 py-1 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
-        {visibleWords.map((item) => <article key={item.id} className="flex items-start gap-3 rounded-xl border border-border p-3"><div className="min-w-0 flex-1"><p className="font-bold">{item.word}</p><p className="text-sm text-muted-foreground">{item.meaning}</p>{item.example && <p className="mt-1 text-xs text-muted-foreground">{item.example}</p>}<p className="mt-1 text-xs text-muted-foreground">{item.subject}</p></div><button disabled={pending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteParentChildWord(childProfileId, item.id)) }} className="text-xs font-semibold text-red-600">삭제</button></article>)}
+        {visibleWords.map((item) => <article key={item.id} className="rounded-xl border border-border p-3">
+          {editingId === item.id ? <div className="space-y-2">
+            <select value={editSubjectId} onChange={(event) => setEditSubjectId(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>
+            <input value={editWord} onChange={(event) => setEditWord(event.target.value)} placeholder="단어" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <input value={editMeaning} onChange={(event) => setEditMeaning(event.target.value)} placeholder="뜻" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <input value={editExample} onChange={(event) => setEditExample(event.target.value)} placeholder="예문 (선택)" className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <div className="flex gap-2"><button type="button" disabled={pending || !editWord.trim() || !editMeaning.trim() || !editSubjectId} onClick={saveEdit} className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">저장</button><button type="button" onClick={() => setEditingId(null)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</button></div>
+          </div> : <div className="flex items-start gap-3"><div className="min-w-0 flex-1"><p className="font-bold">{item.word}</p><p className="text-sm text-muted-foreground">{item.meaning}</p>{item.example && <p className="mt-1 text-xs text-muted-foreground">{item.example}</p>}<p className="mt-1 text-xs text-muted-foreground">{item.subject}</p></div><div className="flex shrink-0 items-center gap-1"><button type="button" aria-label="단어 수정" title="수정" disabled={pending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></button><button type="button" aria-label="단어 삭제" title="삭제" disabled={pending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteParentChildWord(childProfileId, item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"><Trash2 className="size-4" /></button></div></div>}
+        </article>)}
         {visibleWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">등록된 단어가 없습니다.</p>}
       </section>
     </div>
