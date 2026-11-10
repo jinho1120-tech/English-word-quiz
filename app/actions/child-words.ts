@@ -82,6 +82,12 @@ export async function getChildLearningData(date: string) {
       eq(wordEntries.assignmentDate, date),
     ))
     .orderBy(asc(wordEntries.createdAt))
+  const allWords = await db.select().from(wordEntries)
+    .where(and(
+      eq(wordEntries.userId, child.ownerUserId),
+      eq(wordEntries.childProfileId, child.childProfileId),
+    ))
+    .orderBy(asc(wordEntries.createdAt))
   const wrongWords = await db.select().from(wordEntries)
     .where(and(
       eq(wordEntries.userId, child.ownerUserId),
@@ -112,7 +118,7 @@ export async function getChildLearningData(date: string) {
     accuracy: attempts.length ? Math.round(correctCount / attempts.length * 100) : 0,
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
-  return { childName: child.childName, subjects, words, wrongWords, stats }
+  return { childName: child.childName, subjects, words, allWords, wrongWords, stats }
 }
 
 const CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
