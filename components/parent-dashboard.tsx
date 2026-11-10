@@ -367,7 +367,7 @@ export function ParentDashboard({
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "blank" ? "꽝 쿠폰 · 사용 불가" : reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "blank" ? "꽝 쿠폰 · 사용 대기" : reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
           </div>)}
         </div>
 
