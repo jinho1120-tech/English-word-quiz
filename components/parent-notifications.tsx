@@ -1,6 +1,6 @@
 "use client"
 
-import { HapticButton } from "@/components/haptic-button"
+import { HapticButton, HapticSummary, HapticLink } from "@/components/haptic-button"
 
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -233,7 +233,7 @@ export function ParentNotifications({ initialData }: { initialData: Notification
       {message && <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{message}</p>}
 
       <details className="border-t border-border pt-3">
-        <summary className="cursor-pointer text-sm font-semibold">알림 및 푸시 설정</summary>
+        <HapticSummary className="cursor-pointer text-sm font-semibold">알림 및 푸시 설정</HapticSummary>
         <div className="mt-3 space-y-3">
           <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 p-3">
             <div><p className="text-sm font-semibold">기기 푸시 알림</p><p className="text-xs text-muted-foreground">앱을 닫아도 알림 받기</p></div>
