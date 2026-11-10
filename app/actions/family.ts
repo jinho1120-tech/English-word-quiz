@@ -78,7 +78,7 @@ async function requireParentFamily() {
       }
     }
   })
-  return { userId: session.user.id, family, role, email: session.user.email }
+  return { userId: session.user.id, family, role, email: session.user.email, familyOwnerName: guardian }
 }
 
 function validatePin(pin: string) {
@@ -87,7 +87,7 @@ function validatePin(pin: string) {
 
 
 export async function getParentFamilyDashboard() {
-  const { family, role, userId } = await requireParentFamily()
+  const { family, role, userId, familyOwnerName } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
     rewardMinScore: familySettings.rewardMinScore,
@@ -145,7 +145,9 @@ export async function getParentFamilyDashboard() {
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
-  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
+  const usesParentTerms = familyOwnerName === "아빠" || familyOwnerName === "엄마"
+  const familyTerms = { guardian: usesParentTerms ? "부모" : "보호자", child: usesParentTerms ? "자녀" : "아이" }
+  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
