@@ -6,7 +6,7 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { childProfiles, couponRedemptionTokens, couponRewards, families, familyMembers } from "@/lib/db/schema"
+import { childProfiles, couponRedemptionTokens, couponRewards, couponTypes, families, familyMembers } from "@/lib/db/schema"
 import { notifyFamilyParents } from "@/lib/notifications"
 import { getChildDeviceSession, hashOpaqueToken } from "@/lib/child-auth"
 
@@ -31,9 +31,11 @@ export async function getChildCouponWallet() {
     id: couponRewards.id,
     title: couponRewards.couponTitleSnapshot,
     status: couponRewards.status,
+    couponKind: couponTypes.couponKind,
     earnedAt: couponRewards.earnedAt,
     redeemedAt: couponRewards.redeemedAt,
   }).from(couponRewards)
+    .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
     .where(eq(couponRewards.childProfileId, child.childProfileId))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(100)
@@ -110,7 +112,7 @@ export async function redeemCouponWithToken(token: string) {
         isNull(couponRedemptionTokens.consumedAt),
         gt(couponRedemptionTokens.expiresAt, now),
         eq(childProfiles.familyId, family.id),
-        eq(couponRewards.status, "earned"),
+        or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
       )).limit(1)
     if (!record) throw new Error("이미 사용되었거나 만료된 QR입니다. 자녀에게 새 QR을 요청해 주세요.")
     const [consumed] = await tx.update(couponRedemptionTokens)
