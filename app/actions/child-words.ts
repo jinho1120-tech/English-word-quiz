@@ -257,12 +257,12 @@ export async function recordChildQuizResult(
     eq(childQuizAttempts.quizSessionId, session.quizSessionId),
   )).orderBy(asc(childQuizAttempts.answeredAt))
 
-  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null } | null = null
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean } | null = null
   if (attempts.length >= session.sessionQuestionCount) {
     const completed = attempts.slice(0, session.sessionQuestionCount)
     const correctCount = completed.filter((item) => item.isCorrect).length
     const score = Math.round(correctCount / completed.length * 100)
-    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null }
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false }
 
     const [childProfile] = await db.select({
       familyId: childProfiles.familyId,
@@ -271,8 +271,7 @@ export async function recordChildQuizResult(
     if (childProfile) {
       const [settings] = await db.select().from(familySettings).where(eq(familySettings.familyId, childProfile.familyId)).limit(1)
       const hasHint = completed.some((item) => item.hintUsed)
-      if (settings?.couponsEnabled && score >= settings.rewardMinScore &&
-          completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
+      if (settings?.couponsEnabled) {
         const activeCoupons = await db.select({
           id: couponTypes.id,
           title: couponTypes.title,
@@ -282,7 +281,9 @@ export async function recordChildQuizResult(
           eq(couponTypes.familyId, childProfile.familyId),
           eq(couponTypes.isActive, true),
         ))
-        if (activeCoupons.length > 0) {
+        sessionResult.couponConfigured = activeCoupons.length > 0
+        if (activeCoupons.length > 0 && score >= settings.rewardMinScore &&
+            completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
           // First choose the coupon category by the family's configured probability,
           // then choose an item within that category using its individual weight.
           const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
