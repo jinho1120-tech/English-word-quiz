@@ -28,7 +28,7 @@ type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date 
 type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }
 type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number }
 type Coupon = { id: string; childProfileId: string | null; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
-type Reward = { id: string; childProfileId: string; childName: string; title: string; status: string; earnedAt: Date }
+type Reward = { id: string; childProfileId: string; childName: string; title: string; status: string; couponKind: string | null; earnedAt: Date }
 
 export function ParentDashboard({
   children,
@@ -367,7 +367,7 @@ export function ParentDashboard({
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "blank" ? "꽝 쿠폰 · 사용 대기" : reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
+            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.couponKind === "blank" ? (reward.status === "redeemed" ? "꽝 쿠폰 · 사용 완료" : "꽝 쿠폰 · 사용 대기") : reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
           </div>)}
         </div>
 
