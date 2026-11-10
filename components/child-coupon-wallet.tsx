@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { createCouponUseRequest } from "@/app/actions/coupons"
 
-type Reward = { id: string; title: string; status: string; couponKind: string | null; earnedAt: Date; redeemedAt: Date | null }
+type Reward = { id: string; title: string; description: string | null; status: string; couponKind: string | null; earnedAt: Date; redeemedAt: Date | null }
 
 export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
   const [request, setRequest] = useState<{ rewardId: string; title: string; url: string; expiresAt: Date } | null>(null)
@@ -21,7 +21,7 @@ export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
     startTransition(async () => {
       try {
         const result = await createCouponUseRequest(reward.id)
-        setRequest({ rewardId: reward.id, title: reward.title, url: result.url, expiresAt: result.expiresAt })
+        setRequest({ rewardId: reward.id, title: reward.title, description: result.description, url: result.url, expiresAt: result.expiresAt })
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 QR을 만들지 못했습니다.")
       }
@@ -46,7 +46,7 @@ export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
       {request && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
         <div className="w-full max-w-sm space-y-3 rounded-2xl bg-background p-5 text-center shadow-xl">
           <h3 className="text-lg font-black">부모님께 쿠폰을 보여주세요</h3>
-          <p className="font-semibold">{request.title}</p>
+          <p className="font-semibold">{request.title}</p>{request.description && <p className="text-sm text-muted-foreground">{request.description}</p>}
           <div className="mx-auto flex w-fit rounded-xl bg-white p-3"><QRCodeSVG value={request.url} size={220} level="M" /></div>
           <p className="text-xs text-muted-foreground">부모님이 QR을 스캔한 뒤 사용을 승인하면 쿠폰이 사용 완료로 바뀌어요. 꽝 쿠폰도 같은 방식으로 사용 처리되며, QR은 5분 후 만료됩니다.</p>
           <button onClick={() => setRequest(null)} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold">닫기</button>
