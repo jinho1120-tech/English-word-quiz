@@ -14,6 +14,7 @@ import {
   removeParentAdministrator,
   setChildProfileActive,
   updateFamilyRewardSettings,
+  updateFamilyPacmanSettings,
   createCouponType,
   updateCouponType,
   deleteCouponType,
@@ -25,6 +26,7 @@ type Device = { id: string; childProfileId: string; childName: string; deviceLab
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
 type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number } | null
+type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number }
 type Coupon = { id: string; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
 type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date }
 
@@ -35,6 +37,7 @@ export function ParentDashboard({
   invitations,
   parentRole,
   settings,
+  arcadeSettings,
   coupons,
   rewards,
   familyTerms,
@@ -44,6 +47,7 @@ export function ParentDashboard({
   members: Member[]
   invitations: Invitation[]
   settings: FamilySettings
+  arcadeSettings: ArcadeSettings
   coupons: Coupon[]
   rewards: Reward[]
   parentRole: "owner" | "admin"
@@ -67,6 +71,8 @@ export function ParentDashboard({
   const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
   const [requireNoHint, setRequireNoHint] = useState(settings?.requireNoHint ?? true)
   const [blankCouponProbability, setBlankCouponProbability] = useState(settings?.blankCouponProbability ?? 20)
+  const [pacmanEnabled, setPacmanEnabled] = useState(arcadeSettings.pacmanEnabled)
+  const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit)
   const [couponTitle, setCouponTitle] = useState("")
   const [couponDescription, setCouponDescription] = useState("")
   const [couponKind, setCouponKind] = useState<"regular" | "blank">("regular")
@@ -88,6 +94,18 @@ export function ParentDashboard({
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
+      }
+    })
+  }
+
+  function saveArcadeSettings() {
+    setError("")
+    startTransition(async () => {
+      try {
+        await updateFamilyPacmanSettings({ pacmanEnabled, pacmanDailyPlayLimit })
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "팩맨 게임 설정을 저장하지 못했습니다.")
       }
     })
   }
@@ -288,6 +306,12 @@ export function ParentDashboard({
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
         <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
         <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <div className="space-y-3 border-t border-border pt-4">
+          <div><h3 className="font-bold">🎮 학습 후 팩맨 게임</h3><p className="text-xs text-muted-foreground">원할 때만 게임을 허용할 수 있어요. 플레이 횟수는 아이별로 관리되며 매일 한국 시간 자정에 초기화됩니다.</p></div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pacmanEnabled} onChange={(event) => setPacmanEnabled(event.target.checked)} className="size-4 accent-foreground" />자녀에게 팩맨 게임 허용</label>
+          <label className="block space-y-1 text-sm"><span className="font-medium">아이 한 명당 하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10판 · 게임을 시작할 때 1회 차감됩니다.</span></label>
+          <button disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</button>
+        </div>
         <div className="space-y-3 border-t border-border pt-4">
           <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 {guardianLabel} 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
