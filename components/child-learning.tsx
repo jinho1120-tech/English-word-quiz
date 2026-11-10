@@ -257,8 +257,8 @@ export function ChildLearning({
           </HapticButton>
         </div>
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
-          {subjects.map((subject) => <button type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}
+          <HapticButton type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</HapticButton>
+          {subjects.map((subject) => <HapticButton type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</HapticButton>)}
         </div>}
       </section>
 
@@ -291,16 +291,16 @@ export function ChildLearning({
           } catch (err) { setError(err instanceof Error ? err.message : "AI 단어 추출에 실패했습니다.") }
           finally { setIsScanning(false) }
         }} />
-        <button type="button" disabled={isScanning || isPending || !subjectId} onClick={() => imageInputRef.current?.click()} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isScanning ? "AI가 사진을 분석하고 있어요..." : "사진에서 AI로 단어 추출"}</button>
+        <HapticButton type="button" disabled={isScanning || isPending || !subjectId} onClick={() => imageInputRef.current?.click()} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isScanning ? "AI가 사진을 분석하고 있어요..." : "사진에서 AI로 단어 추출"}</HapticButton>
         {aiWords.length > 0 && <div className="space-y-2">
-          <div className="flex items-center justify-between"><p className="text-sm font-semibold">추출 결과 {aiWords.length}개 · 저장 전 확인</p><button onClick={() => setAiWords([])} className="text-xs text-muted-foreground">닫기</button></div>
+          <div className="flex items-center justify-between"><p className="text-sm font-semibold">추출 결과 {aiWords.length}개 · 저장 전 확인</p><HapticButton onClick={() => setAiWords([])} className="text-xs text-muted-foreground">닫기</HapticButton></div>
           {aiWords.map((item, index) => <div key={index} className="grid grid-cols-1 gap-2 rounded-lg bg-muted p-2">
             <input value={item.word} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, word: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="영어 단어" />
             <input value={item.meaning} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, meaning: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="단어 뜻" />
             <input value={item.example} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, example: event.target.value } : value))} placeholder="예문 (선택)" className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="예문" />
-            <button onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600">제외</button>
+            <HapticButton onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600">제외</HapticButton>
           </div>)}
-          <button disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</button>
+          <HapticButton disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</HapticButton>
         </div>}
       </section>
 
@@ -308,8 +308,8 @@ export function ChildLearning({
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-bold">단어 추가</h2>
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
-            <button type="button" onClick={() => setIsBulkMode(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>하나씩 입력</button>
-            <button type="button" onClick={() => setIsBulkMode(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>일괄 입력</button>
+            <HapticButton type="button" onClick={() => setIsBulkMode(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>하나씩 입력</HapticButton>
+            <HapticButton type="button" onClick={() => setIsBulkMode(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>일괄 입력</HapticButton>
           </div>
         </div>
         <label className="block space-y-1.5">
@@ -323,13 +323,13 @@ export function ChildLearning({
             <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="영어 단어 (예: apple)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
             <input value={meaning} onChange={(event) => setMeaning(event.target.value)} maxLength={200} placeholder="뜻 또는 설명" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
             <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 또는 힌트 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
-            <button disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">단어 추가</button>
+            <HapticButton disabled={isPending || !word.trim() || !meaning.trim() || !subjectId} onClick={add} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">단어 추가</HapticButton>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-xs leading-relaxed text-muted-foreground">한 줄에 한 단어씩 입력하세요. 구분자는 |, 탭, 쉼표를 사용할 수 있어요. 예문은 선택입니다.</p>
             <textarea value={bulkText} onChange={(event) => setBulkText(event.target.value)} rows={7} placeholder={"apple | 사과 | I eat an apple.\nbook | 책\nbeautiful | 아름다운"} className="w-full resize-y rounded-xl border border-border bg-background px-3 py-3 text-sm leading-relaxed" />
-            <button disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</button>
+            <HapticButton disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</HapticButton>
           </div>
         )}
       </section>
@@ -365,9 +365,9 @@ export function ChildLearning({
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 팩맨이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
-          <button type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+          <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
             {!pacmanStatus.eligible ? "학습 조건을 달성하면 게임이 열려요 🔒" : pacmanRemainingPlays > 0 ? "팩맨 게임 시작하기 🎮" : "오늘의 게임을 모두 사용했어요"}
-          </button>
+          </HapticButton>
           <p className="text-[11px] text-muted-foreground">게임 시작 시 1회 차감되며, 게임을 중간에 나가도 사용 횟수는 복구되지 않아요.</p>
         </section>
       )}
@@ -401,12 +401,12 @@ export function ChildLearning({
                 <input value={editWord} onChange={(event) => setEditWord(event.target.value)} maxLength={100} className="w-full rounded-lg border border-border bg-background px-2 py-2 text-sm" />
                 <input value={editMeaning} onChange={(event) => setEditMeaning(event.target.value)} maxLength={200} className="w-full rounded-lg border border-border bg-background px-2 py-2 text-sm" />
                 <input value={editExample} onChange={(event) => setEditExample(event.target.value)} maxLength={2000} placeholder="예문" className="w-full rounded-lg border border-border bg-background px-2 py-2 text-sm" />
-                <div className="flex gap-2"><button disabled={isPending} onClick={() => saveEdit(item.id)} className="text-sm font-bold">저장</button><button onClick={() => setEditingId(null)} className="text-sm text-muted-foreground">취소</button></div>
+                <div className="flex gap-2"><HapticButton disabled={isPending} onClick={() => saveEdit(item.id)} className="text-sm font-bold">저장</HapticButton><HapticButton onClick={() => setEditingId(null)} className="text-sm text-muted-foreground">취소</HapticButton></div>
               </>
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">{item.word}</p><p className="text-sm text-muted-foreground">{item.meaning}</p>{item.example && <p className="mt-1 text-xs text-muted-foreground">{item.example}</p>}</div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs">{item.subject}</span></div>
-                <div className="flex items-center gap-2"><button type="button" aria-label="단어 수정" title="수정" disabled={isPending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></button><button type="button" aria-label="단어 삭제" title="삭제" disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"><Trash2 className="size-4" /></button>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
+                <div className="flex items-center gap-2"><HapticButton type="button" aria-label="단어 수정" title="수정" disabled={isPending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></HapticButton><HapticButton type="button" aria-label="단어 삭제" title="삭제" disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"><Trash2 className="size-4" /></HapticButton>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
               </>
             )}
           </article>
