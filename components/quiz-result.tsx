@@ -36,7 +36,12 @@ function ScratchCouponCard({ outcome, title, onReveal }: { outcome: "won" | "bla
     if (triggeredRef.current) return
     triggeredRef.current = true
     setRevealing(true)
-    await onReveal()
+    try {
+      await onReveal()
+    } catch {
+      triggeredRef.current = false
+      setRevealing(false)
+    }
   }
 
   function scratch(event: PointerEvent<HTMLCanvasElement>) {
