@@ -123,11 +123,15 @@ export async function redeemCouponWithToken(token: string) {
       .where(and(eq(couponRedemptionTokens.id, record.tokenId), isNull(couponRedemptionTokens.consumedAt), gt(couponRedemptionTokens.expiresAt, now)))
       .returning({ id: couponRedemptionTokens.id })
     if (!consumed) throw new Error("이미 처리된 QR입니다.")
-    const [updated] = await tx.update(couponRewards)
-      .set({ status: "redeemed", redeemedAt: now })
-      .where(and(eq(couponRewards.id, record.rewardId), or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank"))))
+    // Once the parent approves, remove the reward itself. Its QR tokens are
+    // deleted automatically through the rewardId ON DELETE CASCADE relation.
+    const [deleted] = await tx.delete(couponRewards)
+      .where(and(
+        eq(couponRewards.id, record.rewardId),
+        or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
+      ))
       .returning({ id: couponRewards.id })
-    if (!updated) throw new Error("쿠폰이 이미 사용 처리되었습니다.")
+    if (!deleted) throw new Error("쿠폰이 이미 사용 처리되었거나 삭제되었습니다.")
   })
   revalidatePath("/parent")
   revalidatePath("/child")
