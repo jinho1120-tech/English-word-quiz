@@ -1,0 +1,66 @@
+name: Reset test database and migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_reset:
+        description: 'Type RESET-TEST-DATABASE to erase the connected database public schema'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-test-db-reset
+  cancel-in-progress: false
+
+jobs:
+  reset-and-migrate:
+    if: ${{ inputs.confirm_reset == 'RESET-TEST-DATABASE' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Validate database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Set DATABASE_URL, NEON_DATABASE_URL, or POSTGRES_URL in GitHub Actions secrets."
+            exit 1
+          fi
+      - name: Reset public schema (destructive)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const result = await client.query("select current_database() as db, current_user as role");
+            console.log("Connected to database:", result.rows[0].db, "as role:", result.rows[0].role);
+            await client.query("DROP SCHEMA IF EXISTS public CASCADE");
+            await client.query("CREATE SCHEMA public");
+            await client.query("GRANT ALL ON SCHEMA public TO CURRENT_USER");
+            console.log("Public schema reset completed.");
+          } finally {
+            await client.end();
+          }
+          NODE
+      - name: Apply all Drizzle migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: pnpm db:migrate
+      - name: Verify migration history
+        run: pnpm exec drizzle-kit check
