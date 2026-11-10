@@ -1,0 +1,100 @@
+name: Diagnose and apply test database migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-test-db-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Validate database secret
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Database secret is missing."
+            exit 1
+          fi
+      - name: Inspect migration metadata (read-only)
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const identity = await client.query("select current_database() as db, current_user as role");
+            console.log("Connected database:", identity.rows[0].db, "role:", identity.rows[0].role);
+            const schemas = await client.query("select schema_name from information_schema.schemata where schema_name in ('public','drizzle') order by schema_name");
+            console.log("Relevant schemas:", schemas.rows);
+            const table = await client.query("select table_schema, table_name from information_schema.tables where table_schema='drizzle' and table_name='__drizzle_migrations'");
+            console.log("Migration history table:", table.rows);
+            if (table.rowCount) {
+              const columns = await client.query("select column_name, data_type from information_schema.columns where table_schema='drizzle' and table_name='__drizzle_migrations' order by ordinal_position");
+              console.log("Migration history columns:", columns.rows);
+              const history = await client.query('select * from "drizzle"."__drizzle_migrations" order by created_at');
+              console.log("Recorded migration count:", history.rowCount);
+              console.log("Recorded migration timestamps:", history.rows.map(row => row.created_at));
+            }
+          } finally {
+            await client.end();
+          }
+          NODE
+      - name: Apply migrations with full error details (no database reset)
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          import { drizzle } from "drizzle-orm/node-postgres";
+          import { migrate } from "drizzle-orm/node-postgres/migrator";
+
+          const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+          const db = drizzle(pool);
+          try {
+            await migrate(db, { migrationsFolder: "./drizzle" });
+            console.log("Drizzle migrations applied successfully.");
+          } catch (error) {
+            console.error("DRIZZLE MIGRATION FAILED");
+            console.error("Name:", error?.name);
+            console.error("Message:", error?.message);
+            console.error("Code:", error?.code);
+            console.error("Detail:", error?.detail);
+            console.error("Hint:", error?.hint);
+            console.error("Constraint:", error?.constraint);
+            console.error("Table:", error?.table);
+            console.error("Schema:", error?.schema);
+            console.error("Stack:", error?.stack);
+            if (error?.cause) {
+              console.error("Cause:", error.cause);
+              console.error("Cause message:", error.cause.message);
+              console.error("Cause code:", error.cause.code);
+              console.error("Cause detail:", error.cause.detail);
+              console.error("Cause stack:", error.cause.stack);
+            }
+            process.exitCode = 1;
+          } finally {
+            await pool.end();
+          }
+          NODE
+      - name: Verify migration history
+        if: success()
+        run: pnpm exec drizzle-kit check
