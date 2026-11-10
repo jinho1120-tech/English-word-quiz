@@ -92,7 +92,6 @@ export function ParentDashboard({
   const [error, setError] = useState("")
   const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
-  const selectedCouponSettings = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
   const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
   const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
   const [couponSection, setCouponSection] = useState<"settings" | "game" | "manage">("settings")
@@ -113,6 +112,7 @@ export function ParentDashboard({
     setCouponTitle("")
     setCouponDescription("")
     setEditingCouponId(null)
+    setIsAddingCoupon(false)
   }, [selectedCouponChildId, couponSettings])
 
   function saveRewardSettings() {
@@ -417,7 +417,7 @@ export function ParentDashboard({
                       <div className="flex shrink-0 items-center gap-1">
                         <HapticButton disabled={isPending || !couponsEnabled} onClick={() => beginEditCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">편집</HapticButton>
                         <HapticButton disabled={isPending || !couponsEnabled} onClick={() => toggleCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "켜기"}</HapticButton>
-                        <HapticButton disabled={isPending} onClick={() => removeCoupon(coupon)} className="rounded-lg px-2 py-2 text-xs text-red-600">삭제</HapticButton>
+                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => removeCoupon(coupon)} className="rounded-lg px-2 py-2 text-xs text-red-600">삭제</HapticButton>
                       </div>
                     </div>
                   ))}
