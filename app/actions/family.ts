@@ -206,6 +206,31 @@ export async function createChildProfile(input: { displayName: string }) {
     sortOrder: 0,
   })
 
+  const [familyRewardDefaults] = await db.select().from(familySettings)
+    .where(eq(familySettings.familyId, family.id)).limit(1)
+  await db.insert(childCouponSettings).values({
+    childProfileId: child.id,
+    couponsEnabled: familyRewardDefaults?.couponsEnabled ?? false,
+    rewardMinScore: familyRewardDefaults?.rewardMinScore ?? 100,
+    rewardMinQuestions: familyRewardDefaults?.rewardMinQuestions ?? 10,
+    requireNoHint: familyRewardDefaults?.requireNoHint ?? true,
+    blankCouponProbability: familyRewardDefaults?.blankCouponProbability ?? 20,
+  }).onConflictDoNothing()
+  const legacyCouponDefaults = await db.select({
+    title: couponTypes.title,
+    description: couponTypes.description,
+    couponKind: couponTypes.couponKind,
+    drawWeight: couponTypes.drawWeight,
+    isActive: couponTypes.isActive,
+  }).from(couponTypes).where(and(eq(couponTypes.familyId, family.id), isNull(couponTypes.childProfileId)))
+  if (legacyCouponDefaults.length) {
+    await db.insert(couponTypes).values(legacyCouponDefaults.map((coupon) => ({
+      familyId: family.id,
+      childProfileId: child.id,
+      ...coupon,
+    })))
+  }
+
   revalidatePath("/parent")
   return { ...child, accessCode }
 }
