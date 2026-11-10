@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { createCouponUseRequest } from "@/app/actions/coupons"
 
-type Reward = { id: string; title: string; status: string; earnedAt: Date; redeemedAt: Date | null }
+type Reward = { id: string; title: string; status: string; couponKind: string | null; earnedAt: Date; redeemedAt: Date | null }
 
 export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
   const [request, setRequest] = useState<{ rewardId: string; title: string; url: string; expiresAt: Date } | null>(null)
@@ -37,7 +37,7 @@ export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
         <div className="mb-3 flex items-center justify-between"><h2 className="font-bold">내 쿠폰 보관함</h2><button type="button" onClick={() => setIsOpen(false)} className="rounded-lg px-2 py-1 text-xs text-muted-foreground">닫기</button></div>
         {rewards.length === 0 ? <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">아직 받은 쿠폰이 없어요. 퀴즈 보상을 받아 보세요!</p> : <div className="space-y-2">{rewards.map((reward) => (
           <article key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="font-semibold">{reward.status === "blank" ? "💥" : "🎁"} {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleDateString("ko-KR")} 발급 · {reward.status === "redeemed" ? "사용 완료" : reward.status === "blank" ? "꽝 쿠폰 · 사용 대기" : "사용 대기"}</p></div>
+            <div className="min-w-0 flex-1"><p className="font-semibold">{reward.couponKind === "blank" ? "💥" : "🎁"} {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleDateString("ko-KR")} 발급 · {reward.status === "redeemed" ? (reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 완료" : "사용 완료") : reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 대기" : "사용 대기"}</p></div>
             {(reward.status === "earned" || reward.status === "blank") && <button disabled={pending} onClick={() => showQr(reward)} className="shrink-0 rounded-lg bg-foreground px-3 py-2 text-xs font-bold text-background disabled:opacity-50">사용하기</button>}
           </article>
         ))}</div>}
