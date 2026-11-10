@@ -2,7 +2,7 @@
 
 import React, { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones } from "lucide-react"
+import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones, Ghost } from "lucide-react"
 import { HapticButton } from "./haptic-button"
 import { cn } from "@/lib/utils"
 import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
@@ -787,6 +787,18 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   }
 
   if (words.length === 0) {
+    if (isMonsterMode && childMode) {
+      return (
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-border bg-gradient-to-b from-emerald-50/80 to-background px-6 py-10 text-center dark:from-emerald-950/20">
+          <div className="mb-4 flex size-24 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner dark:bg-emerald-900/40 dark:text-emerald-200">
+            <Ghost className="size-14 animate-monster-idle" />
+          </div>
+          <p className="text-xl font-black text-foreground">와! 오답 몬스터가 없어요!</p>
+          <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">모든 단어를 잘 맞혔거나, 아직 틀린 단어가 없어요. 지금처럼 멋지게 도전해 봐요!</p>
+          <div className="mt-4 text-2xl" aria-hidden="true">🌟 🎉 🏆</div>
+        </div>
+      )
+    }
     return (
       <div className="rounded-3xl border border-dashed border-border bg-muted/30 px-6 py-12 text-center">
         <p className="text-base font-semibold text-foreground">해당 분류에 단어가 없어요</p>
