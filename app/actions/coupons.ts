@@ -30,6 +30,7 @@ export async function getChildCouponWallet() {
   const rewards = await db.select({
     id: couponRewards.id,
     title: couponRewards.couponTitleSnapshot,
+    description: couponTypes.description,
     status: couponRewards.status,
     couponKind: couponTypes.couponKind,
     earnedAt: couponRewards.earnedAt,
@@ -46,8 +47,8 @@ export async function createCouponUseRequest(rewardId: string) {
   const child = await getChildDeviceSession()
   if (!child) throw new Error("자녀 기기 로그인이 필요합니다.")
   if (typeof rewardId !== "string" || !rewardId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
-  const [reward] = await db.select({ id: couponRewards.id, status: couponRewards.status, title: couponRewards.couponTitleSnapshot })
-    .from(couponRewards).where(and(eq(couponRewards.id, rewardId), eq(couponRewards.childProfileId, child.childProfileId))).limit(1)
+  const [reward] = await db.select({ id: couponRewards.id, status: couponRewards.status, title: couponRewards.couponTitleSnapshot, description: couponTypes.description })
+    .from(couponRewards).leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(and(eq(couponRewards.id, rewardId), eq(couponRewards.childProfileId, child.childProfileId))).limit(1)
   if (!reward || (reward.status !== "earned" && reward.status !== "blank")) throw new Error("사용할 수 있는 쿠폰이 아닙니다.")
   const token = randomBytes(32).toString("base64url")
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000)
@@ -68,7 +69,7 @@ export async function createCouponUseRequest(rewardId: string) {
   }
   const baseUrl = process.env.BETTER_AUTH_URL
   if (!baseUrl) throw new Error("서비스 주소가 설정되지 않았습니다.")
-  return { url: baseUrl.replace(/\/$/, "") + "/parent/coupons/redeem?token=" + encodeURIComponent(token), expiresAt }
+  return { url: baseUrl.replace(/\/$/, "") + "/parent/coupons/redeem?token=" + encodeURIComponent(token), expiresAt, description: reward.description }
 }
 
 export async function getCouponRedemptionDetails(token: string) {
@@ -80,10 +81,12 @@ export async function getCouponRedemptionDetails(token: string) {
     expiresAt: couponRedemptionTokens.expiresAt,
     rewardId: couponRewards.id,
     title: couponRewards.couponTitleSnapshot,
+    description: couponTypes.description,
     status: couponRewards.status,
     childName: childProfiles.displayName,
   }).from(couponRedemptionTokens)
     .innerJoin(couponRewards, eq(couponRedemptionTokens.rewardId, couponRewards.id))
+    .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
     .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
     .where(and(
       eq(couponRedemptionTokens.tokenHash, hashOpaqueToken(token)),
@@ -93,7 +96,7 @@ export async function getCouponRedemptionDetails(token: string) {
       or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
     )).limit(1)
   if (!record) throw new Error("QR이 만료되었거나 이미 사용되었거나, 이 가족의 쿠폰이 아닙니다.")
-  return { childName: record.childName, title: record.title, expiresAt: record.expiresAt }
+  return { childName: record.childName, title: record.title, description: record.description, expiresAt: record.expiresAt }
 }
 
 export async function redeemCouponWithToken(token: string) {
