@@ -228,6 +228,7 @@ export function ParentNotifications({ initialData }: { initialData: Notification
           </div>
         ))}
       </div>
+      {message && <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{message}</p>}
 
       <details className="border-t border-border pt-3">
         <summary className="cursor-pointer text-sm font-semibold">알림 및 푸시 설정</summary>
@@ -252,7 +253,6 @@ export function ParentNotifications({ initialData }: { initialData: Notification
               </label>
             ))}
           </div>
-          {message && <p role="status" className="text-xs text-muted-foreground">{message}</p>}
         </div>
       </details>
     </section>
