@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       (existingOwnedFamily && existingOwnedFamily.id === invitation.familyId)) {
     await db.update(familyInvitations).set({ acceptedAt: new Date() })
       .where(and(eq(familyInvitations.id, invitation.id), isNull(familyInvitations.acceptedAt)))
-    return NextResponse.redirect(inviteLoginUrl(request, token, "already_member"))
+    return NextResponse.redirect(new URL("/parent?invited=already_member", request.url))
   }
 
   await db.insert(familyMembers).values({
