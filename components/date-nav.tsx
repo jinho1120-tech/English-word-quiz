@@ -135,9 +135,9 @@ export function DateNav({ profile, date, today, accent }: { profile: Profile; da
                   key={i}
                   hapticLabel={`${d}일 선택`}
                   onClick={() => go(dateStr)}
-                  wrapperClassName="relative mx-auto flex h-8 w-8"
+                  wrapperClassName="relative mx-auto flex size-8 aspect-square"
                   className={cn(
-                    "flex h-full w-full items-center justify-center rounded-full text-sm transition-colors hover:bg-muted",
+                    "flex size-full aspect-square items-center justify-center rounded-full text-sm transition-colors hover:bg-muted",
                     isSelected && "font-bold text-white hover:opacity-90",
                     isToday && !isSelected && "font-bold text-foreground bg-muted"
                   )}

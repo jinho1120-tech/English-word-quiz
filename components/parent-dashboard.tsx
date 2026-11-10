@@ -1,6 +1,7 @@
 "use client"
 
 import { HapticButton, HapticSummary, HapticLink } from "@/components/haptic-button"
+import { HapticSwitch } from "@/components/haptic-switch"
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -323,10 +324,8 @@ export function ParentDashboard({
         </HapticSummary>
         <div className="mt-4 space-y-4">
         <label className="block space-y-1 text-sm"><span className="font-semibold">쿠폰을 설정할 자녀</span><select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5">{children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}</select>{!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}</label>
-<label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
-          <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
-          <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
-        </label>
+<HapticSwitch checked={couponsEnabled} onCheckedChange={setCouponsEnabled} label="쿠폰 보상 사용" description="퀴즈 보상 기능을 사용할지 설정합니다." />
+        <fieldset disabled={!couponsEnabled} className="space-y-4 disabled:opacity-45">
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 text-sm"><span className="font-medium">최소 정답률 (%)</span><input type="number" min={1} max={100} value={rewardMinScore} onChange={(event) => setRewardMinScore(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
           <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
@@ -334,16 +333,20 @@ export function ParentDashboard({
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
         <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
         <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰함 최대 저장 개수</span><input type="number" min={1} max={100} value={maxStoredCoupons} onChange={(event) => setMaxStoredCoupons(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">자녀별 설정 · 1~100개 · 꽝 쿠폰도 포함됩니다. 가득 차면 새 쿠폰 발급이 잠시 중단됩니다.</span></label>
+        </fieldset>
         <HapticButton disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100 || !Number.isInteger(maxStoredCoupons) || maxStoredCoupons < 1 || maxStoredCoupons > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</HapticButton>
         <div className="space-y-3 border-t border-border pt-4">
           <div><h3 className="font-bold">🎮 학습 후 팩맨 게임</h3><p className="text-xs text-muted-foreground">원할 때만 게임을 허용할 수 있어요. 플레이 횟수는 아이별로 관리되며 매일 한국 시간 자정에 초기화됩니다.</p></div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pacmanEnabled} onChange={(event) => setPacmanEnabled(event.target.checked)} className="size-4 accent-foreground" />자녀에게 팩맨 게임 허용</label>
+          <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="자녀에게 팩맨 게임 허용" />
+          <fieldset disabled={!pacmanEnabled} className="space-y-3 disabled:opacity-45">
           <label className="block space-y-1 text-sm"><span className="font-medium">아이 한 명당 하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10판 · 게임을 시작할 때 1회 차감됩니다.</span></label>
           <label className="block space-y-1 text-sm"><span className="font-medium">팩맨을 위한 하루 최소 단어 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있어요.</span></label>
-           <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={pacmanRequireNoWrongWords} onChange={(event) => setPacmanRequireNoWrongWords(event.target.checked)} className="mt-0.5 size-4 accent-foreground" /><span><span className="block font-medium">남아 있는 모든 오답을 해결해야 게임 허용</span><span className="block text-xs text-muted-foreground">끄면 오답이 남아 있어도 최소 문제 수만 채우면 팩맨을 할 수 있어요.</span></span></label>
+           <HapticSwitch checked={pacmanRequireNoWrongWords} onCheckedChange={setPacmanRequireNoWrongWords} label="남아 있는 모든 오답을 해결해야 게임 허용" description="끄면 오답이 남아 있어도 최소 문제 수만 채우면 팩맨을 할 수 있어요." />
+          </fieldset>
            <HapticButton disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10 || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
         </div>
-        <div className="space-y-3 border-t border-border pt-4">
+        <fieldset disabled={!couponsEnabled} className="space-y-3 border-t border-border pt-4 disabled:opacity-45">
+        <div className="space-y-3">
           <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 {guardianLabel} 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
@@ -369,6 +372,7 @@ export function ParentDashboard({
             </div>}
           </div>)}</div>}
         </div>
+        </fieldset>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
