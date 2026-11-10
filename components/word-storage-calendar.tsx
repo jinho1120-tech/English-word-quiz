@@ -150,6 +150,26 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
             })}
           </div>
 
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="mb-2 text-[11px] font-bold text-muted-foreground">과목별 색상</p>
+            {subjects.length > 0 ? (
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {subjects.map((subject) => (
+                  <div key={subject.id} className="inline-flex min-w-0 items-center gap-1.5">
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+                      style={{ backgroundColor: colors[subject.id] ?? subject.color }}
+                    />
+                    <span className="max-w-[9rem] truncate text-xs text-foreground">{subject.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">등록된 과목이 없습니다.</p>
+            )}
+          </div>
+
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
             <p className="text-[10px] text-muted-foreground">점은 과목별 단어 저장 날짜를 표시해요.</p>
             <button type="button" onClick={() => setIsColorSettingsOpen(true)} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ color: "var(--child-accent, #14B8A6)" }}>
