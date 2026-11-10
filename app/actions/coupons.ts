@@ -37,7 +37,7 @@ export async function getChildCouponWallet() {
     .where(eq(couponRewards.childProfileId, child.childProfileId))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(100)
-  return rewards
+  return rewards.filter((reward) => reward.status !== "blank")
 }
 
 export async function createCouponUseRequest(rewardId: string) {
