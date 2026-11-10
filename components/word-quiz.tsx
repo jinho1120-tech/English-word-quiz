@@ -93,6 +93,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   const [childQuizSessionId, setChildQuizSessionId] = useState("")
   const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
   const [childRewardTitle, setChildRewardTitle] = useState<string | null>(null)
+  const [childRewardDescription, setChildRewardDescription] = useState<string | null>(null)
   const [childRewardChecked, setChildRewardChecked] = useState(false)
   const [childCouponConfigured, setChildCouponConfigured] = useState(true)
   const [childCouponEligible, setChildCouponEligible] = useState(false)
@@ -646,6 +647,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setChildQuizSessionId(crypto.randomUUID())
     setChildSessionQuestionCount(initialDeck.length)
     setChildRewardTitle(null)
+    setChildRewardDescription(null)
     setChildRewardChecked(false)
     setChildCouponConfigured(true)
     setChildCouponEligible(false)
@@ -680,6 +682,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       const result = await revealChildQuizCoupon(childQuizSessionId)
       setChildCouponOutcome(result.outcome)
       setChildRewardTitle(result.title)
+      setChildRewardDescription(result.description)
       router.refresh()
     } catch (error) {
       alert(error instanceof Error ? error.message : "쿠폰을 확인하지 못했습니다. 다시 시도해 주세요.")
@@ -1429,6 +1432,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             couponConfigured={childCouponConfigured}
             couponEligible={childCouponEligible}
             couponOutcome={childCouponOutcome}
+            rewardDescription={childRewardDescription}
             onRevealCoupon={handleRevealCoupon}
             quizType={quizType} 
             onRetryWrong={() => retryTest(true)} 
