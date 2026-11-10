@@ -92,6 +92,13 @@
       "when": 1794320000003,
       "tag": "0012_coupon_wallet_capacity",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794320000004,
+      "tag": "0013_seed_child_coupon_defaults",
+      "breakpoints": true
     }
   ]
 }
