@@ -22,10 +22,11 @@ function formatSelectedDate(value: string) {
   return `${month}월 ${day}일 (${weekday})`
 }
 
-export function WordStorageCalendar({ selectedDate, subjects, initialStorage, onSelectDate }: {
+export function WordStorageCalendar({ selectedDate, subjects, initialStorage, refreshKey = 0, onSelectDate }: {
   selectedDate: string
   subjects: Subject[]
   initialStorage: StorageDate[]
+  refreshKey?: number
   onSelectDate: (date: string) => void
 }) {
   const [month, setMonth] = useState(() => new Date(Number(selectedDate.slice(0, 4)), Number(selectedDate.slice(5, 7)) - 1, 1))
@@ -47,7 +48,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, on
     let active = true
     getChildCalendarData(key).then((rows) => { if (active) setStorage(rows) }).catch(() => {})
     return () => { active = false }
-  }, [key])
+  }, [key, refreshKey])
 
   useEffect(() => {
     setColors(Object.fromEntries(subjects.map((s) => [s.id, s.color])))
