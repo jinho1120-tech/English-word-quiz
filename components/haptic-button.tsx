@@ -69,7 +69,7 @@ interface HapticSummaryProps extends HTMLAttributes<HTMLElement> {
  * and its onClick callback are preserved while the checkbox supplies feedback.
  */
 export function HapticSummary({ hapticLabel, className, children, onClick, ...rest }: HapticSummaryProps) {
-  const summaryRef = useRef<HTMLSummaryElement>(null)
+  const summaryRef = useRef<HTMLElement>(null)
 
   return (
     <span className="relative block">
