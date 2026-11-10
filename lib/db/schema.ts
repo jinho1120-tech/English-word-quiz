@@ -129,9 +129,24 @@ export const familySettings = pgTable("family_settings", {
   familyUnique: uniqueIndex("family_settings_family_unique").on(table.familyId),
 }))
 
+export const childCouponSettings = pgTable("child_coupon_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  couponsEnabled: boolean("coupons_enabled").default(false).notNull(),
+  rewardMinScore: integer("reward_min_score").default(100).notNull(),
+  rewardMinQuestions: integer("reward_min_questions").default(10).notNull(),
+  requireNoHint: boolean("require_no_hint").default(true).notNull(),
+  blankCouponProbability: integer("blank_coupon_probability").default(20).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  childUnique: uniqueIndex("child_coupon_settings_child_unique").on(table.childProfileId),
+}))
+
 export const couponTypes = pgTable("coupon_types", {
   id: uuid("id").defaultRandom().primaryKey(),
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  childProfileId: uuid("child_profile_id").references(() => childProfiles.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 80 }).notNull(),
   description: text("description"),
   couponKind: varchar("coupon_kind", { length: 16 }).default("regular").notNull(),
@@ -141,6 +156,7 @@ export const couponTypes = pgTable("coupon_types", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   familyIdx: index("coupon_types_family_idx").on(table.familyId),
+  childIdx: index("coupon_types_child_idx").on(table.childProfileId),
 }))
 
 export const couponRewards = pgTable("coupon_rewards", {
