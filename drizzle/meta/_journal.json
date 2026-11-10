@@ -71,6 +71,13 @@
       "when": 1794320000000,
       "tag": "0009_family_pacman_arcade",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794278354958,
+      "tag": "0010_pacman_learning_requirements",
+      "breakpoints": true
     }
   ]
 }
