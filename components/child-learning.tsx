@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { GraduationCap, Ghost, Pencil } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { HapticButton } from "@/components/haptic-button"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
+import { PacmanGame } from "@/components/arcade/pacman-game"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -68,6 +69,9 @@ export function ChildLearning({
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "manage">("daily")
+  const [isPacmanOpen, setIsPacmanOpen] = useState(false)
+  const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
+  const [pacmanError, setPacmanError] = useState("")
   const [filterSubjectId, setFilterSubjectId] = useState("")
   const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
   const [isPending, startTransition] = useTransition()
@@ -138,6 +142,20 @@ export function ChildLearning({
     utterance.rate = isSlowMode ? 0.75 : 0.9
     window.speechSynthesis.speak(utterance)
   }
+
+  const reservePacmanPlay = useCallback(async () => {
+    setPacmanError("")
+    try {
+      const result = await startChildPacmanGame()
+      setPacmanRemainingPlays(result.remainingPlays)
+      return true
+    } catch (err) {
+      setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.")
+      return false
+    }
+  }, [])
+
+  const handlePacmanGameOver = useCallback(() => {}, [])
 
   function run(action: () => Promise<unknown>) {
     setError("")
@@ -333,6 +351,39 @@ export function ChildLearning({
             childName={childName}
           />
         </section>
+      )}
+      {activeTab === "wrong" && pacmanStatus.enabled && (
+        <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold">보너스 게임 · 팩맨</h3>
+              <p className="text-xs text-muted-foreground">오늘 남은 게임 {pacmanRemainingPlays} / {pacmanStatus.dailyPlayLimit}판</p>
+            </div>
+          </div>
+          {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
+          <button type="button" disabled={pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanRemainingPlays > 0 ? "팩맨 게임 시작하기 🎮" : "오늘의 게임을 모두 사용했어요"}
+          </button>
+          <p className="text-[11px] text-muted-foreground">게임 시작 시 1회 차감되며, 게임을 중간에 나가도 사용 횟수는 복구되지 않아요.</p>
+        </section>
+      )}
+      {isPacmanOpen && (
+        <div className="fixed inset-0 z-[120] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
+          <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
+            <div className="mb-3 text-center">
+              <h2 className="text-xl font-black">팩맨 아케이드</h2>
+              <p className="text-xs text-muted-foreground">방향키 또는 화면 버튼으로 움직여 보세요!</p>
+            </div>
+            <PacmanGame
+              extraPlaysLeft={pacmanRemainingPlays}
+              dailyPlayLimit={pacmanStatus.dailyPlayLimit}
+              onGameOver={handlePacmanGameOver}
+              onReplay={reservePacmanPlay}
+              onClose={() => setIsPacmanOpen(false)}
+            />
+          </div>
+        </div>
       )}
       {activeTab === "manage" && (
       <section className="space-y-3">
