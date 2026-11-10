@@ -382,6 +382,7 @@ export function ChildLearning({
               dailyPlayLimit={pacmanStatus.dailyPlayLimit}
               onGameOver={handlePacmanGameOver}
               onReplay={reservePacmanPlay}
+              replayError={pacmanError}
               onClose={() => setIsPacmanOpen(false)}
             />
           </div>
