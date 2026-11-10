@@ -16,7 +16,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
 
   const params = await searchParams
   const families = await getSuperAdminFamilies(params.q ?? "")
-  const detail = params.family ? await getSuperAdminFamilyDetail(params.family) : null
+  const detail = params.family && /^[0-9a-f-]{36}$/i.test(params.family) ? await getSuperAdminFamilyDetail(params.family) : null
   if (params.family && !detail) notFound()
 
   return (
