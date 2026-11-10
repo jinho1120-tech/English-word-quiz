@@ -7,7 +7,7 @@ import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
@@ -45,7 +45,7 @@ export function ChildLearning({
   const [aiWords, setAiWords] = useState<{ word: string; meaning: string; example: string }[]>([])
   const [bulkText, setBulkText] = useState("")
   const [isBulkMode, setIsBulkMode] = useState(false)
-  const [managerFilterSubjectId, setManagerFilterSubjectId] = useState("")
+  const [managerFilterSubjectId, setManagerFilterSubjectId] = useState("__all__")
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -391,8 +391,59 @@ export function ChildLearning({
       )}
       {activeTab === "manage" && (
       <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2"><h2 className="font-bold">단어 목록 · {managerWords.length}개</h2><select value={managerFilterSubjectId || subjectId} onChange={(event) => setManagerFilterSubjectId(event.target.value)} className="max-w-36 rounded-lg border border-border bg-background px-2 py-2 text-xs"><option value="__all__">전체 과목</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
-        {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 과목에 등록된 단어가 없습니다.</p>}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="font-bold">단어 목록 ({managerWords.length})</h2>
+          {managerWords.length > 0 && (
+            <HapticButton
+              type="button"
+              disabled={isPending}
+              hapticLabel={managerFilterSubjectId === "__all__" ? "전체 단어 삭제" : "선택 과목 단어 삭제"}
+              onClick={() => {
+                const scope = managerFilterSubjectId === "__all__" ? "전체 과목" : subjects.find((subject) => subject.id === managerFilterSubjectId)?.name ?? "선택 과목"
+                const confirmMessage = managerFilterSubjectId === "__all__"
+                  ? `${date}에 등록한 모든 과목의 단어 ${managerWords.length}개를 정말 삭제할까요?`
+                  : `${date}에 등록한 [${scope}] 단어 ${managerWords.length}개를 모두 삭제할까요?`
+                if (window.confirm(confirmMessage + " 삭제한 단어는 복구할 수 없습니다.")) {
+                  run(async () => {
+                    const result = await clearChildWords(date, managerFilterSubjectId === "__all__" ? undefined : managerFilterSubjectId)
+                    setEditingId(null)
+                    setManagerFilterSubjectId("__all__")
+                    setError(`단어 ${result.count}개를 삭제했습니다.`)
+                  })
+                }
+              }}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 disabled:opacity-40"
+            >
+              <Trash2 className="size-3.5" /> {managerFilterSubjectId === "__all__" ? "전체 삭제" : "과목 삭제"}
+            </HapticButton>
+          )}
+        </div>
+        <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">
+          <HapticButton
+            type="button"
+            hapticLabel="전체 과목 목록 필터"
+            onClick={() => setManagerFilterSubjectId("__all__")}
+            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${managerFilterSubjectId === "__all__" ? "bg-foreground text-background" : "border border-border bg-muted text-muted-foreground"}`}
+          >
+            전체 <span className="ml-1 rounded-full bg-background/20 px-1.5">{initialWords.length}</span>
+          </HapticButton>
+          {subjects.map((subject) => {
+            const count = initialWords.filter((item) => item.subjectId === subject.id || (!item.subjectId && item.subject === subject.name)).length
+            if (!count) return null
+            return (
+              <HapticButton
+                type="button"
+                key={subject.id}
+                hapticLabel={`${subject.name} 목록 필터`}
+                onClick={() => setManagerFilterSubjectId(subject.id)}
+                className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${managerFilterSubjectId === subject.id ? "bg-foreground text-background" : "border border-border bg-muted text-muted-foreground"}`}
+              >
+                {subject.name} <span className="ml-1 rounded-full bg-background/20 px-1.5">{count}</span>
+              </HapticButton>
+            )
+          })}
+        </div>
+        {managerWords.length === 0 && <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">이 날짜에 등록된 단어가 없습니다.</p>}
         {managerWords.map((item) => (
           <article key={item.id} className="space-y-2 rounded-xl border border-border p-3">
             {editingId === item.id ? (
