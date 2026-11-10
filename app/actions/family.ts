@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, desc, eq, gt, isNull, ne } from "drizzle-orm"
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -157,7 +157,7 @@ export async function getParentFamilyDashboard() {
     notifiedAt: couponRewards.notifiedAt,
   }).from(couponRewards)
     .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
-    .where(and(eq(childProfiles.familyId, family.id), ne(couponRewards.status, "blank")))
+    .where(eq(childProfiles.familyId, family.id))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(30)
 
