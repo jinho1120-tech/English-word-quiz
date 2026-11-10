@@ -5,6 +5,13 @@ import { db } from "@/lib/db"
 import { familyInvitations, familyMembers, families } from "@/lib/db/schema"
 import { hashOpaqueToken } from "@/lib/child-auth"
 
+function inviteLoginUrl(request: NextRequest, token: string, error: string) {
+  const url = new URL("/login", request.url)
+  url.searchParams.set("invite", token)
+  url.searchParams.set("invite_error", error)
+  return url
+}
+
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token") || ""
   if (token.length < 30 || token.length > 200) {
@@ -18,35 +25,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  const email = session.user.email.trim().toLowerCase()
   const tokenHash = hashOpaqueToken(token)
-  const now = new Date()
-
   const [invitation] = await db.select({
     id: familyInvitations.id,
     familyId: familyInvitations.familyId,
     email: familyInvitations.email,
     invitedByUserId: familyInvitations.invitedByUserId,
-  }).from(familyInvitations).where(and(
-    eq(familyInvitations.tokenHash, tokenHash),
-    eq(familyInvitations.email, email),
-    isNull(familyInvitations.acceptedAt),
-    isNull(familyInvitations.revokedAt),
-    gt(familyInvitations.expiresAt, now),
-  )).limit(1)
+    expiresAt: familyInvitations.expiresAt,
+    acceptedAt: familyInvitations.acceptedAt,
+    revokedAt: familyInvitations.revokedAt,
+  }).from(familyInvitations).where(eq(familyInvitations.tokenHash, tokenHash)).limit(1)
 
-  if (!invitation) {
-    return NextResponse.redirect(new URL("/login?invite_error=expired_or_email_mismatch", request.url))
+  if (!invitation || invitation.revokedAt || invitation.acceptedAt || invitation.expiresAt <= new Date()) {
+    return NextResponse.redirect(inviteLoginUrl(request, token, "expired"))
+  }
+
+  const email = session.user.email.trim().toLowerCase()
+  if (email !== invitation.email) {
+    return NextResponse.redirect(inviteLoginUrl(request, token, "email_mismatch"))
   }
 
   const [existingOwnedFamily] = await db.select({ id: families.id })
     .from(families).where(eq(families.ownerUserId, session.user.id)).limit(1)
-  const [existingMembership] = await db.select({ familyId: familyMembers.familyId }).from(familyMembers).where(eq(familyMembers.userId, session.user.id)).limit(1)
-  if (existingMembership && existingMembership.familyId !== invitation.familyId) {
-    return NextResponse.redirect(new URL("/login?invite_error=already_has_family", request.url))
+  const [existingMembership] = await db.select({ familyId: familyMembers.familyId })
+    .from(familyMembers).where(eq(familyMembers.userId, session.user.id)).limit(1)
+
+  if ((existingMembership && existingMembership.familyId !== invitation.familyId) ||
+      (existingOwnedFamily && existingOwnedFamily.id !== invitation.familyId)) {
+    return NextResponse.redirect(inviteLoginUrl(request, token, "already_has_family"))
   }
-  if (existingOwnedFamily && existingOwnedFamily.id !== invitation.familyId) {
-    return NextResponse.redirect(new URL("/login?invite_error=already_has_family", request.url))
+
+  if ((existingMembership && existingMembership.familyId === invitation.familyId) ||
+      (existingOwnedFamily && existingOwnedFamily.id === invitation.familyId)) {
+    await db.update(familyInvitations).set({ acceptedAt: new Date() })
+      .where(and(eq(familyInvitations.id, invitation.id), isNull(familyInvitations.acceptedAt)))
+    return NextResponse.redirect(inviteLoginUrl(request, token, "already_member"))
   }
 
   await db.insert(familyMembers).values({
@@ -57,12 +70,12 @@ export async function GET(request: NextRequest) {
     invitedByUserId: invitation.invitedByUserId,
   }).onConflictDoNothing()
 
-  await db.update(familyInvitations).set({ acceptedAt: now })
+  await db.update(familyInvitations).set({ acceptedAt: new Date() })
     .where(and(
       eq(familyInvitations.id, invitation.id),
       isNull(familyInvitations.acceptedAt),
       isNull(familyInvitations.revokedAt),
-      gt(familyInvitations.expiresAt, now),
+      gt(familyInvitations.expiresAt, new Date()),
     ))
 
   return NextResponse.redirect(new URL("/parent?invited=success", request.url))
