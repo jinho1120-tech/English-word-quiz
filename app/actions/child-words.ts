@@ -553,45 +553,70 @@ function todayInSeoulForArcade() {
   return `${part("year")}-${part("month")}-${part("day")}`
 }
 
-export async function getChildPacmanStatus() {
-  const child = await requireChild()
+async function getPacmanEligibility(childProfileId: string) {
   const [profile] = await db.select({ familyId: childProfiles.familyId })
-    .from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+    .from(childProfiles).where(eq(childProfiles.id, childProfileId)).limit(1)
   if (!profile) throw new Error("아이 프로필을 찾을 수 없습니다.")
   const [settings] = await db.select({
     pacmanEnabled: familyArcadeSettings.pacmanEnabled,
     pacmanDailyPlayLimit: familyArcadeSettings.pacmanDailyPlayLimit,
+    pacmanMinDailyQuestions: familyArcadeSettings.pacmanMinDailyQuestions,
+    pacmanRequireNoWrongWords: familyArcadeSettings.pacmanRequireNoWrongWords,
   }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, profile.familyId)).limit(1)
-  const dailyPlayLimit = settings?.pacmanDailyPlayLimit ?? 1
   const today = todayInSeoulForArcade()
+  const dayStart = new Date(`${today}T00:00:00+09:00`)
+  const [questionCount] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(childQuizAttempts)
+    .where(and(eq(childQuizAttempts.childProfileId, childProfileId), gte(childQuizAttempts.answeredAt, dayStart)))
+  const [wrongCount] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(wordEntries)
+    .where(and(eq(wordEntries.childProfileId, childProfileId), gt(wordEntries.wrongCount, 0)))
+  const dailyQuestionCount = Number(questionCount?.total ?? 0)
+  const outstandingWrongCount = Number(wrongCount?.total ?? 0)
+  const minDailyQuestions = settings?.pacmanMinDailyQuestions ?? 10
+  const requireNoWrongWords = settings?.pacmanRequireNoWrongWords ?? true
+  const questionsMet = dailyQuestionCount >= minDailyQuestions
+  const wrongWordsCleared = outstandingWrongCount === 0
+  return {
+    settings, today, dailyQuestionCount, outstandingWrongCount, minDailyQuestions,
+    requireNoWrongWords, questionsMet, wrongWordsCleared,
+    eligible: questionsMet && (!requireNoWrongWords || wrongWordsCleared),
+  }
+}
+
+export async function getChildPacmanStatus() {
+  const child = await requireChild()
+  const eligibility = await getPacmanEligibility(child.childProfileId)
+  const dailyPlayLimit = eligibility.settings?.pacmanDailyPlayLimit ?? 1
   const [usage] = await db.select({ playsUsed: childPacmanDailyPlays.playsUsed })
     .from(childPacmanDailyPlays)
-    .where(and(eq(childPacmanDailyPlays.childProfileId, child.childProfileId), eq(childPacmanDailyPlays.playDate, today)))
+    .where(and(eq(childPacmanDailyPlays.childProfileId, child.childProfileId), eq(childPacmanDailyPlays.playDate, eligibility.today)))
     .limit(1)
   const playsUsed = usage?.playsUsed ?? 0
   return {
-    enabled: settings?.pacmanEnabled ?? false,
-    dailyPlayLimit,
-    playsUsed,
+    enabled: eligibility.settings?.pacmanEnabled ?? false,
+    dailyPlayLimit, playsUsed,
     remainingPlays: Math.max(0, dailyPlayLimit - playsUsed),
+    dailyQuestionCount: eligibility.dailyQuestionCount,
+    minDailyQuestions: eligibility.minDailyQuestions,
+    outstandingWrongCount: eligibility.outstandingWrongCount,
+    requireNoWrongWords: eligibility.requireNoWrongWords,
+    eligible: eligibility.eligible,
   }
 }
 
 export async function startChildPacmanGame() {
   const child = await requireChild()
-  const [profile] = await db.select({ familyId: childProfiles.familyId })
-    .from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
-  if (!profile) throw new Error("아이 프로필을 찾을 수 없습니다.")
-  const [settings] = await db.select({
-    pacmanEnabled: familyArcadeSettings.pacmanEnabled,
-    pacmanDailyPlayLimit: familyArcadeSettings.pacmanDailyPlayLimit,
-  }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, profile.familyId)).limit(1)
-  if (!settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
-  const dailyPlayLimit = settings.pacmanDailyPlayLimit
-  const today = todayInSeoulForArcade()
+  const eligibility = await getPacmanEligibility(child.childProfileId)
+  if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
+  if (!eligibility.eligible) {
+    if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 팩맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
+    throw new Error("오늘의 오답 단어를 모두 정리한 뒤 팩맨을 할 수 있어요.")
+  }
+  const dailyPlayLimit = eligibility.settings.pacmanDailyPlayLimit
   const result = await db.execute(sql`
     INSERT INTO child_pacman_daily_plays (child_profile_id, play_date, plays_used)
-    VALUES (${child.childProfileId}::uuid, ${today}, 1)
+    VALUES (${child.childProfileId}::uuid, ${eligibility.today}, 1)
     ON CONFLICT (child_profile_id, play_date)
     DO UPDATE SET plays_used = child_pacman_daily_plays.plays_used + 1, updated_at = now()
     WHERE child_pacman_daily_plays.plays_used < ${dailyPlayLimit}
