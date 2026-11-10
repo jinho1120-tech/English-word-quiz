@@ -10,11 +10,13 @@ export function HapticFeedback() {
       "button", "a[href]", "[role='button']", "[role='link']",
       "input[type='button']", "input[type='submit']", "input[type='checkbox']",
       "input[type='radio']", "input[type='color']", "input[type='range']",
-      "select", "summary", "label", "[onclick]", "[tabindex]:not([tabindex='-1'])",
+      "select", "summary", "label", "[tabindex]:not([tabindex='-1'])",
       "[class~='cursor-pointer']", "[data-haptic]",
     ].join(", ")
 
-    const handlePointerDown = (event: PointerEvent) => {
+    // Use click as the single activation point. This covers pointer, touch,
+    // keyboard and assistive-technology activation without relying on pointerdown.
+    const handleClick = (event: MouseEvent) => {
       const target = event.target
       if (!(target instanceof Element)) return
       const control = target.closest(selector) as HTMLElement | null
@@ -24,23 +26,8 @@ export function HapticFeedback() {
       haptic()
     }
 
-    // Keyboard activation has no pointerdown event.
-    const handleKeyboardClick = (event: MouseEvent) => {
-      if (event.detail !== 0) return
-      const target = event.target
-      if (!(target instanceof Element)) return
-      const control = target.closest(selector) as HTMLElement | null
-      if (!control || control.getAttribute("aria-disabled") === "true") return
-      if ("disabled" in control && Boolean((control as HTMLButtonElement).disabled)) return
-      haptic()
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown, true)
-    document.addEventListener("click", handleKeyboardClick, true)
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown, true)
-      document.removeEventListener("click", handleKeyboardClick, true)
-    }
+    document.addEventListener("click", handleClick, true)
+    return () => document.removeEventListener("click", handleClick, true)
   }, [])
 
   return null
