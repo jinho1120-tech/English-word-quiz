@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord, deleteParentChildWordsByDate, updateParentChildWord } from "@/app/actions/parent-words"
+import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord, updateParentChildWord } from "@/app/actions/parent-words"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 
 type Subject = { id: string; name: string; color: string }
@@ -16,7 +16,6 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
   const router = useRouter()
   const [date, setDate] = useState(initialDate)
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "")
-  const [listSubjectId, setListSubjectId] = useState("all")
   const [word, setWord] = useState("")
   const [meaning, setMeaning] = useState("")
   const [example, setExample] = useState("")
@@ -61,7 +60,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
     setBulkText("")
   }
 
-  const visibleWords = listSubjectId === "all" ? initialWords : initialWords.filter((item) => item.subjectId === listSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === listSubjectId)?.name))
+  const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
 
   function beginEdit(item: Word) {
     setEditingId(item.id)
@@ -150,7 +149,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
       </section>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">등록된 단어</h2><div className="flex items-center gap-2"><select value={listSubjectId} onChange={(event) => setListSubjectId(event.target.value)} className="rounded-lg border border-border bg-background px-2 py-1 text-sm"><option value="all">전체 과목</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select><button type="button" disabled={pending || visibleWords.length === 0} onClick={() => { const scope = listSubjectId === "all" ? "전체 과목" : subjects.find((subject) => subject.id === listSubjectId)?.name ?? "선택 과목"; if (window.confirm(date + "의 " + scope + " 단어 " + visibleWords.length + "개를 모두 삭제할까요? 삭제한 단어는 복구할 수 없습니다.")) run(async () => { const result = await deleteParentChildWordsByDate(childProfileId, date, listSubjectId === "all" ? null : listSubjectId); setEditingId(null); setListSubjectId("all"); setError("단어 " + result.count + "개를 삭제했습니다.") }) }} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 disabled:opacity-40"><Trash2 className="size-3.5" /> 일괄삭제</button></div></div>
+        <div className="flex items-center justify-between"><h2 className="font-bold">등록된 단어</h2><select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="rounded-lg border border-border bg-background px-2 py-1 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
         {visibleWords.map((item) => <article key={item.id} className="rounded-xl border border-border p-3">
           {editingId === item.id ? <div className="space-y-2">
             <select value={editSubjectId} onChange={(event) => setEditSubjectId(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>
