@@ -32,7 +32,7 @@ jobs:
             echo "::error::Database secret is missing."
             exit 1
           fi
-      - name: Safely remove stale migration history
+      - name: Validate test database and migration history
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -55,11 +55,22 @@ jobs:
             `);
             const tableCount = tables.rows[0].count;
             console.log("Existing public tables:", tableCount);
-            if (tableCount !== 0) {
-              throw new Error("Safety stop: public schema is not empty. Migration history was not changed.");
+            if (tableCount === 0) {
+              await client.query('DROP SCHEMA IF EXISTS "drizzle" CASCADE');
+              console.log("Empty public schema: removed stale Drizzle history so all migrations can run from the beginning.");
+            } else {
+              const historyTable = await client.query("select to_regclass('drizzle.__drizzle_migrations') as name");
+              if (!historyTable.rows[0].name) {
+                throw new Error("Safety stop: existing public tables have no Drizzle migration history.");
+              }
+              const history = await client.query('select count(*)::int as count from "drizzle"."__drizzle_migrations"');
+              const appliedCount = history.rows[0].count;
+              console.log("Existing applied migration count:", appliedCount);
+              if (![12, 13].includes(appliedCount)) {
+                throw new Error("Safety stop: expected 12 pending or 13 already-applied migrations.");
+              }
+              console.log("Existing public schema and migration history preserved; only pending migrations will be applied.");
             }
-            await client.query('DROP SCHEMA IF EXISTS "drizzle" CASCADE');
-            console.log("Removed stale Drizzle migration history. Public schema was not touched.");
           } finally {
             await client.end();
           }
@@ -111,7 +122,7 @@ jobs:
             console.log("Applied migration count:", history.rows[0].count);
             console.log("Public table count:", tables.rows[0].count);
             console.log("Required feature tables:", required.rows.map(row => row.table_name));
-            if (history.rows[0].count !== 12) throw new Error("Expected exactly 12 applied migrations.");
+            if (history.rows[0].count !== 13) throw new Error("Expected exactly 13 applied migrations.");
             if (tables.rows[0].count < 1) throw new Error("No public tables were created.");
             if (required.rowCount !== 5) throw new Error("One or more required feature tables are missing.");
           } finally {
