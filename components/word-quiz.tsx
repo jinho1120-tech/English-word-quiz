@@ -4,7 +4,6 @@ import React, { useMemo, useRef, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones } from "lucide-react"
 import { HapticButton } from "./haptic-button"
-import { haptic } from "@/lib/haptics"
 import { cn } from "@/lib/utils"
 import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
 import { recordChildQuizResult, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
@@ -95,6 +94,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   const [childSessionQuestionCount, setChildSessionQuestionCount] = useState(0)
   const [childRewardTitle, setChildRewardTitle] = useState<string | null>(null)
   const [childRewardChecked, setChildRewardChecked] = useState(false)
+  const [childCouponConfigured, setChildCouponConfigured] = useState(true)
   
   const [value, setValue] = useState("")
   // 💡 리스닝(학교 시험 대비) 모드용 뜻 입력창
@@ -645,6 +645,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     setChildSessionQuestionCount(initialDeck.length)
     setChildRewardTitle(null)
     setChildRewardChecked(false)
+    setChildCouponConfigured(true)
     setPhase("quiz")
     
     if (quizType !== "speaking") {
@@ -663,6 +664,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz, sessionQuestionCount: childSessionQuestionCount })
     if (result?.sessionResult) {
       setChildRewardChecked(true)
+      setChildCouponConfigured(result.sessionResult.couponConfigured)
       if (result.sessionResult.rewardTitle) setChildRewardTitle(result.sessionResult.rewardTitle)
       router.refresh()
     }
@@ -705,8 +707,6 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (!guess) return
     try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() } catch (e) {}
     
-    haptic()
-
     if (["아빠최고", "아빠사랑해", "지온천재", "예온천재"].includes(guess)) {
       if (!DAD_PHONE) {
         alert("아빠 전화번호 설정 오류!");
@@ -1397,6 +1397,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             usedHint={usedHintInQuiz}
             rewardTitle={childRewardTitle}
             rewardChecked={childRewardChecked}
+            couponConfigured={childCouponConfigured}
             quizType={quizType} 
             onRetryWrong={() => retryTest(true)} 
             onRetryAll={() => retryTest(false)} 

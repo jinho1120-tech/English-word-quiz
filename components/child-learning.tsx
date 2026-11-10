@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState, useTransition } from "react"
+import { GraduationCap, Ghost, Pencil } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
+import { HapticButton } from "@/components/haptic-button"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
@@ -67,6 +69,7 @@ export function ChildLearning({
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "manage">("daily")
   const [filterSubjectId, setFilterSubjectId] = useState("")
+  const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
   const [isPending, startTransition] = useTransition()
 
   async function playPronunciation(targetText: string) {
@@ -139,7 +142,11 @@ export function ChildLearning({
   function run(action: () => Promise<unknown>) {
     setError("")
     startTransition(async () => {
-      try { await action(); router.refresh() }
+      try {
+        await action()
+        setCalendarRefreshVersion((version) => version + 1)
+        router.refresh()
+      }
       catch (err) { setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.") }
     })
   }
@@ -201,15 +208,37 @@ export function ChildLearning({
   return (
     <div className="space-y-5">
       <section className="space-y-3">
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-muted/50 p-1">
-          <button onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined}>🎓 날짜별 퀴즈</button>
-          <button onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined}>👻 오답 몬스터</button>
-          <button onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} className={`rounded-xl px-2 py-3 text-xs font-bold transition ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined}>✏️ 단어 입력</button>
+        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
+        <div className="grid grid-cols-3 gap-1 sm:gap-1.5 rounded-2xl border border-border bg-muted/50 p-1 sm:p-1.5">
+          <HapticButton
+            hapticLabel="날짜별 퀴즈 탭"
+            onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
+            wrapperClassName="relative flex h-full"
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+          >
+            <GraduationCap className="size-4 shrink-0" /> <span>날짜별 퀴즈</span>
+          </HapticButton>
+          <HapticButton
+            hapticLabel="오답 몬스터 탭"
+            onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
+            wrapperClassName="relative flex h-full"
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+          >
+            <Ghost className={`size-4 shrink-0 ${activeTab === "wrong" ? "animate-monster-hop" : ""}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
+            <span>오답 몬스터</span>
+          </HapticButton>
+          <HapticButton
+            hapticLabel="단어 입력 탭"
+            onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
+            wrapperClassName="relative flex h-full"
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+          >
+            <Pencil className="size-4 shrink-0" /> <span>단어 입력</span>
+          </HapticButton>
         </div>
-        <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
-          <button onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
-          {subjects.map((subject) => <button key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}
+          <button type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</button>
+          {subjects.map((subject) => <button type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</button>)}
         </div>}
       </section>
 

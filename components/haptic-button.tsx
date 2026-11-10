@@ -42,11 +42,11 @@ export function HapticButton({
         aria-label={hapticLabel}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 m-0 disabled:cursor-not-allowed"
         onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
-        onMouseDown={(e) => e.preventDefault()} // 💡 입력창 포커스 뺏김 완벽 방지!
+        onMouseDown={(e) => e.preventDefault()}
         onChange={(e) => {
-          e.currentTarget.checked = false; 
-          haptic();
-          onClick?.();
+          e.currentTarget.checked = false
+          haptic()
+          onClick?.()
         }}
       />
     </span>
