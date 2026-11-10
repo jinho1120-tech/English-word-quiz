@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
-import { GraduationCap, Ghost, Pencil } from "lucide-react"
+import { GraduationCap, Ghost, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
@@ -406,7 +406,7 @@ export function ChildLearning({
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">{item.word}</p><p className="text-sm text-muted-foreground">{item.meaning}</p>{item.example && <p className="mt-1 text-xs text-muted-foreground">{item.example}</p>}</div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs">{item.subject}</span></div>
-                <div className="flex gap-3"><button onClick={() => beginEdit(item)} className="text-xs font-semibold">수정</button><button disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="text-xs font-semibold text-red-600">삭제</button>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
+                <div className="flex items-center gap-2"><button type="button" aria-label="단어 수정" title="수정" disabled={isPending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></button><button type="button" aria-label="단어 삭제" title="삭제" disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"><Trash2 className="size-4" /></button>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
               </>
             )}
           </article>
