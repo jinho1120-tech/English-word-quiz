@@ -3,8 +3,8 @@ import "server-only"
 import { desc, eq, ilike, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
-import { db, pool } from "@/lib/db"
-import { childProfiles, families, familyMembers, user } from "@/lib/db/schema"
+import { db } from "@/lib/db"
+import { childProfiles, families, familyMembers, superAdminAuditLogs, user } from "@/lib/db/schema"
 
 export async function requireSuperAdmin() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -82,22 +82,15 @@ export async function getSuperAdminFamilyDetail(familyId: string) {
     .where(eq(childProfiles.familyId, familyId))
     .orderBy(desc(childProfiles.createdAt))
 
-  const audit = await pool.query(
-    "select id, actor_email, action, target_record_id, details, created_at from super_admin_audit_logs where target_family_id = $1 order by created_at desc limit 30",
-    [familyId],
-  )
-  return { family, members, children, audit: audit.rows as Array<{ id: string; actor_email: string; action: string; target_record_id: string | null; details: Record<string, unknown>; created_at: Date }> }
-}
-
-export async function writeSuperAdminAudit(
-  actor: { id: string; email: string },
-  familyId: string,
-  recordId: string,
-  action: string,
-  details: Record<string, unknown>,
-) {
-  await pool.query(
-    "insert into super_admin_audit_logs (actor_user_id, actor_email, action, target_family_id, target_record_id, details) values ($1, $2, $3, $4, $5, $6::jsonb)",
-    [actor.id, actor.email, action, familyId, recordId, JSON.stringify(details)],
-  )
+  const audit = await db.select({
+    id: superAdminAuditLogs.id,
+    actorEmail: superAdminAuditLogs.actorEmail,
+    action: superAdminAuditLogs.action,
+    details: superAdminAuditLogs.details,
+    createdAt: superAdminAuditLogs.createdAt,
+  }).from(superAdminAuditLogs)
+    .where(eq(superAdminAuditLogs.targetFamilyId, familyId))
+    .orderBy(desc(superAdminAuditLogs.createdAt))
+    .limit(30)
+  return { family, members, children, audit }
 }
