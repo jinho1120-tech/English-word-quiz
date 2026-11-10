@@ -8,11 +8,11 @@ import type { QuizWord } from "./word-quiz"
 
 interface Props {
   score: number; correctCount: number; total: number; bestStreak: number;
-  wrongWords: QuizWord[]; accent: string; usedHint?: boolean; rewardTitle?: string | null; rewardChecked?: boolean; quizType?: string;
+  wrongWords: QuizWord[]; accent: string; usedHint?: boolean; rewardTitle?: string | null; rewardChecked?: boolean; couponConfigured?: boolean; quizType?: string;
   onRetryWrong: () => void; onRetryAll: () => void;
 }
 
-export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, quizType, onRetryWrong, onRetryAll }: Props) {
+export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, couponConfigured = true, quizType, onRetryWrong, onRetryAll }: Props) {
   const isContextMode = quizType === "context"
   const isEligibleForReward = score === 100 && total >= 10 && !usedHint
 
@@ -77,7 +77,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           <span>최고 연속 <span className="font-bold text-foreground">{bestStreak}</span></span>
         </div>
         
-        {rewardTitle ? <p className="mt-5 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-800">🎉 축하해요! 「{rewardTitle}」 쿠폰을 받았어요. 내 쿠폰함을 확인해 보세요!</p> : rewardChecked ? <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">이번 퀴즈에서는 쿠폰 발행 조건을 충족하지 못했어요. 다음 도전도 응원할게요!</p> : isEligibleForReward && <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">쿠폰 발행 여부는 내 쿠폰함에서 확인할 수 있어요.</p>}
+        {rewardTitle ? <p className="mt-5 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-800">🎉 축하해요! 「{rewardTitle}」 쿠폰을 받았어요. 내 쿠폰함을 확인해 보세요!</p> : rewardChecked && !couponConfigured ? <p className="mt-5 rounded-xl border border-border bg-background px-4 py-3 text-center text-sm font-semibold text-foreground">{score === 100 ? "완벽해! 오늘의 단어를 모두 정복했어! 정말 대단해! 🌟" : "끝까지 도전한 네가 정말 멋져! 오늘 배운 단어가 하나 더 네 것이 됐어. 👏"}</p> : rewardChecked ? <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">이번 퀴즈에서는 쿠폰 발행 조건을 충족하지 못했어요. 다음 도전도 응원할게요!</p> : isEligibleForReward && <p className="mt-5 border-t border-border pt-4 text-center text-sm font-semibold text-muted-foreground">쿠폰 발행 여부는 내 쿠폰함에서 확인할 수 있어요.</p>}
       </div>
       
       {!isContextMode && wrongWords.length > 0 && (
