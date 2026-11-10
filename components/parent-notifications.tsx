@@ -1,5 +1,7 @@
 "use client"
 
+import { HapticButton } from "@/components/haptic-button"
+
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -204,8 +206,8 @@ export function ParentNotifications({ initialData }: { initialData: Notification
           <div><h2 className="font-bold">알림함</h2><p className="text-xs text-muted-foreground">확인하지 않은 알림 {data.unreadCount}개</p></div>
         </div>
         <div className="flex items-center gap-3">
-          {data.unreadCount > 0 && <button onClick={markAllRead} className="text-xs font-semibold text-muted-foreground underline underline-offset-2">모두 읽음</button>}
-          {data.notifications.some((item) => item.readAt) && <button onClick={() => void deleteAllRead()} className="text-xs font-semibold text-red-600 underline underline-offset-2">읽은 알림 모두 삭제</button>}
+          {data.unreadCount > 0 && <HapticButton onClick={markAllRead} className="text-xs font-semibold text-muted-foreground underline underline-offset-2">모두 읽음</HapticButton>}
+          {data.notifications.some((item) => item.readAt) && <HapticButton onClick={() => void deleteAllRead()} className="text-xs font-semibold text-red-600 underline underline-offset-2">읽은 알림 모두 삭제</HapticButton>}
         </div>
       </div>
 
@@ -214,7 +216,7 @@ export function ParentNotifications({ initialData }: { initialData: Notification
           <p className="rounded-xl bg-muted/60 p-4 text-center text-sm text-muted-foreground">새로운 알림이 없습니다.</p>
         ) : data.notifications.map((item) => (
           <div key={item.id} className={`flex items-start gap-2 rounded-xl border p-2 ${item.readAt ? "border-border bg-background" : "border-blue-200 bg-blue-50/70"}`}>
-            <button onClick={() => void openNotification(item)} className="min-w-0 flex-1 p-1 text-left">
+            <HapticButton onClick={() => void openNotification(item)} className="min-w-0 flex-1 p-1 text-left">
               <span className="flex items-start gap-2">
                 {!item.readAt && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" />}
                 <span className="min-w-0 flex-1">
@@ -223,8 +225,8 @@ export function ParentNotifications({ initialData }: { initialData: Notification
                   <span className="mt-1 block text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString("ko-KR")}</span>
                 </span>
               </span>
-            </button>
-            {item.readAt && <button type="button" onClick={() => void deleteReadNotification(item.id)} aria-label="읽은 알림 삭제" className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-red-600">삭제</button>}
+            </HapticButton>
+            {item.readAt && <HapticButton type="button" onClick={() => void deleteReadNotification(item.id)} aria-label="읽은 알림 삭제" className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-red-600">삭제</HapticButton>}
           </div>
         ))}
       </div>
@@ -236,8 +238,8 @@ export function ParentNotifications({ initialData }: { initialData: Notification
           <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 p-3">
             <div><p className="text-sm font-semibold">기기 푸시 알림</p><p className="text-xs text-muted-foreground">앱을 닫아도 알림 받기</p></div>
             {data.hasPushSubscription && data.preferences.pushEnabled
-              ? <button onClick={() => void disablePush()} className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold">끄기</button>
-              : <button onClick={() => void enablePush()} className="rounded-lg bg-foreground px-3 py-2 text-xs font-semibold text-background">켜기</button>}
+              ? <HapticButton onClick={() => void disablePush()} className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold">끄기</HapticButton>
+              : <HapticButton onClick={() => void enablePush()} className="rounded-lg bg-foreground px-3 py-2 text-xs font-semibold text-background">켜기</HapticButton>}
           </div>
           <div className="space-y-2">
             {([
