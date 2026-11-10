@@ -1,5 +1,7 @@
 "use client"
 
+import { HapticButton } from "@/components/haptic-button"
+
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight, Palette, X } from "lucide-react"
 import { getChildCalendarData, updateChildSubjectColor } from "@/app/actions/child-words"
@@ -103,7 +105,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
             <p className="text-[10px] text-muted-foreground">날짜별 단어 저장 공간</p>
           </div>
         </div>
-        <button
+        <HapticButton
           type="button"
           aria-expanded={isCalendarOpen}
           onClick={() => setIsCalendarOpen((open) => !open)}
@@ -111,19 +113,19 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
         >
           <CalendarDays className="size-3.5" />
           {isCalendarOpen ? "달력 닫기" : "날짜 변경"}
-        </button>
+        </HapticButton>
       </div>
 
       {isCalendarOpen && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-2xl border border-border bg-card p-4 shadow-xl">
           <div className="mb-3 flex items-center justify-between">
-            <button type="button" onClick={() => setMonth((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} className="rounded-lg p-2 hover:bg-muted" aria-label="이전 달">
+            <HapticButton type="button" onClick={() => setMonth((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} className="rounded-lg p-2 hover:bg-muted" aria-label="이전 달">
               <ChevronLeft className="size-5" />
-            </button>
+            </HapticButton>
             <h2 className="text-sm font-bold">{year}년 {monthIndex + 1}월</h2>
-            <button type="button" onClick={() => setMonth((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} className="rounded-lg p-2 hover:bg-muted" aria-label="다음 달">
+            <HapticButton type="button" onClick={() => setMonth((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} className="rounded-lg p-2 hover:bg-muted" aria-label="다음 달">
               <ChevronRight className="size-5" />
-            </button>
+            </HapticButton>
           </div>
 
           <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-muted-foreground">
@@ -137,7 +139,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
               const ids = Array.from(dotsByDate.get(value) ?? [])
               const active = selectedDate === value
               return (
-                <button
+                <HapticButton
                   key={value}
                   type="button"
                   onClick={() => chooseDate(value)}
@@ -151,7 +153,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                       <i key={id} className="h-1.5 w-1.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: colors[id] ?? subjects.find((s) => s.id === id)?.color ?? "#2563EB" }} />
                     ))}
                   </span>
-                </button>
+                </HapticButton>
               )
             })}
           </div>
@@ -178,9 +180,9 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
 
           <div className="mt-3 flex items-center justify-between gap-2 border-t border-border pt-3">
             <p className="text-[10px] text-muted-foreground">점은 과목별 단어 저장 날짜를 표시해요.</p>
-            <button type="button" onClick={() => setIsColorSettingsOpen(true)} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ color: "var(--child-accent, #14B8A6)" }}>
+            <HapticButton type="button" onClick={() => setIsColorSettingsOpen(true)} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold" style={{ color: "var(--child-accent, #14B8A6)" }}>
               <Palette className="size-3.5" /> 과목 색상
-            </button>
+            </HapticButton>
           </div>
         </div>
       )}
@@ -190,7 +192,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
           <div role="dialog" aria-modal="true" aria-labelledby="subject-color-title" className="w-full max-w-sm rounded-2xl border border-border bg-background p-4 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
               <h3 id="subject-color-title" className="font-black">과목별 달력 색상</h3>
-              <button type="button" aria-label="닫기" onClick={() => setIsColorSettingsOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted"><X className="size-4" /></button>
+              <HapticButton type="button" aria-label="닫기" onClick={() => setIsColorSettingsOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted"><X className="size-4" /></HapticButton>
             </div>
             <p className="mb-4 text-xs leading-relaxed text-muted-foreground">과목 색상은 기본값으로 자동 지정돼요. 원하는 과목만 직접 바꿀 수 있어요.</p>
             <div className="max-h-[55vh] space-y-4 overflow-y-auto">
@@ -202,7 +204,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     {COLORS.map((color) => (
-                      <button
+                      <HapticButton
                         key={color.value}
                         type="button"
                         aria-label={`${subject.name} 색상 ${color.label}`}
@@ -225,7 +227,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setIsColorSettingsOpen(false)} className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">완료</button>
+            <HapticButton type="button" onClick={() => setIsColorSettingsOpen(false)} className="mt-5 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">완료</HapticButton>
           </div>
         </div>
       )}
