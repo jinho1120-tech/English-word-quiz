@@ -234,11 +234,11 @@
 /* Active child learning tabs: subtle, distinct icon motion. */
 @keyframes tab-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.16); }
+  50% { transform: scale(1.24); }
 }
 
 .animate-tab-pulse {
-  animation: tab-pulse 1.25s ease-in-out infinite;
+  animation: tab-pulse 1.1s ease-in-out 2;
 }
 
 @keyframes pencil-write {
