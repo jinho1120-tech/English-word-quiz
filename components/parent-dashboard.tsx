@@ -317,6 +317,7 @@ export function ParentDashboard({
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{selectedCouponSettings ? (couponsEnabled ? "사용 중" : "꺼짐") : "자녀 선택 필요"}</span>
         </summary>
         <div className="mt-4 space-y-4">
+        <label className="block space-y-1 text-sm"><span className="font-semibold">쿠폰을 설정할 자녀</span><select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5">{children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}</select></label>
 <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
           <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
           <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
@@ -364,7 +365,7 @@ export function ParentDashboard({
         </div>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
-          {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : rewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+          {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
           </div>)}
         </div>
