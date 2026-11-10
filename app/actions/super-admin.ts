@@ -1,6 +1,6 @@
 "use server"
 
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
@@ -27,9 +27,10 @@ export async function updateSuperAdminOwnerName(formData: FormData) {
   const name = readText(formData, "name", 80)
   const [family] = await db.select({ ownerUserId: families.ownerUserId }).from(families).where(eq(families.id, familyId)).limit(1)
   if (!family) throw new Error("가족을 찾을 수 없습니다.")
+  const [before] = await db.select({ name: user.name }).from(user).where(eq(user.id, family.ownerUserId)).limit(1)
   const [updated] = await db.update(user).set({ name, updatedAt: new Date() }).where(eq(user.id, family.ownerUserId)).returning({ id: user.id })
   if (!updated) throw new Error("가족 대표 계정을 찾을 수 없습니다.")
-  await writeSuperAdminAudit(actor, familyId, updated.id, "owner_name_updated", { newName: name })
+  await writeSuperAdminAudit(actor, familyId, updated.id, "owner_name_updated", { oldName: before?.name ?? null, newName: name })
   revalidatePath("/super-admin")
   redirect(`/super-admin?family=${familyId}&updated=1`)
 }
@@ -40,14 +41,13 @@ export async function updateSuperAdminMemberName(formData: FormData) {
   const userId = readText(formData, "userId", 200)
   const name = readText(formData, "name", 80)
   const [member] = await db.select({ userId: familyMembers.userId }).from(familyMembers)
-    .where(eq(familyMembers.familyId, familyId))
-    .limit(100)
-  const belongsToFamily = member?.userId === userId || (await db.select({ userId: familyMembers.userId }).from(familyMembers)
-    .where(eq(familyMembers.userId, userId)).limit(1)).some((row) => row.userId === userId)
-  if (!belongsToFamily) throw new Error("해당 가족의 공동관리자를 찾을 수 없습니다.")
+    .where(and(eq(familyMembers.familyId, familyId), eq(familyMembers.userId, userId)))
+    .limit(1)
+  if (!member) throw new Error("해당 가족의 공동관리자를 찾을 수 없습니다.")
+  const [before] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId)).limit(1)
   const [updated] = await db.update(user).set({ name, updatedAt: new Date() }).where(eq(user.id, userId)).returning({ id: user.id })
   if (!updated) throw new Error("관리자 계정을 찾을 수 없습니다.")
-  await writeSuperAdminAudit(actor, familyId, updated.id, "member_name_updated", { newName: name })
+  await writeSuperAdminAudit(actor, familyId, updated.id, "member_name_updated", { oldName: before?.name ?? null, newName: name })
   revalidatePath("/super-admin")
   redirect(`/super-admin?family=${familyId}&updated=1`)
 }
@@ -57,11 +57,15 @@ export async function updateSuperAdminChildName(formData: FormData) {
   const familyId = readFamilyId(formData)
   const childId = readText(formData, "childId", 100)
   const name = readText(formData, "name", 40)
+  const [before] = await db.select({ displayName: childProfiles.displayName }).from(childProfiles)
+    .where(and(eq(childProfiles.id, childId), eq(childProfiles.familyId, familyId)))
+    .limit(1)
+  if (!before) throw new Error("해당 가족의 아이 프로필을 찾을 수 없습니다.")
   const [updated] = await db.update(childProfiles).set({ displayName: name, updatedAt: new Date() })
-    .where(eq(childProfiles.id, childId))
-    .returning({ id: childProfiles.id, familyId: childProfiles.familyId, displayName: childProfiles.displayName })
-  if (!updated || updated.familyId !== familyId) throw new Error("해당 가족의 아이 프로필을 찾을 수 없습니다.")
-  await writeSuperAdminAudit(actor, familyId, updated.id, "child_name_updated", { newName: name })
+    .where(and(eq(childProfiles.id, childId), eq(childProfiles.familyId, familyId)))
+    .returning({ id: childProfiles.id })
+  if (!updated) throw new Error("아이 프로필을 수정하지 못했습니다.")
+  await writeSuperAdminAudit(actor, familyId, updated.id, "child_name_updated", { oldName: before.displayName, newName: name })
   revalidatePath("/super-admin")
   redirect(`/super-admin?family=${familyId}&updated=1`)
 }
