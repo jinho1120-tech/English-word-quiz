@@ -39,7 +39,7 @@ export async function getChildCouponWallet() {
     redeemedAt: couponRewards.redeemedAt,
   }).from(couponRewards)
     .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id))
-    .where(eq(couponRewards.childProfileId, child.childProfileId))
+    .where(and(eq(couponRewards.childProfileId, child.childProfileId), or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank"))))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(100)
   return { rewards, maxStoredCoupons: settings?.maxStoredCoupons ?? 20 }
