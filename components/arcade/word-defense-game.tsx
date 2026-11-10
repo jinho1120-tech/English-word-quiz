@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, Heart, RotateCcw, X } from "lucide-react"
+import { Heart, RotateCcw, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
 
 type DefenseWord = { id: number; word: string; meaning: string }
@@ -215,9 +215,9 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         const boxHeight = 22 + perspective * 12
         ctx.fillStyle = prefixMatch ? "#fde68a" : "rgba(255,255,255,0.94)"
         ctx.beginPath()
-        const bx = x - Math.max(boxWidth, labelWidth) / 2
+        const bx = x - boxWidth / 2
         const by = labelY - boxHeight / 2
-        const bw = Math.max(boxWidth, labelWidth)
+        const bw = boxWidth
         ctx.roundRect(bx, by, bw, boxHeight, 10)
         ctx.fill()
         ctx.fillStyle = "#172033"
