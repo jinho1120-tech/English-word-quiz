@@ -64,6 +64,20 @@
       "when": 1794315600000,
       "tag": "0008_super_admin_audit_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794320000000,
+      "tag": "0009_family_pacman_arcade",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794320000001,
+      "tag": "0010_pacman_learning_requirements",
+      "breakpoints": true
     }
   ]
 }

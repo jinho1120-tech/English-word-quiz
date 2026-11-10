@@ -1,10 +1,10 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte, lte } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, lte, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familySettings, wordEntries } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, familyArcadeSettings, familySettings, wordEntries } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -542,4 +542,88 @@ export async function generateChildSpeakingCoachFeedback(input: {
     console.error("자녀 AI 말하기 코칭 오류:", error)
     return { success: false as const, error: "AI 말하기 코칭 중 오류가 발생했습니다." }
   }
+}
+
+
+function todayInSeoulForArcade() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")}`
+}
+
+async function getPacmanEligibility(childProfileId: string) {
+  const [profile] = await db.select({ familyId: childProfiles.familyId })
+    .from(childProfiles).where(eq(childProfiles.id, childProfileId)).limit(1)
+  if (!profile) throw new Error("아이 프로필을 찾을 수 없습니다.")
+  const [settings] = await db.select({
+    pacmanEnabled: familyArcadeSettings.pacmanEnabled,
+    pacmanDailyPlayLimit: familyArcadeSettings.pacmanDailyPlayLimit,
+    pacmanMinDailyQuestions: familyArcadeSettings.pacmanMinDailyQuestions,
+    pacmanRequireNoWrongWords: familyArcadeSettings.pacmanRequireNoWrongWords,
+  }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, profile.familyId)).limit(1)
+  const today = todayInSeoulForArcade()
+  const dayStart = new Date(`${today}T00:00:00+09:00`)
+  const [questionCount] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(childQuizAttempts)
+    .where(and(eq(childQuizAttempts.childProfileId, childProfileId), gte(childQuizAttempts.answeredAt, dayStart)))
+  const [wrongCount] = await db.select({ total: sql<number>`count(*)::int` })
+    .from(wordEntries)
+    .where(and(eq(wordEntries.childProfileId, childProfileId), gt(wordEntries.wrongCount, 0)))
+  const dailyQuestionCount = Number(questionCount?.total ?? 0)
+  const outstandingWrongCount = Number(wrongCount?.total ?? 0)
+  const minDailyQuestions = settings?.pacmanMinDailyQuestions ?? 10
+  const requireNoWrongWords = settings?.pacmanRequireNoWrongWords ?? true
+  const questionsMet = dailyQuestionCount >= minDailyQuestions
+  const wrongWordsCleared = outstandingWrongCount === 0
+  return {
+    settings, today, dailyQuestionCount, outstandingWrongCount, minDailyQuestions,
+    requireNoWrongWords, questionsMet, wrongWordsCleared,
+    eligible: questionsMet && (!requireNoWrongWords || wrongWordsCleared),
+  }
+}
+
+export async function getChildPacmanStatus() {
+  const child = await requireChild()
+  const eligibility = await getPacmanEligibility(child.childProfileId)
+  const dailyPlayLimit = eligibility.settings?.pacmanDailyPlayLimit ?? 1
+  const [usage] = await db.select({ playsUsed: childPacmanDailyPlays.playsUsed })
+    .from(childPacmanDailyPlays)
+    .where(and(eq(childPacmanDailyPlays.childProfileId, child.childProfileId), eq(childPacmanDailyPlays.playDate, eligibility.today)))
+    .limit(1)
+  const playsUsed = usage?.playsUsed ?? 0
+  return {
+    enabled: eligibility.settings?.pacmanEnabled ?? false,
+    dailyPlayLimit, playsUsed,
+    remainingPlays: Math.max(0, dailyPlayLimit - playsUsed),
+    dailyQuestionCount: eligibility.dailyQuestionCount,
+    minDailyQuestions: eligibility.minDailyQuestions,
+    outstandingWrongCount: eligibility.outstandingWrongCount,
+    requireNoWrongWords: eligibility.requireNoWrongWords,
+    eligible: eligibility.eligible,
+  }
+}
+
+export async function startChildPacmanGame() {
+  const child = await requireChild()
+  const eligibility = await getPacmanEligibility(child.childProfileId)
+  if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
+  if (!eligibility.eligible) {
+    if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 팩맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
+    throw new Error("이전부터 남아 있는 오답까지 모두 해결한 뒤 팩맨을 할 수 있어요.")
+  }
+  const dailyPlayLimit = eligibility.settings.pacmanDailyPlayLimit
+  const result = await db.execute(sql`
+    INSERT INTO child_pacman_daily_plays (child_profile_id, play_date, plays_used)
+    VALUES (${child.childProfileId}::uuid, ${eligibility.today}, 1)
+    ON CONFLICT (child_profile_id, play_date)
+    DO UPDATE SET plays_used = child_pacman_daily_plays.plays_used + 1, updated_at = now()
+    WHERE child_pacman_daily_plays.plays_used < ${dailyPlayLimit}
+    RETURNING plays_used
+  `)
+  const row = result.rows[0] as { plays_used: number } | undefined
+  if (!row) throw new Error("오늘 사용할 수 있는 팩맨 게임 횟수를 모두 사용했어요. 내일 다시 도전해요!")
+  revalidatePath("/child")
+  return { playsUsed: Number(row.plays_used), remainingPlays: Math.max(0, dailyPlayLimit - Number(row.plays_used)), dailyPlayLimit }
 }

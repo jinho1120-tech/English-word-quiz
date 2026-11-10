@@ -18,7 +18,7 @@ export function QuizStart({ words, accent, quizType, setQuizType, isGenerating, 
   return (
     <div className={cn("flex flex-col items-center text-center", childMode ? "px-4 py-6 sm:px-6 sm:py-8" : "px-5 py-4")}>
       <div className={cn("mb-3 flex items-center justify-center rounded-2xl text-white shadow-sm", childMode ? "size-16" : "size-10")} style={{ backgroundColor: accent }}>
-        {isMonsterMode ? <Ghost className={childMode ? "size-8" : "size-5"} /> : <Play className={childMode ? "size-8" : "size-5"} fill="currentColor"/>}
+        {isMonsterMode ? <Ghost className={childMode ? "size-8 animate-monster-idle" : "size-5"} /> : <Play className={childMode ? "size-8" : "size-5"} fill="currentColor"/>}
       </div>
 
       <h2 className={cn("font-black text-foreground", childMode ? "mb-1 text-xl sm:text-2xl" : "mb-0.5 text-base")}>{isMonsterMode ? "몬스터 퇴치" : "단어 퀴즈"}</h2>

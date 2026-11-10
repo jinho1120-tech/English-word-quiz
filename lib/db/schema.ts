@@ -312,3 +312,30 @@ export const childQuizAttempts = pgTable("child_quiz_attempts", {
 }))
 
 export { user, session, account, verification } from "./auth-schema"
+
+
+/** Parent-controlled optional arcade access for each family. */
+export const familyArcadeSettings = pgTable("family_arcade_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
+  pacmanEnabled: boolean("pacman_enabled").default(false).notNull(),
+  pacmanDailyPlayLimit: integer("pacman_daily_play_limit").default(1).notNull(),
+  pacmanMinDailyQuestions: integer("pacman_min_daily_questions").default(10).notNull(),
+  pacmanRequireNoWrongWords: boolean("pacman_require_no_wrong_words").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  familyUnique: uniqueIndex("family_arcade_settings_family_unique").on(table.familyId),
+}))
+
+/** Server-enforced daily game starts per child profile, using the Seoul calendar date. */
+export const childPacmanDailyPlays = pgTable("child_pacman_daily_plays", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  playDate: varchar("play_date", { length: 10 }).notNull(),
+  playsUsed: integer("plays_used").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  childDateUnique: uniqueIndex("child_pacman_daily_plays_child_date_unique").on(table.childProfileId, table.playDate),
+}))

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { getChildDeviceSession } from "@/lib/child-auth"
-import { getChildCalendarData, getChildLearningData } from "@/app/actions/child-words"
+import { getChildCalendarData, getChildLearningData, getChildPacmanStatus } from "@/app/actions/child-words"
 import { ChildLearning } from "@/components/child-learning"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { getChildCouponWallet } from "@/app/actions/coupons"
@@ -30,7 +30,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
   const params = await searchParams
   const today = todayInSeoul()
   const date = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : today
-  const [data, coupons, calendarData] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), getChildCalendarData(date.slice(0, 7))])
+  const [data, coupons, calendarData, pacmanStatus] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), getChildCalendarData(date.slice(0, 7)), getChildPacmanStatus()])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-lg space-y-5 px-4 py-5">
@@ -42,7 +42,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
         </div>
       </header>
       <PwaInstallGuide />
-      <ChildLearning childName={data.childName} subjects={data.subjects.map(({ id, name, calendarColor }) => ({ id, name, color: calendarColor }))} initialStorage={calendarData} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
+      <ChildLearning pacmanStatus={pacmanStatus} childName={data.childName} subjects={data.subjects.map(({ id, name, calendarColor }) => ({ id, name, color: calendarColor }))} initialStorage={calendarData} wrongWords={data.wrongWords.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialWords={data.words.map(({ id, subjectId, subject, word, meaning, example, wrongCount }) => ({ id, subjectId, subject, word, meaning, example, wrongCount }))} initialDate={date} />
     </main>
   )
 }

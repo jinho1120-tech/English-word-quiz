@@ -17,6 +17,7 @@ import {
   familySettings,
   familyMembers,
   familyInvitations,
+  familyArcadeSettings,
   user,
 } from "@/lib/db/schema"
 import {
@@ -105,6 +106,13 @@ export async function getParentFamilyDashboard() {
     blankCouponProbability: familySettings.blankCouponProbability,
   }).from(familySettings).where(eq(familySettings.familyId, family.id)).limit(1)
 
+  const [arcadeSettings] = await db.select({
+    pacmanEnabled: familyArcadeSettings.pacmanEnabled,
+    pacmanDailyPlayLimit: familyArcadeSettings.pacmanDailyPlayLimit,
+    pacmanMinDailyQuestions: familyArcadeSettings.pacmanMinDailyQuestions,
+    pacmanRequireNoWrongWords: familyArcadeSettings.pacmanRequireNoWrongWords,
+  }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, family.id)).limit(1)
+
   const children = await db.select({
     id: childProfiles.id,
     displayName: childProfiles.displayName,
@@ -158,7 +166,7 @@ export async function getParentFamilyDashboard() {
   const familyTerms = role === "owner"
     ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
     : { guardian: currentUserName || "공동관리자", child: "아이" }
-  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
+  return { familyId: family.id, settings: settings ?? null, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
@@ -476,5 +484,29 @@ export async function removeParentAdministrator(memberUserId: string) {
   const [removed] = await db.delete(familyMembers).where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.userId, memberUserId), eq(familyMembers.role, "admin"))).returning({ userId: familyMembers.userId })
   if (!removed) throw new Error("해제할 공동 관리자를 찾을 수 없습니다.")
   revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }) {
+  const { family } = await requireParentFamily()
+  if (typeof input?.pacmanEnabled !== "boolean") throw new Error("게임 허용 설정이 올바르지 않습니다.")
+  if (!Number.isInteger(input.pacmanDailyPlayLimit) || input.pacmanDailyPlayLimit < 1 || input.pacmanDailyPlayLimit > 10) {
+    throw new Error("하루 게임 횟수는 1~10판으로 설정해 주세요.")
+  }
+  if (!Number.isInteger(input.pacmanMinDailyQuestions) || input.pacmanMinDailyQuestions < 1 || input.pacmanMinDailyQuestions > 100) throw new Error("하루 최소 문제 수는 1~100개로 설정해 주세요.")
+  if (typeof input.pacmanRequireNoWrongWords !== "boolean") throw new Error("오답 정리 조건이 올바르지 않습니다.")
+  await db.insert(familyArcadeSettings).values({
+    familyId: family.id,
+    pacmanEnabled: input.pacmanEnabled,
+    pacmanDailyPlayLimit: input.pacmanDailyPlayLimit,
+    pacmanMinDailyQuestions: input.pacmanMinDailyQuestions,
+    pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords,
+    updatedAt: new Date(),
+  }).onConflictDoUpdate({
+    target: familyArcadeSettings.familyId,
+    set: { pacmanEnabled: input.pacmanEnabled, pacmanDailyPlayLimit: input.pacmanDailyPlayLimit, pacmanMinDailyQuestions: input.pacmanMinDailyQuestions, pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords, updatedAt: new Date() },
+  })
+  revalidatePath("/parent")
+  revalidatePath("/child")
   return { success: true }
 }
