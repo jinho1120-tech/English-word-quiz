@@ -229,3 +229,34 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-monster-hop { animation: none; }
 }
+
+
+/* Active child learning tabs: subtle, distinct icon motion. */
+@keyframes tab-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.16); }
+}
+
+.animate-tab-pulse {
+  animation: tab-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes pencil-write {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(1px, -1px) rotate(-12deg); }
+  38% { transform: translate(2px, 0) rotate(3deg); }
+  58% { transform: translate(1px, -1px) rotate(-10deg); }
+  78% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.animate-pencil-write {
+  transform-origin: 75% 85%;
+  animation: pencil-write 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-tab-pulse,
+  .animate-pencil-write {
+    animation: none;
+  }
+}
