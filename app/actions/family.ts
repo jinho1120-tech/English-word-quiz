@@ -86,6 +86,12 @@ function validatePin(pin: string) {
 }
 
 
+export async function getFamilyDisplayTerms() {
+  const { familyOwnerName } = await requireParentFamily()
+  const usesParentTerms = familyOwnerName === "아빠" || familyOwnerName === "엄마"
+  return { guardian: usesParentTerms ? "부모" : "보호자", child: usesParentTerms ? "자녀" : "아이" }
+}
+
 export async function getParentFamilyDashboard() {
   const { family, role, userId, familyOwnerName } = await requireParentFamily()
   const [settings] = await db.select({
