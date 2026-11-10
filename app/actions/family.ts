@@ -13,6 +13,7 @@ import {
   childSubjects,
   couponTypes,
   couponRewards,
+  childCouponSettings,
   families,
   familySettings,
   familyMembers,
@@ -122,19 +123,33 @@ export async function getParentFamilyDashboard() {
     .where(eq(childProfiles.familyId, family.id))
     .orderBy(asc(childProfiles.createdAt))
 
+  const couponSettings = await db.select({
+    childProfileId: childCouponSettings.childProfileId,
+    couponsEnabled: childCouponSettings.couponsEnabled,
+    rewardMinScore: childCouponSettings.rewardMinScore,
+    rewardMinQuestions: childCouponSettings.rewardMinQuestions,
+    requireNoHint: childCouponSettings.requireNoHint,
+    blankCouponProbability: childCouponSettings.blankCouponProbability,
+  }).from(childCouponSettings)
+    .innerJoin(childProfiles, eq(childCouponSettings.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, family.id))
+
   const coupons = await db.select({
     id: couponTypes.id,
+    childProfileId: couponTypes.childProfileId,
     title: couponTypes.title,
     description: couponTypes.description,
     isActive: couponTypes.isActive,
     couponKind: couponTypes.couponKind,
     drawWeight: couponTypes.drawWeight,
   }).from(couponTypes)
-    .where(eq(couponTypes.familyId, family.id))
+    .innerJoin(childProfiles, eq(couponTypes.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, family.id))
     .orderBy(asc(couponTypes.createdAt))
 
   const rewards = await db.select({
     id: couponRewards.id,
+    childProfileId: couponRewards.childProfileId,
     childName: childProfiles.displayName,
     title: couponRewards.couponTitleSnapshot,
     status: couponRewards.status,
@@ -166,7 +181,7 @@ export async function getParentFamilyDashboard() {
   const familyTerms = role === "owner"
     ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
     : { guardian: currentUserName || "공동관리자", child: "아이" }
-  return { familyId: family.id, settings: settings ?? null, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
+  return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
