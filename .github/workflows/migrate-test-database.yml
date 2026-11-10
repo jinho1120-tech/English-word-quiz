@@ -121,10 +121,17 @@ jobs:
             `);
             console.log("Applied migration count:", history.rows[0].count);
             console.log("Public table count:", tables.rows[0].count);
+            const capacityColumn = await client.query(`
+              select column_name from information_schema.columns
+              where table_schema = 'public' and table_name = 'child_coupon_settings'
+                and column_name = 'max_stored_coupons'
+            `);
             console.log("Required feature tables:", required.rows.map(row => row.table_name));
+            console.log("Coupon wallet capacity column:", capacityColumn.rowCount === 1 ? "present" : "missing");
             if (history.rows[0].count !== 13) throw new Error("Expected exactly 13 applied migrations.");
             if (tables.rows[0].count < 1) throw new Error("No public tables were created.");
             if (required.rowCount !== 5) throw new Error("One or more required feature tables are missing.");
+            if (capacityColumn.rowCount !== 1) throw new Error("Coupon wallet capacity column is missing.");
           } finally {
             await client.end();
           }
