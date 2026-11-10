@@ -72,6 +72,7 @@ export function ParentDashboard({
   const [editingCouponKind, setEditingCouponKind] = useState<"regular" | "blank">("regular")
   const [editingCouponWeight, setEditingCouponWeight] = useState(1)
   const [error, setError] = useState("")
+  const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
 
   function saveRewardSettings() {
@@ -156,6 +157,7 @@ export function ParentDashboard({
       try {
         const result = await createChildProfile({ displayName: name })
         setCreatedCode(result.accessCode)
+        setCopyFeedback("")
         setCodeChildName(result.displayName)
         setName("")
         router.refresh()
@@ -171,11 +173,22 @@ export function ParentDashboard({
       try {
         const result = await regenerateChildAccessCode(childId)
         setCreatedCode(result.accessCode)
+        setCopyFeedback("")
         setCodeChildName(result.displayName)
       } catch (err) {
         setError(err instanceof Error ? err.message : "접속코드를 발급하지 못했습니다.")
       }
     })
+  }
+
+  async function copyCreatedCode() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("클립보드를 사용할 수 없습니다.")
+      await navigator.clipboard.writeText(createdCode)
+      setCopyFeedback("success")
+    } catch {
+      setCopyFeedback("error")
+    }
   }
 
   function toggleChild(child: Child) {
@@ -185,8 +198,8 @@ export function ParentDashboard({
     startTransition(async () => {
       try {
         const result = await setChildProfileActive({ childProfileId: child.id, isActive: !child.isActive })
-        if (result.accessCode) { setCreatedCode(result.accessCode); setCodeChildName(result.displayName) }
-        else setCreatedCode("")
+        if (result.accessCode) { setCreatedCode(result.accessCode); setCopyFeedback(""); setCodeChildName(result.displayName) }
+        else { setCreatedCode(""); setCopyFeedback("") }
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "자녀 상태를 변경하지 못했습니다.")
@@ -299,11 +312,18 @@ export function ParentDashboard({
         <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-bold">{codeChildName} 접속코드</h3>
-            <button onClick={() => setCreatedCode("")} className="text-sm text-muted-foreground">닫기</button>
+            <button onClick={() => { setCreatedCode(""); setCopyFeedback("") }} className="text-sm text-muted-foreground">닫기</button>
           </div>
           <p className="select-all text-2xl font-black tracking-[0.2em]">{createdCode}</p>
           <p className="text-xs text-muted-foreground">자녀 기기에서 이 코드만 입력하면 됩니다. PIN은 필요하지 않습니다. 코드는 부모 화면에서 언제든 새로 발급할 수 있습니다.</p>
-          <button onClick={() => navigator.clipboard.writeText(createdCode)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">접속코드 복사</button>
+          <button onClick={copyCreatedCode} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">
+            {copyFeedback === "success" ? "✓ 복사 완료!" : "접속코드 복사"}
+          </button>
+          {copyFeedback === "success" ? (
+            <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600">접속코드가 클립보드에 복사되었습니다.</p>
+          ) : copyFeedback === "error" ? (
+            <p role="alert" className="text-sm font-medium text-red-600">복사하지 못했어요. 접속코드를 길게 눌러 직접 복사해 주세요.</p>
+          ) : null}
         </section>
       )}
 
