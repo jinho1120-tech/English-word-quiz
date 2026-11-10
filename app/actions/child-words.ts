@@ -611,7 +611,7 @@ export async function startChildPacmanGame() {
   if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
   if (!eligibility.eligible) {
     if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 팩맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
-    throw new Error("오늘의 오답 단어를 모두 정리한 뒤 팩맨을 할 수 있어요.")
+    throw new Error("이전부터 남아 있는 오답까지 모두 해결한 뒤 팩맨을 할 수 있어요.")
   }
   const dailyPlayLimit = eligibility.settings.pacmanDailyPlayLimit
   const result = await db.execute(sql`
