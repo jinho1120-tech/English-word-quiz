@@ -1,6 +1,6 @@
 "use server"
 
-import { and, asc, desc, eq, gte } from "drizzle-orm"
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
@@ -65,6 +65,42 @@ export async function getParentChildWords(childProfileId: string, date: string) 
   const stats = { total: attempts.length, correct, accuracy: attempts.length ? Math.round(correct / attempts.length * 100) : 0,
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })) }
   return { childName: child.name, subjects, words, stats }
+}
+
+const PARENT_CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
+
+export async function getParentChildCalendarData(childProfileId: string, month: string) {
+  const child = await requireParentChild(childProfileId)
+  if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
+  const start = `${month}-01`
+  const end = `${month}-31`
+  const rows = await db.select({
+    date: wordEntries.assignmentDate,
+    subjectId: wordEntries.subjectId,
+    subject: wordEntries.subject,
+  }).from(wordEntries).where(and(
+    eq(wordEntries.userId, child.ownerUserId),
+    eq(wordEntries.childProfileId, child.id),
+    gte(wordEntries.assignmentDate, start),
+    lte(wordEntries.assignmentDate, end),
+  ))
+  const seen = new Set<string>()
+  return rows.filter((row) => {
+    const key = `${row.date}:${row.subjectId ?? row.subject}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export async function updateParentChildSubjectColor(childProfileId: string, subjectId: string, color: string) {
+  const child = await requireParentChild(childProfileId)
+  if (typeof subjectId !== "string" || !subjectId || !PARENT_CALENDAR_COLORS.has(color)) throw new Error("과목 색상 정보가 올바르지 않습니다.")
+  const [updated] = await db.update(childSubjects).set({ calendarColor: color, updatedAt: new Date() })
+    .where(and(eq(childSubjects.id, subjectId), eq(childSubjects.childProfileId, child.id), eq(childSubjects.isArchived, false)))
+    .returning({ id: childSubjects.id })
+  if (!updated) throw new Error("과목을 찾을 수 없습니다.")
+  revalidatePath("/parent")
 }
 
 export async function addParentChildWord(childProfileId: string, input: { date: string; subjectId: string; word: string; meaning: string; example?: string }) {
