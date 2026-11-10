@@ -1,6 +1,6 @@
 "use client"
 
-import { ButtonHTMLAttributes, ReactNode } from "react"
+import { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, SummaryHTMLAttributes } from "react"
 import { haptic } from "@/lib/haptics"
 
 interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
@@ -55,5 +55,56 @@ export function HapticButton({
         }}
       />
     </span>
+  )
+}
+
+
+interface HapticSummaryProps extends SummaryHTMLAttributes<HTMLElement> {
+  hapticLabel?: string
+  children?: ReactNode
+}
+
+/** Keeps native details/summary behavior while adding the same tactile control. */
+export function HapticSummary({ hapticLabel, className, children, ...rest }: HapticSummaryProps) {
+  return (
+    <summary className={`relative ${className ?? ""}`} {...rest}>
+      {children}
+      <input
+        type="checkbox"
+        {...({ switch: "" } as Record<string, string>)}
+        checked={false}
+        aria-label={hapticLabel ?? "항목 열기 또는 닫기"}
+        className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0"
+        onChange={(event) => {
+          event.currentTarget.checked = false
+          haptic()
+        }}
+      />
+    </summary>
+  )
+}
+
+interface HapticLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  hapticLabel?: string
+  children?: ReactNode
+}
+
+/** Adds the same tactile interaction to navigation links without changing navigation. */
+export function HapticLink({ hapticLabel, className, children, "aria-label": ariaLabel, title, ...rest }: HapticLinkProps) {
+  return (
+    <a className={`relative inline-block ${className ?? ""}`} aria-label={ariaLabel} title={title} {...rest}>
+      {children}
+      <input
+        type="checkbox"
+        {...({ switch: "" } as Record<string, string>)}
+        checked={false}
+        aria-label={hapticLabel ?? ariaLabel ?? title ?? "링크"}
+        className="absolute inset-0 z-10 m-0 h-full w-full cursor-pointer opacity-0"
+        onChange={(event) => {
+          event.currentTarget.checked = false
+          haptic()
+        }}
+      />
+    </a>
   )
 }
