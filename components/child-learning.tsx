@@ -216,7 +216,7 @@ export function ChildLearning({
             wrapperClassName="relative flex h-full"
             className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
-            <GraduationCap className="size-4 shrink-0" /> <span>날짜별 퀴즈</span>
+            <GraduationCap className={`size-4 shrink-0 ${activeTab === "daily" ? "animate-tab-pulse" : ""}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>날짜별 퀴즈</span>
           </HapticButton>
           <HapticButton
             hapticLabel="오답 몬스터 탭"
@@ -233,7 +233,7 @@ export function ChildLearning({
             wrapperClassName="relative flex h-full"
             className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
-            <Pencil className="size-4 shrink-0" /> <span>단어 입력</span>
+            <Pencil className={`size-4 shrink-0 ${activeTab === "manage" ? "animate-pencil-write" : ""}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>단어 입력</span>
           </HapticButton>
         </div>
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
