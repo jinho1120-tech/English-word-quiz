@@ -214,3 +214,18 @@
     transition: none;
   }
 }
+
+
+@keyframes monster-hop {
+  0%, 100% { transform: translateY(0) scale(1) rotate(0); }
+  35% { transform: translateY(-4px) scale(1.08) rotate(-8deg); }
+  70% { transform: translateY(0) scale(1) rotate(7deg); }
+}
+
+.animate-monster-hop {
+  animation: monster-hop 450ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-monster-hop { animation: none; }
+}
