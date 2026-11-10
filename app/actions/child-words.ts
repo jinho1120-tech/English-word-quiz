@@ -257,12 +257,12 @@ export async function recordChildQuizResult(
     eq(childQuizAttempts.quizSessionId, session.quizSessionId),
   )).orderBy(asc(childQuizAttempts.answeredAt))
 
-  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean } | null = null
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean; couponEligible: boolean } | null = null
   if (attempts.length >= session.sessionQuestionCount) {
     const completed = attempts.slice(0, session.sessionQuestionCount)
     const correctCount = completed.filter((item) => item.isCorrect).length
     const score = Math.round(correctCount / completed.length * 100)
-    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false }
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false, couponEligible: false }
 
     const [childProfile] = await db.select({
       familyId: childProfiles.familyId,
@@ -297,24 +297,8 @@ export async function recordChildQuizResult(
               ticket -= item.drawWeight
               return ticket < 0
             }) ?? candidates[candidates.length - 1]
-            const sourceKey = `quiz:${child.childProfileId}:${session.quizSessionId}`
-            const [reward] = await db.insert(couponRewards).values({
-              childProfileId: child.childProfileId,
-              couponTypeId: chosen.id,
-              couponTitleSnapshot: chosen.title,
-              sourceKey,
-            }).onConflictDoNothing().returning({ id: couponRewards.id })
-            if (reward) {
-              sessionResult.rewardTitle = chosen.title
-              await notifyFamilyParents({
-                familyId: childProfile.familyId,
-                childProfileId: child.childProfileId,
-                type: "coupon_issued",
-                title: "새 쿠폰이 발행됐어요",
-                message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
-                href: "/parent#coupon-rewards",
-              })
-            }
+            // Do not issue immediately. The child must reveal the scratch card first.
+            sessionResult.couponEligible = true
           }
         }
       }
@@ -322,6 +306,98 @@ export async function recordChildQuizResult(
   }
   revalidatePath("/child")
   return { sessionResult }
+}
+
+export async function revealChildQuizCoupon(quizSessionId: string) {
+  const child = await requireChild()
+  if (typeof quizSessionId !== "string" || !/^[0-9a-f-]{36}$/i.test(quizSessionId)) {
+    throw new Error("퀴즈 회차 정보가 올바르지 않습니다.")
+  }
+  const sourceKey = `quiz:${child.childProfileId}:${quizSessionId}`
+  const [existing] = await db.select({
+    title: couponRewards.couponTitleSnapshot,
+    status: couponRewards.status,
+  }).from(couponRewards).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
+  if (existing) {
+    return existing.status === "blank"
+      ? { outcome: "blank" as const, title: null }
+      : { outcome: "won" as const, title: existing.title }
+  }
+
+  const attempts = await db.select({
+    isCorrect: childQuizAttempts.isCorrect,
+    hintUsed: childQuizAttempts.hintUsed,
+  }).from(childQuizAttempts).where(and(
+    eq(childQuizAttempts.childProfileId, child.childProfileId),
+    eq(childQuizAttempts.quizSessionId, quizSessionId),
+  ))
+  if (attempts.length === 0) throw new Error("완료된 퀴즈 기록을 찾을 수 없습니다.")
+
+  const [settings] = await db.select().from(childCouponSettings)
+    .where(eq(childCouponSettings.childProfileId, child.childProfileId)).limit(1)
+  const [childProfile] = await db.select({
+    familyId: childProfiles.familyId,
+    displayName: childProfiles.displayName,
+  }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  if (!settings?.couponsEnabled || !childProfile) throw new Error("쿠폰 발행 설정을 확인할 수 없습니다.")
+
+  const score = Math.round(attempts.filter((item) => item.isCorrect).length / attempts.length * 100)
+  const hasHint = attempts.some((item) => item.hintUsed)
+  if (score < settings.rewardMinScore || attempts.length < settings.rewardMinQuestions ||
+      (settings.requireNoHint && hasHint)) {
+    throw new Error("쿠폰 발행 조건을 충족하지 못했습니다.")
+  }
+
+  const activeCoupons = await db.select({
+    id: couponTypes.id,
+    title: couponTypes.title,
+    couponKind: couponTypes.couponKind,
+    drawWeight: couponTypes.drawWeight,
+  }).from(couponTypes).where(and(
+    eq(couponTypes.familyId, childProfile.familyId),
+    eq(couponTypes.childProfileId, child.childProfileId),
+    eq(couponTypes.isActive, true),
+  ))
+  if (activeCoupons.length === 0) throw new Error("발행할 수 있는 쿠폰이 없습니다.")
+
+  const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
+  let candidates = activeCoupons.filter((item) => item.couponKind === preferredKind)
+  if (candidates.length === 0) candidates = activeCoupons.filter((item) => item.couponKind !== preferredKind)
+  const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
+  if (totalWeight <= 0) throw new Error("쿠폰 추첨 설정이 올바르지 않습니다.")
+  let ticket = randomInt(totalWeight)
+  const chosen = candidates.find((item) => {
+    ticket -= item.drawWeight
+    return ticket < 0
+  }) ?? candidates[candidates.length - 1]
+  const isBlank = chosen.couponKind === "blank"
+  const [reward] = await db.insert(couponRewards).values({
+    childProfileId: child.childProfileId,
+    couponTypeId: isBlank ? null : chosen.id,
+    couponTitleSnapshot: chosen.title,
+    status: isBlank ? "blank" : "earned",
+    sourceKey,
+  }).onConflictDoNothing().returning({ id: couponRewards.id })
+  if (!reward) {
+    const [saved] = await db.select({ title: couponRewards.couponTitleSnapshot, status: couponRewards.status })
+      .from(couponRewards).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
+    return saved?.status === "blank"
+      ? { outcome: "blank" as const, title: null }
+      : { outcome: "won" as const, title: saved?.title ?? chosen.title }
+  }
+  if (isBlank) return { outcome: "blank" as const, title: null }
+
+  await notifyFamilyParents({
+    familyId: childProfile.familyId,
+    childProfileId: child.childProfileId,
+    type: "coupon_issued",
+    title: "새 쿠폰이 발행됐어요",
+    message: `${childProfile.displayName}에게 '${chosen.title}' 쿠폰이 발행됐어요.`,
+    href: "/parent#coupon-rewards",
+  })
+  revalidatePath("/child")
+  revalidatePath("/parent")
+  return { outcome: "won" as const, title: chosen.title }
 }
 
 export async function gradeChildListeningAnswer(id: number, submittedWord: string, submittedMeaning: string) {
