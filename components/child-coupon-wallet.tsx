@@ -7,7 +7,7 @@ import { createCouponUseRequest } from "@/app/actions/coupons"
 type Reward = { id: string; title: string; description: string | null; status: string; couponKind: string | null; earnedAt: Date; redeemedAt: Date | null }
 
 export function ChildCouponWallet({ rewards }: { rewards: Reward[] }) {
-  const [request, setRequest] = useState<{ rewardId: string; title: string; url: string; expiresAt: Date } | null>(null)
+  const [request, setRequest] = useState<{ rewardId: string; title: string; description: string | null; url: string; expiresAt: Date } | null>(null)
   const [error, setError] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [pending, startTransition] = useTransition()
