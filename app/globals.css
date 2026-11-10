@@ -255,12 +255,14 @@
 }
 
 @keyframes monster-float {
-  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
-  50% { transform: translateY(-7px) rotate(-5deg) scale(1.05); }
+  0%, 100% { transform: translate(-5px, 0) rotate(-6deg) scale(1); }
+  25% { transform: translate(-1px, -5px) rotate(-2deg) scale(1.04); }
+  50% { transform: translate(5px, 0) rotate(6deg) scale(1); }
+  75% { transform: translate(1px, -5px) rotate(2deg) scale(1.04); }
 }
 
 .animate-monster-idle {
-  animation: monster-float 1.8s ease-in-out infinite;
+  animation: monster-float 1.15s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
