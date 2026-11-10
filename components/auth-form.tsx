@@ -8,18 +8,55 @@ import { Eye, EyeOff } from "lucide-react"
 
 type ParentRole = "아빠" | "엄마" | "기타 보호자"
 
-export function AuthForm({ inviteToken }: { inviteToken?: string }) {
+export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError }: { inviteToken?: string; inviteEmail?: string; signedInEmail?: string; inviteError?: string }) {
   const router = useRouter()
-  const [mode, setMode] = useState<"signin" | "signup">("signin")
+  const [mode, setMode] = useState<"signin" | "signup">(inviteToken ? "signup" : "signin")
   const [parentRole, setParentRole] = useState<ParentRole>("아빠")
   const [guardianRelation, setGuardianRelation] = useState("")
-  const [email, setEmail] = useState("")
+  const [email, setEmail] = useState(inviteEmail ?? "")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+
+  async function switchAccount() {
+    await authClient.signOut()
+    router.refresh()
+  }
+
+  if (inviteToken && signedInEmail && inviteEmail && signedInEmail.toLowerCase() !== inviteEmail.toLowerCase()) {
+    return (
+      <section className="w-full space-y-4 rounded-2xl border bg-card p-6 shadow-sm">
+        <p className="font-bold">다른 계정으로 로그인되어 있어요.</p>
+        <p className="text-sm text-muted-foreground">현재 계정: {signedInEmail}</p>
+        <p className="text-sm text-muted-foreground">초대받은 주소: {inviteEmail}</p>
+        <p className="text-sm">초대받은 이메일 주소로만 공동관리자 초대를 수락할 수 있습니다.</p>
+        <button type="button" onClick={switchAccount} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground">로그아웃하고 초대 계정으로 전환</button>
+      </section>
+    )
+  }
+
+  if (inviteToken && signedInEmail && inviteError === "already_has_family") {
+    return (
+      <section className="w-full space-y-4 rounded-2xl border bg-card p-6 shadow-sm">
+        <p className="font-bold">이 계정은 다른 가족 공간에 연결되어 있어요.</p>
+        <p className="text-sm text-muted-foreground">기존 가족 공간과 학습 데이터는 그대로 유지됩니다. 다른 계정으로 초대를 수락하려면 로그아웃해 주세요.</p>
+        <button type="button" onClick={switchAccount} className="w-full rounded-xl border px-4 py-3 font-semibold">로그아웃하고 다른 계정 사용</button>
+        <button type="button" onClick={() => router.push("/parent")} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground">현재 가족 관리 화면으로 이동</button>
+      </section>
+    )
+  }
+
+  if (inviteToken && signedInEmail && inviteError === "already_member") {
+    return (
+      <section className="w-full space-y-3 rounded-2xl border bg-card p-6 shadow-sm">
+        <p className="font-bold">이미 이 가족의 공동관리자로 참여하고 있어요.</p>
+        <button type="button" onClick={() => router.push("/parent")} className="w-full rounded-xl bg-primary px-4 py-3 font-semibold text-primary-foreground">가족 관리 화면으로 이동</button>
+      </section>
+    )
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,11 +69,11 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
         setError("비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
         return
       }
-      if (mode === "signup" && parentRole === "기타 보호자" && !relation) {
+      if (!inviteToken && mode === "signup" && parentRole === "기타 보호자" && !relation) {
         setError("자녀와의 관계를 입력해 주세요.")
         return
       }
-      const displayName = parentRole === "기타 보호자" ? relation : parentRole
+      const displayName = inviteToken ? "공동 관리자" : parentRole === "기타 보호자" ? relation : parentRole
       const result = mode === "signup"
         ? await authClient.signUp.email({ name: displayName, email: email.trim(), password, callbackURL })
         : await authClient.signIn.email({ email: email.trim(), password, callbackURL })
@@ -60,7 +97,7 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
         <button type="button" onClick={() => setMode("signup")} className={`rounded-lg py-2 font-semibold ${mode === "signup" ? "bg-background shadow" : "text-muted-foreground"}`}>회원가입</button>
       </div>
       <form onSubmit={submit} className="space-y-4">
-        {mode === "signup" && (
+        {!inviteToken && mode === "signup" && (
           <div className="space-y-2">
             <label htmlFor="parent-role" className="block text-sm font-medium">보호자 구분</label>
             <select id="parent-role" required value={parentRole} onChange={event => setParentRole(event.target.value as ParentRole)} className="w-full rounded-xl border bg-background px-3 py-3 text-sm">
@@ -76,7 +113,7 @@ export function AuthForm({ inviteToken }: { inviteToken?: string }) {
             )}
           </div>
         )}
-        <label className="block space-y-1 text-sm"><span className="font-medium">이메일</span><input required type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" className="w-full rounded-xl border bg-background px-3 py-3" placeholder="name@example.com" /></label>
+        <label className="block space-y-1 text-sm"><span className="font-medium">이메일</span><input required type="email" value={email} onChange={e => setEmail(e.target.value)} readOnly={!!inviteToken} autoComplete="email" className="w-full rounded-xl border bg-background px-3 py-3 read-only:bg-muted read-only:text-muted-foreground" placeholder="name@example.com" /></label>
         <label className="block space-y-1 text-sm">
           <span className="font-medium">비밀번호</span>
           <span className="relative block">
