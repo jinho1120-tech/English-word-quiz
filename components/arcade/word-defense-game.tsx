@@ -25,7 +25,7 @@ const HEIGHT = 620
 const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
-  return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'")
+  return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'").replace(/\s+/g, "")
 }
 
 function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean) {
@@ -115,8 +115,8 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       const dt = lastFrameRef.current ? Math.min((time - lastFrameRef.current) / 1000, 0.05) : 0
       lastFrameRef.current = time
       const currentScore = scoreRef.current
-      const maxMonsters = Math.min(7, 2 + Math.floor(currentScore / 100))
-      const spawnInterval = Math.max(620, 1550 - currentScore * 2.1)
+      const maxMonsters = Math.min(5, 1 + Math.floor(currentScore / 180))
+      const spawnInterval = Math.max(1300, 3200 - currentScore * 3)
 
       if (time - lastSpawnRef.current > spawnInterval && monstersRef.current.length < maxMonsters) {
         const occupied = monstersRef.current.map((monster) => monster.lane)
@@ -133,7 +133,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
           word: selected,
           lane,
           depth: 0,
-          speed: 0.075 + Math.min(0.11, currentScore / 9000),
+          speed: 0.035 + Math.min(0.055, currentScore / 18000),
           phase: Math.random() * Math.PI * 2,
         })
         lastSpawnRef.current = time
@@ -204,27 +204,41 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         const x = WIDTH / 2 + monster.lane * (180 + perspective * 100) + Math.sin(monster.phase) * (2 + depth * 5)
         const y = horizonY + 26 + perspective * (HEIGHT - horizonY - 112)
         const radius = 9 + perspective * 47
-        const labelFont = 10 + perspective * 19
+        const labelFont = 16 + perspective * 9
         const label = monster.word.meaning
-        const labelY = y - radius - 16
         const prefixMatch = typed.length > 0 && normalizeWord(monster.word.word).startsWith(normalizeWord(typed))
         drawGhost(ctx, x, y, radius, monster.phase, prefixMatch)
         ctx.font = `bold ${labelFont}px sans-serif`
-        const measured = ctx.measureText(label).width
-        const boxWidth = Math.min(230, Math.max(76, measured + 24))
-        const boxHeight = 22 + perspective * 12
-        ctx.fillStyle = prefixMatch ? "#fde68a" : "rgba(255,255,255,0.94)"
+        const maxTextWidth = 250
+        const lines: string[] = []
+        let line = ""
+        for (const character of label) {
+          const candidate = line + character
+          if (line && ctx.measureText(candidate).width > maxTextWidth) {
+            lines.push(line)
+            line = character
+          } else {
+            line = candidate
+          }
+        }
+        if (line) lines.push(line)
+        const boxWidth = Math.min(278, Math.max(92, ...lines.map((item) => ctx.measureText(item).width + 24)))
+        const lineHeight = labelFont * 1.2
+        const boxHeight = Math.max(34, lines.length * lineHeight + 14)
+        const labelY = Math.max(boxHeight / 2 + 8, y - radius - 18 - boxHeight / 2)
+        ctx.fillStyle = prefixMatch ? "#fde68a" : "rgba(255,255,255,0.96)"
         ctx.beginPath()
         const bx = Math.max(8, Math.min(WIDTH - boxWidth - 8, x - boxWidth / 2))
         const by = labelY - boxHeight / 2
-        const bw = boxWidth
-        const labelCenterX = bx + bw / 2
-        ctx.roundRect(bx, by, bw, boxHeight, 10)
+        ctx.roundRect(bx, by, boxWidth, boxHeight, 10)
         ctx.fill()
         ctx.fillStyle = "#172033"
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
-        ctx.fillText(label, labelCenterX, labelY, bw - 14)
+        lines.forEach((item, lineIndex) => {
+          const lineY = labelY + (lineIndex - (lines.length - 1) / 2) * lineHeight
+          ctx.fillText(item, bx + boxWidth / 2, lineY)
+        })
         ctx.textBaseline = "alphabetic"
       })
 
@@ -308,13 +322,6 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">WORDS</p><p className="text-xl font-black tabular-nums">{cleanWords.length}</p></div>
       </div>
 
-      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/31] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
-        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/85 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
-        {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
-        {message && !gameOver && <div className="pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 rounded-full bg-emerald-400 px-4 py-2 font-black text-emerald-950 shadow-lg">{message}</div>}
-      </div>
-
       <div className="space-y-2 rounded-2xl border border-border bg-card p-3">
         <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
         <input
@@ -337,6 +344,13 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
           <span>{message || "철자를 완성하면 해당 유령이 사라져요!"}</span>
           <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
         </div>
+      </div>
+
+      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/31] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/85 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
+        {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
+        {message && !gameOver && <div className="pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 rounded-full bg-emerald-400 px-4 py-2 font-black text-emerald-950 shadow-lg">{message}</div>}
       </div>
 
       <div className="flex gap-2">
