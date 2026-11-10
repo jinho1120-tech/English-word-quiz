@@ -28,7 +28,7 @@ export function ChildLearning({
   initialDate,
   initialStorage,
 }: {
-  pacmanStatus: { enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number }
+  pacmanStatus: { enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
   childName: string
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
@@ -363,9 +363,10 @@ export function ChildLearning({
               <p className="text-xs text-muted-foreground">오늘 남은 게임 {pacmanRemainingPlays} / {pacmanStatus.dailyPlayLimit}판</p>
             </div>
           </div>
+          {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 팩맨이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
-          <button type="button" disabled={pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
-            {pacmanRemainingPlays > 0 ? "팩맨 게임 시작하기 🎮" : "오늘의 게임을 모두 사용했어요"}
+          <button type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            {!pacmanStatus.eligible ? "학습 조건을 달성하면 게임이 열려요 🔒" : pacmanRemainingPlays > 0 ? "팩맨 게임 시작하기 🎮" : "오늘의 게임을 모두 사용했어요"}
           </button>
           <p className="text-[11px] text-muted-foreground">게임 시작 시 1회 차감되며, 게임을 중간에 나가도 사용 횟수는 복구되지 않아요.</p>
         </section>
