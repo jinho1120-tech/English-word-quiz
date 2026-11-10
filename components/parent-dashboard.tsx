@@ -345,7 +345,8 @@ export function ParentDashboard({
           </fieldset>
            <HapticButton disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10 || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
         </div>
-        <div className="space-y-3 border-t border-border pt-4">
+        <fieldset disabled={!couponsEnabled} className="space-y-3 border-t border-border pt-4 disabled:opacity-45">
+        <div className="space-y-3">
           <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 {guardianLabel} 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
@@ -371,6 +372,7 @@ export function ParentDashboard({
             </div>}
           </div>)}</div>}
         </div>
+        </fieldset>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
           {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
