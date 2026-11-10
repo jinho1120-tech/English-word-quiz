@@ -99,6 +99,13 @@
       "when": 1794320000004,
       "tag": "0013_seed_child_coupon_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794320000005,
+      "tag": "0014_auto_assign_subject_calendar_colors",
+      "breakpoints": true
     }
   ]
 }
