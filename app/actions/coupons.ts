@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, desc, eq, gt, isNull } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, ne } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -34,10 +34,10 @@ export async function getChildCouponWallet() {
     earnedAt: couponRewards.earnedAt,
     redeemedAt: couponRewards.redeemedAt,
   }).from(couponRewards)
-    .where(eq(couponRewards.childProfileId, child.childProfileId))
+    .where(and(eq(couponRewards.childProfileId, child.childProfileId), ne(couponRewards.status, "blank")))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(100)
-  return rewards.filter((reward) => reward.status !== "blank")
+  return rewards
 }
 
 export async function createCouponUseRequest(rewardId: string) {
