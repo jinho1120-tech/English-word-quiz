@@ -66,8 +66,8 @@ jobs:
               const history = await client.query('select count(*)::int as count from "drizzle"."__drizzle_migrations"');
               const appliedCount = history.rows[0].count;
               console.log("Existing applied migration count:", appliedCount);
-              if (![12, 13].includes(appliedCount)) {
-                throw new Error("Safety stop: expected 12 pending or 13 already-applied migrations.");
+              if (![12, 13, 14].includes(appliedCount)) {
+                throw new Error("Safety stop: expected 12 or 13 pending, or 14 already-applied migrations.");
               }
               console.log("Existing public schema and migration history preserved; only pending migrations will be applied.");
             }
@@ -128,7 +128,7 @@ jobs:
             `);
             console.log("Required feature tables:", required.rows.map(row => row.table_name));
             console.log("Coupon wallet capacity column:", capacityColumn.rowCount === 1 ? "present" : "missing");
-            if (history.rows[0].count !== 13) throw new Error("Expected exactly 13 applied migrations.");
+            if (history.rows[0].count !== 14) throw new Error("Expected exactly 14 applied migrations.");
             if (tables.rows[0].count < 1) throw new Error("No public tables were created.");
             if (required.rowCount !== 5) throw new Error("One or more required feature tables are missing.");
             if (capacityColumn.rowCount !== 1) throw new Error("Coupon wallet capacity column is missing.");
