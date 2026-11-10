@@ -129,6 +129,21 @@ export async function updateParentChildWord(childProfileId: string, id: number, 
   revalidatePath("/parent")
 }
 
+export async function deleteParentChildWordsByDate(childProfileId: string, date: string, subjectId: string | null) {
+  const child = await requireParentChild(childProfileId)
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("날짜 형식이 올바르지 않습니다.")
+  if (subjectId !== null) await ownedSubject(child.id, subjectId)
+  const conditions = [
+    eq(wordEntries.userId, child.ownerUserId),
+    eq(wordEntries.childProfileId, child.id),
+    eq(wordEntries.assignmentDate, date),
+  ]
+  if (subjectId) conditions.push(eq(wordEntries.subjectId, subjectId))
+  const deleted = await db.delete(wordEntries).where(and(...conditions)).returning({ id: wordEntries.id })
+  revalidatePath("/parent")
+  return { count: deleted.length }
+}
+
 export async function deleteParentChildWord(childProfileId: string, id: number) {
   const child = await requireParentChild(childProfileId)
   await db.delete(wordEntries).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, child.ownerUserId), eq(wordEntries.childProfileId, child.id)))
