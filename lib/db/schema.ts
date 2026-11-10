@@ -320,6 +320,8 @@ export const familyArcadeSettings = pgTable("family_arcade_settings", {
   familyId: uuid("family_id").notNull().references(() => families.id, { onDelete: "cascade" }),
   pacmanEnabled: boolean("pacman_enabled").default(false).notNull(),
   pacmanDailyPlayLimit: integer("pacman_daily_play_limit").default(1).notNull(),
+  pacmanMinDailyQuestions: integer("pacman_min_daily_questions").default(10).notNull(),
+  pacmanRequireNoWrongWords: boolean("pacman_require_no_wrong_words").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
