@@ -1,4 +1,4 @@
-name: Diagnose and apply test database migrations
+name: Repair and migrate test database
 
 on:
   workflow_dispatch:
@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feature/parent-manager-ui-cleanup
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -24,7 +26,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Validate database secret
+      - name: Validate and inspect test database
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -32,7 +34,23 @@ jobs:
             echo "::error::Database secret is missing."
             exit 1
           fi
-      - name: Inspect migration metadata (read-only)
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const identity = await client.query("select current_database() as db, current_user as role");
+            console.log("Connected database:", identity.rows[0].db, "role:", identity.rows[0].role);
+            const tables = await client.query("select count(*)::int as count from information_schema.tables where table_schema='public' and table_type='BASE TABLE'");
+            console.log("Existing public tables:", tables.rows[0].count);
+            if (tables.rows[0].count !== 0) {
+              throw new Error("Safety stop: public schema is not empty. No migration history was changed.");
+            }
+          } finally {
+            await client.end();
+          }
+          NODE
+      - name: Reset stale migration history only
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -41,22 +59,17 @@ jobs:
           const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
           await client.connect();
           try {
-            const identity = await client.query("select current_database() as db, current_user as role");
-            console.log("Connected database:", identity.rows[0].db, "role:", identity.rows[0].role);
-            const table = await client.query("select table_schema, table_name from information_schema.tables where table_schema='drizzle' and table_name='__drizzle_migrations'");
-            console.log("Migration history table:", table.rows);
-            if (table.rowCount) {
-              const columns = await client.query("select column_name, data_type from information_schema.columns where table_schema='drizzle' and table_name='__drizzle_migrations' order by ordinal_position");
-              console.log("Migration history columns:", columns.rows);
-              const history = await client.query('select * from "drizzle"."__drizzle_migrations" order by created_at');
-              console.log("Recorded migration count:", history.rowCount);
-              console.log("Recorded migration timestamps:", history.rows.map(row => row.created_at));
+            const identity = await client.query("select current_database() as db");
+            if (identity.rows[0].db !== "neondb") {
+              throw new Error("Safety stop: unexpected database; expected neondb.");
             }
+            await client.query('DROP SCHEMA IF EXISTS "drizzle" CASCADE');
+            console.log("Removed stale Drizzle migration history. Public schema was not touched.");
           } finally {
             await client.end();
           }
           NODE
-      - name: Apply migrations with full error details (no database reset)
+      - name: Apply all migrations from current feature branch
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -65,33 +78,29 @@ jobs:
           import { drizzle } from "drizzle-orm/node-postgres";
           import { migrate } from "drizzle-orm/node-postgres/migrator";
           const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-          const db = drizzle(pool);
           try {
-            await migrate(db, { migrationsFolder: "./drizzle" });
-            console.log("Drizzle migrations applied successfully.");
-          } catch (error) {
-            console.error("DRIZZLE MIGRATION FAILED");
-            console.error("Name:", error?.name);
-            console.error("Message:", error?.message);
-            console.error("Code:", error?.code);
-            console.error("Detail:", error?.detail);
-            console.error("Hint:", error?.hint);
-            console.error("Constraint:", error?.constraint);
-            console.error("Table:", error?.table);
-            console.error("Schema:", error?.schema);
-            console.error("Stack:", error?.stack);
-            if (error?.cause) {
-              console.error("Cause:", error.cause);
-              console.error("Cause message:", error.cause.message);
-              console.error("Cause code:", error.cause.code);
-              console.error("Cause detail:", error.cause.detail);
-              console.error("Cause stack:", error.cause.stack);
-            }
-            process.exitCode = 1;
+            await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
+            console.log("All feature-branch migrations applied.");
           } finally {
             await pool.end();
           }
           NODE
-      - name: Verify migration history
-        if: success()
-        run: pnpm exec drizzle-kit check
+      - name: Verify migration history and created tables
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const history = await client.query('select count(*)::int as count from "drizzle"."__drizzle_migrations"');
+            const tables = await client.query("select count(*)::int as count from information_schema.tables where table_schema='public' and table_type='BASE TABLE'");
+            console.log("Recorded migrations:", history.rows[0].count);
+            console.log("Public tables created:", tables.rows[0].count);
+            if (history.rows[0].count !== 12) throw new Error("Expected 12 recorded migrations.");
+            if (tables.rows[0].count < 1) throw new Error("No public tables were created.");
+          } finally {
+            await client.end();
+          }
+          NODE
