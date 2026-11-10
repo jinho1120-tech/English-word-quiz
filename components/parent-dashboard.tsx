@@ -167,7 +167,7 @@ export function ParentDashboard({
         setName("")
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "자녀를 등록하지 못했습니다.")
+        setError(err instanceof Error ? err.message : `${childLabel}를 등록하지 못했습니다.`)
       }
     })
   }
@@ -208,7 +208,7 @@ export function ParentDashboard({
 
   function toggleChild(child: Child) {
     const action = child.isActive ? "비활성화" : "다시 활성화"
-    if (!window.confirm(`${child.displayName} 자녀 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
+    if (!window.confirm(`${child.displayName} ${childLabel} 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
     setError("")
     startTransition(async () => {
       try {
@@ -217,7 +217,7 @@ export function ParentDashboard({
         else { setCreatedCode(""); setCopyFeedback("") }
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "자녀 상태를 변경하지 못했습니다.")
+        setError(err instanceof Error ? err.message : `${childLabel} 상태를 변경하지 못했습니다.`)
       }
     })
   }
@@ -231,13 +231,13 @@ export function ParentDashboard({
         setCreatedCode("")
         router.refresh()
       } catch (err) {
-        setError(err instanceof Error ? err.message : "자녀를 삭제하지 못했습니다.")
+        setError(err instanceof Error ? err.message : `${childLabel}를 삭제하지 못했습니다.`)
       }
     })
   }
 
   function revokeDevice(id: string) {
-    if (!window.confirm("이 기기의 자녀 자동 로그인을 해제할까요?")) return
+    if (!window.confirm(`이 기기의 ${childLabel} 자동 로그인을 해제할까요?`)) return
     setError("")
     startTransition(async () => {
       try {
@@ -289,7 +289,7 @@ export function ParentDashboard({
         <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
         <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
         <div className="space-y-3 border-t border-border pt-4">
-          <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 부모 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
+          <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 ${guardianLabel} 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
           <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
           <div className="grid grid-cols-2 gap-2">
@@ -347,8 +347,8 @@ export function ParentDashboard({
         <div className="mt-4 space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="child-name">{childLabel} 이름</label>
-            <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="{childLabel} 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : "{childLabel} 프로필 만들기"}</button>
+            <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder={`${childLabel} 이름`} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : `${childLabel} 프로필 만들기`}</button>
             <p className="text-xs text-muted-foreground">PIN은 필요하지 않습니다. 접속코드는 필요할 때마다 새로 발급할 수 있으며, 새 코드를 발급하면 이전 코드는 사용할 수 없습니다. QR도 언제든 다시 만들 수 있습니다.</p>
           </div>
           <div className="space-y-3 border-t border-border pt-3">
@@ -394,10 +394,10 @@ export function ParentDashboard({
             </div>
           ))}
           {parentRole === "owner" ? <>
-            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 공동관리자의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">공동관리자 초대 링크 만들기</button></div>
+            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 공동관리자의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "공동관리자 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">공동관리자 초대 링크 만들기</button></div>
             {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">초대 링크 복사</button><p className="text-xs text-muted-foreground">초대받은 공동관리자에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><button disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</button></div>)}
-          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 부모 초대와 관리자 해제는 가족 대표 {guardianLabel}만 할 수 있습니다.</p>}
+          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 공동관리자 초대와 관리자 해제는 가족 대표 {guardianLabel}만 할 수 있습니다.</p>}
         </div>
       </details>
 
