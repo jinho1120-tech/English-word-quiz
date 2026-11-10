@@ -292,11 +292,12 @@ export function ParentDashboard({
         ))}
       </section>
 
-      <section id="coupon-rewards" className="space-y-4 rounded-2xl border border-border p-4">
-        <div>
-          <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
-          <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 {childLabel}에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
-        </div>
+      <details id="coupon-rewards" className="rounded-2xl border border-border p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <span className="min-w-0"><span className="block text-base font-bold">쿠폰 및 학습 보상 관리</span><span className="mt-0.5 block text-xs text-muted-foreground">보상 조건, 쿠폰 종류, 지급 내역</span></span>
+          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{couponsEnabled ? "사용 중" : "꺼짐"}</span>
+        </summary>
+        <div className="mt-4 space-y-4">
 <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
           <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
           <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
@@ -349,7 +350,8 @@ export function ParentDashboard({
           </div>)}
         </div>
 
-      </section>
+        </div>
+      </details>
 
       {createdCode && (
         <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
