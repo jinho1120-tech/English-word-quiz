@@ -33,8 +33,20 @@ function shuffleWords(items: DefenseWord[]) {
   return shuffled
 }
 
+function uniqueWords(items: DefenseWord[]) {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const key = normalizeWord(item.word)
+    if (!key || !item.meaning.trim() || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 type WordDefenseGameProps = {
   words: DefenseWord[]
+  subjectWords: DefenseWord[]
+  allWords: DefenseWord[]
   onClose: () => void
 }
 
@@ -78,12 +90,14 @@ function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: 
   ctx.restore()
 }
 
-export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
+export function WordDefenseGame({ words, subjectWords, allWords, onClose }: WordDefenseGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const monstersRef = useRef<Monster[]>([])
   const defeatEffectsRef = useRef<DefeatEffect[]>([])
   const wordDeckRef = useRef<DefenseWord[]>([])
+  const deckTierRef = useRef(0)
   const lastDeckWordRef = useRef("")
+  const missedWordsRef = useRef<DefenseWord[]>([])
   const nextIdRef = useRef(1)
   const scoreRef = useRef(0)
   const livesRef = useRef(3)
@@ -96,23 +110,23 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
   const [started, setStarted] = useState(false)
   const [paused, setPaused] = useState(false)
   const [message, setMessage] = useState("")
+  const [missedWords, setMissedWords] = useState<DefenseWord[]>([])
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const cleanWords = useMemo(() => {
-    const seen = new Set<string>()
-    return words.filter((item) => {
-      const key = normalizeWord(item.word)
-      if (!key || !item.meaning.trim() || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }, [words])
+  const cleanWords = useMemo(() => uniqueWords(words), [words])
+  const cleanSubjectWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
+  const cleanAllWords = useMemo(() => uniqueWords(allWords), [allWords])
+  const currentTier = (value: number) => value >= 250 ? 2 : value >= 100 ? 1 : 0
+  const poolForTier = (tier: number) => tier === 2 ? cleanAllWords : tier === 1 ? cleanSubjectWords : cleanWords
 
   useEffect(() => {
     monstersRef.current = []
     defeatEffectsRef.current = []
     wordDeckRef.current = shuffleWords(cleanWords)
+    deckTierRef.current = 0
     lastDeckWordRef.current = ""
+    missedWordsRef.current = []
+    setMissedWords([])
     nextIdRef.current = 1
     scoreRef.current = 0
     livesRef.current = 3
@@ -141,8 +155,16 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       const dt = lastFrameRef.current ? Math.min((time - lastFrameRef.current) / 1000, 0.05) : 0
       lastFrameRef.current = time
       const currentScore = scoreRef.current
-      const maxMonsters = Math.min(5, 1 + Math.floor(currentScore / 180))
-      const spawnInterval = Math.max(1300, 3200 - currentScore * 3)
+      const tier = currentTier(currentScore)
+      const activePool = poolForTier(tier)
+      const maxMonsters = Math.min(5, 1 + Math.floor(currentScore / 150))
+      const spawnInterval = Math.max(1050, 3600 - currentScore * 2.8)
+
+      if (tier !== deckTierRef.current) {
+        const activeWords = new Set(monstersRef.current.map((monster) => normalizeWord(monster.word.word)))
+        wordDeckRef.current = shuffleWords(activePool.filter((item) => !activeWords.has(normalizeWord(item.word))))
+        deckTierRef.current = tier
+      }
 
       if (time - lastSpawnRef.current > spawnInterval && monstersRef.current.length < maxMonsters) {
         const occupied = monstersRef.current.map((monster) => monster.lane)
@@ -153,7 +175,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         }, LANES[0])
         const usedWords = new Set(monstersRef.current.map((monster) => normalizeWord(monster.word.word)))
         if (wordDeckRef.current.length === 0) {
-          wordDeckRef.current = shuffleWords(cleanWords)
+          wordDeckRef.current = shuffleWords(activePool)
           if (wordDeckRef.current.length > 1 && normalizeWord(wordDeckRef.current[0].word) === lastDeckWordRef.current) {
             ;[wordDeckRef.current[0], wordDeckRef.current[1]] = [wordDeckRef.current[1], wordDeckRef.current[0]]
           }
@@ -167,7 +189,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
             word: selected,
             lane,
             depth: 0,
-            speed: 0.035 + Math.min(0.055, currentScore / 18000),
+            speed: 0.026 + Math.min(0.022, currentScore / 30000),
             phase: Math.random() * Math.PI * 2,
           })
         }
@@ -279,6 +301,13 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
 
       if (escaped.length) {
         const escapedSet = new Set(escaped)
+        const missed = escaped.map((index) => monstersRef.current[index].word)
+        const knownMisses = new Set(missedWordsRef.current.map((item) => normalizeWord(item.word)))
+        const newMisses = missed.filter((item) => !knownMisses.has(normalizeWord(item.word)))
+        if (newMisses.length) {
+          missedWordsRef.current = [...missedWordsRef.current, ...newMisses]
+          setMissedWords([...missedWordsRef.current])
+        }
         monstersRef.current = monstersRef.current.filter((_, index) => !escapedSet.has(index))
         const nextLives = Math.max(0, livesRef.current - escaped.length)
         livesRef.current = nextLives
@@ -342,7 +371,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       window.cancelAnimationFrame(frame)
       lastFrameRef.current = 0
     }
-  }, [cleanWords, gameOver, paused, started, typed])
+  }, [cleanWords, cleanSubjectWords, cleanAllWords, gameOver, paused, started, typed])
 
   function handleTyping(value: string) {
     const next = value.slice(0, 100)
@@ -373,7 +402,10 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
     monstersRef.current = []
     defeatEffectsRef.current = []
     wordDeckRef.current = shuffleWords(cleanWords)
+    deckTierRef.current = 0
     lastDeckWordRef.current = ""
+    missedWordsRef.current = []
+    setMissedWords([])
     nextIdRef.current = 1
     scoreRef.current = 0
     livesRef.current = 3
@@ -404,7 +436,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-black tabular-nums">{score}</p></div>
         <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">LIFE</p><p className="flex justify-center gap-1 pt-1">{[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}</p></div>
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">WORDS</p><p className="text-xl font-black tabular-nums">{cleanWords.length}</p></div>
+        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">WORDS</p><p className="text-xl font-black tabular-nums">{score >= 250 ? cleanAllWords.length : score >= 100 ? cleanSubjectWords.length : cleanWords.length}</p></div>
       </div>
 
       <div className="space-y-2 rounded-2xl border border-border bg-card p-3">
@@ -442,19 +474,24 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
             <p>3. 정답이면 몬스터가 영단어로 변신해 도망가요!</p>
             <p>4. 몬스터가 방어선에 닿기 전에 물리쳐요.</p>
           </div>
-          <p className="text-xs text-sky-200">점수가 오를수록 몬스터가 더 빠르고 많이 나타나요.</p>
+          <p className="text-xs text-sky-200">점수가 오르면 더 넓은 단어장에서 출제되고 몬스터도 늘어나요.</p>
           <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="rounded-xl bg-amber-400 px-6 py-3 font-black text-amber-950">게임 시작!</HapticButton>
         </div>}
-        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/85 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
+        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><p className="text-sm font-bold">놓친 단어 {missedWords.length}개</p><div className="max-h-40 w-full max-w-xs space-y-1 overflow-y-auto rounded-xl bg-white/10 p-3 text-left text-sm">{missedWords.length ? missedWords.map((item) => <p key={normalizeWord(item.word)}><strong>{item.word}</strong><span className="ml-2 text-slate-300">{item.meaning}</span></p>) : <p className="text-slate-300">놓친 단어가 없어요!</p>}</div><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
 
+      </div>
+
+      <div className="rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 dark:bg-amber-950/20">
+        <div className="mb-2 flex items-center justify-between gap-2"><p className="text-xs font-black text-amber-800 dark:text-amber-200">방어선 · 놓친 단어</p><span className="text-[11px] font-bold text-muted-foreground">{missedWords.length}개</span></div>
+        {missedWords.length ? <div className="flex flex-wrap gap-2">{missedWords.slice(-5).map((item) => <span key={normalizeWord(item.word)} className="rounded-lg bg-background px-2.5 py-1.5 text-xs shadow-sm"><strong>{item.word}</strong><span className="ml-1.5 text-muted-foreground">{item.meaning}</span></span>)}</div> : <p className="text-xs text-muted-foreground">놓친 단어가 여기에 쌓여요. 정답을 확인하고 다시 기억해 봐요.</p>}
       </div>
 
       <div className="flex gap-2">
         <HapticButton type="button" onClick={() => setPaused((value) => !value)} disabled={gameOver} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-bold">{paused ? "계속하기" : "일시정지"}</HapticButton>
         <HapticButton type="button" onClick={onClose} className="flex-1 rounded-xl bg-muted px-3 py-2.5 text-sm font-bold">나가기</HapticButton>
       </div>
-      <p className="text-center text-[11px] text-muted-foreground">오늘 공부한 단어에서 출제돼요 · 정답을 입력하면 몬스터가 영단어로 변해 후퇴해요.</p>
+      <p className="text-center text-[11px] text-muted-foreground">처음엔 선택한 날짜·과목에서, 점수가 오르면 같은 과목 전체와 이 자녀의 다른 과목 단어까지 출제돼요. 몬스터가 방어선을 넘으면 정답이 복습 목록에 남아요.</p>
     </div>
   )
 }
