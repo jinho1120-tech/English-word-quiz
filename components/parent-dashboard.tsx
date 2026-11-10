@@ -57,6 +57,7 @@ export function ParentDashboard({
   const [qrChildName, setQrChildName] = useState("")
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
+  const [inviteCopyFeedback, setInviteCopyFeedback] = useState<"success" | "error" | "">("")
   const [couponsEnabled, setCouponsEnabled] = useState(settings?.couponsEnabled ?? false)
   const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
   const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
@@ -188,6 +189,16 @@ export function ParentDashboard({
       setCopyFeedback("success")
     } catch {
       setCopyFeedback("error")
+    }
+  }
+
+  async function copyInviteLink() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("클립보드를 사용할 수 없습니다.")
+      await navigator.clipboard.writeText(inviteUrl)
+      setInviteCopyFeedback("success")
+    } catch {
+      setInviteCopyFeedback("error")
     }
   }
 
@@ -379,8 +390,8 @@ export function ParentDashboard({
             </div>
           ))}
           {parentRole === "owner" ? <>
-            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 부모의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">부모 관리자 초대 링크 만들기</button></div>
-            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">초대 링크 복사</button><p className="text-xs text-muted-foreground">초대받은 부모에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
+            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 부모의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">부모 관리자 초대 링크 만들기</button></div>
+            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={copyInviteLink} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">{inviteCopyFeedback === "success" ? "✓ 복사 완료!" : "초대 링크 복사"}</button>{inviteCopyFeedback === "success" ? <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600">초대 링크가 클립보드에 복사되었습니다.</p> : inviteCopyFeedback === "error" ? <p role="alert" className="text-sm font-medium text-red-600">복사하지 못했어요. 링크를 길게 눌러 직접 복사해 주세요.</p> : null}<p className="text-xs text-muted-foreground">초대받은 부모에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><button disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</button></div>)}
           </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 부모 초대와 관리자 해제는 가족 대표 부모만 할 수 있습니다.</p>}
         </div>
