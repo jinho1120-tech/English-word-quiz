@@ -6,6 +6,8 @@ import { HapticButton } from "@/components/haptic-button"
 
 type DefenseWord = { id: number; word: string; meaning: string }
 
+type GhostMood = "mischievous" | "angry" | "surprised" | "worried" | "sleepy"
+
 type Monster = {
   id: number
   word: DefenseWord
@@ -13,6 +15,7 @@ type Monster = {
   depth: number
   speed: number
   phase: number
+  mood: GhostMood
 }
 
 type DefeatEffect = {
@@ -22,6 +25,7 @@ type DefeatEffect = {
   startDepth: number
   age: number
   phase: number
+  mood: GhostMood
 }
 
 function shuffleWords(items: DefenseWord[]) {
@@ -58,7 +62,7 @@ function normalizeWord(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'").replace(/\s+/g, "")
 }
 
-function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean) {
+function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean, mood: GhostMood) {
   const r = radius
   ctx.save()
   ctx.translate(x, y)
@@ -78,15 +82,55 @@ function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: 
   ctx.fill()
   ctx.shadowBlur = 0
   ctx.fillStyle = "#26324b"
-  ctx.beginPath()
-  ctx.ellipse(-r * 0.34, -r * 0.08, r * 0.12, r * 0.2, 0, 0, Math.PI * 2)
-  ctx.ellipse(r * 0.34, -r * 0.08, r * 0.12, r * 0.2, 0, 0, Math.PI * 2)
-  ctx.fill()
+
+  const eyeY = mood === "surprised" ? -r * 0.12 : -r * 0.08
+  if (mood === "sleepy") {
+    ctx.lineWidth = Math.max(1.8, r * 0.09)
+    ctx.strokeStyle = "#26324b"
+    ctx.beginPath()
+    ctx.moveTo(-r * 0.48, eyeY)
+    ctx.quadraticCurveTo(-r * 0.34, eyeY + r * 0.1, -r * 0.2, eyeY)
+    ctx.moveTo(r * 0.2, eyeY)
+    ctx.quadraticCurveTo(r * 0.34, eyeY + r * 0.1, r * 0.48, eyeY)
+    ctx.stroke()
+  } else {
+    const eyeHeight = mood === "surprised" ? r * 0.25 : mood === "worried" ? r * 0.14 : r * 0.2
+    ctx.beginPath()
+    ctx.ellipse(-r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
+    ctx.ellipse(r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
   ctx.strokeStyle = "#26324b"
+  ctx.fillStyle = "#26324b"
   ctx.lineWidth = Math.max(1.5, r * 0.07)
+  ctx.lineCap = "round"
   ctx.beginPath()
-  ctx.arc(0, r * 0.27, r * 0.16, 0.12, Math.PI - 0.12)
-  ctx.stroke()
+  if (mood === "angry") {
+    ctx.moveTo(-r * 0.5, -r * 0.38)
+    ctx.lineTo(-r * 0.2, -r * 0.25)
+    ctx.moveTo(r * 0.5, -r * 0.38)
+    ctx.lineTo(r * 0.2, -r * 0.25)
+    ctx.moveTo(-r * 0.18, r * 0.34)
+    ctx.lineTo(r * 0.18, r * 0.34)
+    ctx.stroke()
+  } else if (mood === "surprised") {
+    ctx.beginPath()
+    ctx.ellipse(0, r * 0.31, r * 0.13, r * 0.19, 0, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (mood === "worried") {
+    ctx.moveTo(-r * 0.18, r * 0.42)
+    ctx.quadraticCurveTo(0, r * 0.18, r * 0.18, r * 0.42)
+    ctx.stroke()
+  } else if (mood === "sleepy") {
+    ctx.moveTo(-r * 0.12, r * 0.3)
+    ctx.lineTo(r * 0.12, r * 0.3)
+    ctx.stroke()
+  } else {
+    ctx.moveTo(-r * 0.2, r * 0.2)
+    ctx.quadraticCurveTo(-r * 0.02, r * 0.48, r * 0.2, r * 0.2)
+    ctx.stroke()
+  }
   ctx.restore()
 }
 
@@ -191,6 +235,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             depth: 0,
             speed: 0.026 + Math.min(0.022, currentScore / 30000),
             phase: Math.random() * Math.PI * 2,
+            mood: (["mischievous", "angry", "surprised", "worried", "sleepy"] as GhostMood[])[Math.floor(Math.random() * 5)],
           })
         }
         lastSpawnRef.current = time
@@ -264,7 +309,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         const labelFont = 16 + perspective * 9
         const label = monster.word.meaning
         const prefixMatch = typed.length > 0 && normalizeWord(monster.word.word).startsWith(normalizeWord(typed))
-        drawGhost(ctx, x, y, radius, monster.phase, prefixMatch)
+        drawGhost(ctx, x, y, radius, monster.phase, prefixMatch, monster.mood)
         ctx.font = `bold ${labelFont}px sans-serif`
         const maxTextWidth = 250
         const lines: string[] = []
@@ -332,7 +377,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           ctx.globalAlpha = alpha
           ctx.translate(x, y)
           ctx.rotate(progress / 0.34 * Math.PI * 2)
-          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true)
+          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true, effect.mood)
           ctx.restore()
         }
         if (progress > 0.16) {
@@ -389,6 +434,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         startDepth: defeated.depth,
         age: 0,
         phase: defeated.phase,
+        mood: defeated.mood,
       })
       const points = 10 + Math.round(defeated.depth * 15)
       scoreRef.current += points
