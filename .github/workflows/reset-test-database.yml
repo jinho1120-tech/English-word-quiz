@@ -32,7 +32,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Validate database secret
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
             echo "::error::Set DATABASE_URL, NEON_DATABASE_URL, or POSTGRES_URL in GitHub Actions secrets."
@@ -40,7 +40,7 @@ jobs:
           fi
       - name: Reset public schema (destructive)
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
           node --input-type=module <<'NODE'
           import pg from "pg";
@@ -59,7 +59,7 @@ jobs:
           NODE
       - name: Apply all Drizzle migrations
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: pnpm db:migrate
       - name: Verify migration history
         run: pnpm exec drizzle-kit check
