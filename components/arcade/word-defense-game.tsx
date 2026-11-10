@@ -15,6 +15,24 @@ type Monster = {
   phase: number
 }
 
+type DefeatEffect = {
+  id: number
+  word: string
+  lane: number
+  startDepth: number
+  age: number
+  phase: number
+}
+
+function shuffleWords(items: DefenseWord[]) {
+  const shuffled = [...items]
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const target = Math.floor(Math.random() * (index + 1))
+    ;[shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]]
+  }
+  return shuffled
+}
+
 type WordDefenseGameProps = {
   words: DefenseWord[]
   onClose: () => void
@@ -63,6 +81,9 @@ function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: 
 export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const monstersRef = useRef<Monster[]>([])
+  const defeatEffectsRef = useRef<DefeatEffect[]>([])
+  const wordDeckRef = useRef<DefenseWord[]>([])
+  const lastDeckWordRef = useRef("")
   const nextIdRef = useRef(1)
   const scoreRef = useRef(0)
   const livesRef = useRef(3)
@@ -72,6 +93,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
   const [lives, setLives] = useState(3)
   const [typed, setTyped] = useState("")
   const [gameOver, setGameOver] = useState(false)
+  const [started, setStarted] = useState(false)
   const [paused, setPaused] = useState(false)
   const [message, setMessage] = useState("")
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -88,6 +110,9 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
 
   useEffect(() => {
     monstersRef.current = []
+    defeatEffectsRef.current = []
+    wordDeckRef.current = shuffleWords(cleanWords)
+    lastDeckWordRef.current = ""
     nextIdRef.current = 1
     scoreRef.current = 0
     livesRef.current = 3
@@ -97,13 +122,14 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
     setLives(3)
     setTyped("")
     setGameOver(false)
+    setStarted(false)
     setPaused(false)
     setMessage("")
   }, [cleanWords])
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || gameOver || paused || cleanWords.length === 0) return
+    if (!canvas || !started || gameOver || paused || cleanWords.length === 0) return
 
     const ctx = canvas.getContext("2d")
     if (!ctx) return
@@ -126,8 +152,20 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
           return nearestDepth(candidate) > nearestDepth(best) ? candidate : best
         }, LANES[0])
         const usedWords = new Set(monstersRef.current.map((monster) => normalizeWord(monster.word.word)))
-        const candidates = cleanWords.filter((item) => !usedWords.has(normalizeWord(item.word)))
-        const selected = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : cleanWords[Math.floor(Math.random() * cleanWords.length)]
+        if (wordDeckRef.current.length === 0) {
+          wordDeckRef.current = shuffleWords(cleanWords)
+          if (wordDeckRef.current.length > 1 && normalizeWord(wordDeckRef.current[0].word) === lastDeckWordRef.current) {
+            ;[wordDeckRef.current[0], wordDeckRef.current[1]] = [wordDeckRef.current[1], wordDeckRef.current[0]]
+          }
+        }
+        let deckIndex = wordDeckRef.current.findIndex((item) => !usedWords.has(normalizeWord(item.word)))
+        if (deckIndex < 0) {
+          lastSpawnRef.current = time
+          frame = window.requestAnimationFrame(draw)
+          return
+        }
+        const [selected] = wordDeckRef.current.splice(deckIndex, 1)
+        lastDeckWordRef.current = normalizeWord(selected.word)
         monstersRef.current.push({
           id: nextIdRef.current++,
           word: selected,
@@ -251,6 +289,46 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         if (nextLives <= 0) setGameOver(true)
       }
 
+      // Correctly answered ghosts spin, turn into their spelling, then retreat toward the horizon.
+      defeatEffectsRef.current = defeatEffectsRef.current.filter((effect) => effect.age < 0.72)
+      defeatEffectsRef.current.forEach((effect) => {
+        effect.age += dt
+        const progress = Math.min(1, effect.age / 0.72)
+        const retreat = progress * progress
+        const depth = effect.startDepth * (1 - retreat)
+        const perspective = depth * depth
+        const x = WIDTH / 2 + effect.lane * (180 + perspective * 100)
+        const y = horizonY + 26 + perspective * (HEIGHT - horizonY - 112)
+        const radius = (9 + perspective * 47) * (1 - progress * 0.28)
+        const alpha = Math.max(0, 1 - progress)
+        if (progress < 0.34) {
+          ctx.save()
+          ctx.globalAlpha = alpha
+          ctx.translate(x, y)
+          ctx.rotate(progress / 0.34 * Math.PI * 2)
+          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true)
+          ctx.restore()
+        }
+        if (progress > 0.16) {
+          const reveal = Math.min(1, (progress - 0.16) / 0.24)
+          const wordProgress = (progress - 0.16) / 0.84
+          ctx.save()
+          ctx.globalAlpha = alpha * reveal
+          ctx.translate(x, y - radius * 0.15)
+          ctx.rotate((1 - reveal) * Math.PI * 0.7 + Math.sin(effect.age * 24) * 0.05)
+          const scale = Math.max(0.42, 1 - wordProgress * 0.55)
+          ctx.scale(scale, scale)
+          ctx.font = "900 22px sans-serif"
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.shadowColor = "#67e8f9"
+          ctx.shadowBlur = 18
+          ctx.fillStyle = "#a5f3fc"
+          ctx.fillText(effect.word, 0, 0, 260)
+          ctx.restore()
+        }
+      })
+
       // Draw a subtle distant glow to strengthen the vanishing-point illusion.
       const glow = ctx.createRadialGradient(horizonX, horizonY, 2, horizonX, horizonY, 180)
       glow.addColorStop(0, "rgba(96,165,250,0.22)")
@@ -267,7 +345,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
       window.cancelAnimationFrame(frame)
       lastFrameRef.current = 0
     }
-  }, [cleanWords, gameOver, paused, typed])
+  }, [cleanWords, gameOver, paused, started, typed])
 
   function handleTyping(value: string) {
     const next = value.slice(0, 100)
@@ -278,18 +356,27 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
     const matchIndex = monstersRef.current.findIndex((monster) => normalizeWord(monster.word.word) === normalized)
     if (matchIndex >= 0) {
       const [defeated] = monstersRef.current.splice(matchIndex, 1)
+      defeatEffectsRef.current.push({
+        id: defeated.id,
+        word: defeated.word.word.toUpperCase(),
+        lane: defeated.lane,
+        startDepth: defeated.depth,
+        age: 0,
+        phase: defeated.phase,
+      })
       const points = 10 + Math.round(defeated.depth * 15)
       scoreRef.current += points
       setScore(scoreRef.current)
       setTyped("")
-      setMessage(`+${points}점!`)
       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(18)
-      window.setTimeout(() => setMessage((current) => current === `+${points}점!` ? "" : current), 650)
     }
   }
 
   function restart() {
     monstersRef.current = []
+    defeatEffectsRef.current = []
+    wordDeckRef.current = shuffleWords(cleanWords)
+    lastDeckWordRef.current = ""
     nextIdRef.current = 1
     scoreRef.current = 0
     livesRef.current = 3
@@ -299,6 +386,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
     setLives(3)
     setTyped("")
     setGameOver(false)
+    setStarted(true)
     setPaused(false)
     setMessage("")
     requestAnimationFrame(() => inputRef.current?.focus())
@@ -337,27 +425,39 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
           spellCheck={false}
           autoComplete="off"
           placeholder="영어 단어 입력..."
-          disabled={gameOver}
+          disabled={gameOver || !started}
           className="w-full rounded-xl border-2 border-sky-400 bg-background px-4 py-4 text-center text-xl font-black tracking-widest outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50"
         />
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>{message || "철자를 완성하면 해당 유령이 사라져요!"}</span>
+          <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
           <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
         </div>
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
         <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/31] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm">
+          <p className="text-4xl">👻</p>
+          <p className="text-2xl font-black">게임 방법</p>
+          <div className="w-full max-w-xs space-y-2 rounded-2xl bg-white/10 p-4 text-left text-sm leading-relaxed">
+            <p>1. 몬스터가 달고 오는 <strong>한글 뜻</strong>을 확인해요.</p>
+            <p>2. 그 뜻에 맞는 <strong>영어 단어를 입력</strong>해요.</p>
+            <p>3. 정답이면 몬스터가 영단어로 변신해 도망가요!</p>
+            <p>4. 몬스터가 방어선에 닿기 전에 물리쳐요.</p>
+          </div>
+          <p className="text-xs text-sky-200">점수가 오를수록 몬스터가 더 빠르고 많이 나타나요.</p>
+          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="rounded-xl bg-amber-400 px-6 py-3 font-black text-amber-950">게임 시작!</HapticButton>
+        </div>}
         {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/85 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
-        {message && !gameOver && <div className="pointer-events-none absolute left-1/2 top-1/3 -translate-x-1/2 rounded-full bg-emerald-400 px-4 py-2 font-black text-emerald-950 shadow-lg">{message}</div>}
+
       </div>
 
       <div className="flex gap-2">
         <HapticButton type="button" onClick={() => setPaused((value) => !value)} disabled={gameOver} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-bold">{paused ? "계속하기" : "일시정지"}</HapticButton>
         <HapticButton type="button" onClick={onClose} className="flex-1 rounded-xl bg-muted px-3 py-2.5 text-sm font-bold">나가기</HapticButton>
       </div>
-      <p className="text-center text-[11px] text-muted-foreground">오늘 공부한 단어에서 출제돼요 · 몬스터가 방어선에 도달하면 생명이 줄어요.</p>
+      <p className="text-center text-[11px] text-muted-foreground">오늘 공부한 단어에서 출제돼요 · 정답을 입력하면 몬스터가 영단어로 변해 후퇴해요.</p>
     </div>
   )
 }
