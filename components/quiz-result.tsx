@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 import type { QuizWord } from "./word-quiz"
 
 
-function ScratchCouponCard({ outcome, title, onReveal }: { outcome: "won" | "blank" | null; title: string | null; onReveal: () => Promise<void> }) {
+function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome: "won" | "blank" | null; title: string | null; description: string | null; onReveal: () => Promise<void> }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const triggeredRef = useRef(false)
   const [revealing, setRevealing] = useState(false)
@@ -77,12 +77,14 @@ function ScratchCouponCard({ outcome, title, onReveal }: { outcome: "won" | "bla
             <>
               <p className="text-xl font-black text-amber-700">🎉 축하해요!</p>
               <p className="mt-2 text-base font-bold text-foreground">「{title}」 쿠폰 당첨!</p>
+              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
               <p className="mt-1 text-xs font-medium text-muted-foreground">내 쿠폰함에서 확인해 보세요.</p>
             </>
           ) : outcome === "blank" ? (
             <>
               <p className="text-xl font-black text-slate-700">🥲 아쉬워요!</p>
-              <p className="mt-2 text-sm font-bold text-foreground">이번 카드는 꽝이에요.</p>
+              <p className="mt-2 text-base font-bold text-foreground">「{title}」</p>
+              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
               <p className="mt-1 text-xs font-medium text-muted-foreground">다음 도전을 응원할게요!</p>
             </>
           ) : (
@@ -111,11 +113,11 @@ function ScratchCouponCard({ outcome, title, onReveal }: { outcome: "won" | "bla
 interface Props {
   score: number; correctCount: number; total: number; bestStreak: number;
   wrongWords: QuizWord[]; accent: string; usedHint?: boolean; rewardTitle?: string | null; rewardChecked?: boolean; couponConfigured?: boolean;
-  couponEligible?: boolean; couponOutcome?: "won" | "blank" | null; onRevealCoupon?: () => Promise<void>; quizType?: string;
+  couponEligible?: boolean; couponOutcome?: "won" | "blank" | null; rewardDescription?: string | null; onRevealCoupon?: () => Promise<void>; quizType?: string;
   onRetryWrong: () => void; onRetryAll: () => void;
 }
 
-export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, couponConfigured = true, couponEligible = false, couponOutcome = null, onRevealCoupon = async () => {}, quizType, onRetryWrong, onRetryAll }: Props) {
+export function QuizResult({ score, correctCount, total, bestStreak, wrongWords, accent, usedHint = false, rewardTitle = null, rewardChecked = false, couponConfigured = true, couponEligible = false, couponOutcome = null, rewardDescription = null, onRevealCoupon = async () => {}, quizType, onRetryWrong, onRetryAll }: Props) {
   const isContextMode = quizType === "context"
   const isEligibleForReward = score === 100 && total >= 10 && !usedHint
 
@@ -181,7 +183,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
         </div>
         
         {rewardChecked && couponEligible ? (
-          <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} onReveal={onRevealCoupon} />
+          <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} description={rewardDescription} onReveal={onRevealCoupon} />
         ) : rewardChecked && !couponConfigured ? (
           <p className="mt-5 rounded-xl border border-border bg-background px-4 py-3 text-center text-sm font-semibold text-foreground">{score === 100 ? "완벽해! 오늘의 단어를 모두 정복했어! 정말 대단해! 🌟" : "끝까지 도전한 네가 정말 멋져! 오늘 배운 단어가 하나 더 네 것이 됐어. 👏"}</p>
         ) : rewardChecked ? (
