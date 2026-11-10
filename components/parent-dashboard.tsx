@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
 import {
@@ -25,10 +25,10 @@ type Child = { id: string; displayName: string; isActive: boolean; createdAt: Da
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
-type FamilySettings = { couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number } | null
 type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }
-type Coupon = { id: string; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
-type Reward = { id: string; childName: string; title: string; status: string; earnedAt: Date }
+type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number }
+type Coupon = { id: string; childProfileId: string | null; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
+type Reward = { id: string; childProfileId: string; childName: string; title: string; status: string; earnedAt: Date }
 
 export function ParentDashboard({
   children,
@@ -36,9 +36,9 @@ export function ParentDashboard({
   members,
   invitations,
   parentRole,
-  settings,
   arcadeSettings,
   coupons,
+  couponSettings,
   rewards,
   familyTerms,
 }: {
@@ -46,9 +46,9 @@ export function ParentDashboard({
   devices: Device[]
   members: Member[]
   invitations: Invitation[]
-  settings: FamilySettings
   arcadeSettings: ArcadeSettings
   coupons: Coupon[]
+  couponSettings: CouponSettings[]
   rewards: Reward[]
   parentRole: "owner" | "admin"
   currentUserId: string
@@ -58,6 +58,7 @@ export function ParentDashboard({
   const guardianLabel = familyTerms.guardian
   const childLabel = familyTerms.child
   const router = useRouter()
+  const [selectedCouponChildId, setSelectedCouponChildId] = useState(children[0]?.id ?? "")
   const [name, setName] = useState("")
   const [createdCode, setCreatedCode] = useState("")
   const [codeChildName, setCodeChildName] = useState("")
@@ -66,11 +67,11 @@ export function ParentDashboard({
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
   const [inviteCopyFeedback, setInviteCopyFeedback] = useState<"success" | "error" | "">("")
-  const [couponsEnabled, setCouponsEnabled] = useState(settings?.couponsEnabled ?? false)
-  const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
-  const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
-  const [requireNoHint, setRequireNoHint] = useState(settings?.requireNoHint ?? true)
-  const [blankCouponProbability, setBlankCouponProbability] = useState(settings?.blankCouponProbability ?? 20)
+  const [couponsEnabled, setCouponsEnabled] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.couponsEnabled ?? false)
+  const [rewardMinScore, setRewardMinScore] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.rewardMinScore ?? 100)
+  const [rewardMinQuestions, setRewardMinQuestions] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.rewardMinQuestions ?? 10)
+  const [requireNoHint, setRequireNoHint] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.requireNoHint ?? true)
+  const [blankCouponProbability, setBlankCouponProbability] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.blankCouponProbability ?? 20)
   const [pacmanEnabled, setPacmanEnabled] = useState(arcadeSettings.pacmanEnabled)
   const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit)
   const [pacmanMinDailyQuestions, setPacmanMinDailyQuestions] = useState(arcadeSettings.pacmanMinDailyQuestions)
@@ -87,12 +88,31 @@ export function ParentDashboard({
   const [error, setError] = useState("")
   const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
+  const selectedCouponSettings = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
+  const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
+  const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
+
+  useEffect(() => {
+    if (!selectedCouponChildId && children[0]) setSelectedCouponChildId(children[0].id)
+  }, [children, selectedCouponChildId])
+
+  useEffect(() => {
+    const current = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
+    setCouponsEnabled(current?.couponsEnabled ?? false)
+    setRewardMinScore(current?.rewardMinScore ?? 100)
+    setRewardMinQuestions(current?.rewardMinQuestions ?? 10)
+    setRequireNoHint(current?.requireNoHint ?? true)
+    setBlankCouponProbability(current?.blankCouponProbability ?? 20)
+    setCouponTitle("")
+    setCouponDescription("")
+    setEditingCouponId(null)
+  }, [selectedCouponChildId, couponSettings])
 
   function saveRewardSettings() {
     setError("")
     startTransition(async () => {
       try {
-        await updateFamilyRewardSettings({ couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint, blankCouponProbability })
+        await updateFamilyRewardSettings({ childProfileId: selectedCouponChildId, couponsEnabled, rewardMinScore, rewardMinQuestions, requireNoHint, blankCouponProbability })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 설정을 저장하지 못했습니다.")
@@ -116,7 +136,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await createCouponType({ title: couponTitle, description: couponDescription, couponKind, drawWeight: couponWeight })
+        await createCouponType({ childProfileId: selectedCouponChildId, title: couponTitle, description: couponDescription, couponKind, drawWeight: couponWeight })
         setCouponTitle("")
         setCouponDescription("")
         setCouponKind("regular")
@@ -132,7 +152,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await setCouponTypeActive({ couponTypeId: coupon.id, isActive: !coupon.isActive })
+        await setCouponTypeActive({ childProfileId: selectedCouponChildId, couponTypeId: coupon.id, isActive: !coupon.isActive })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰 상태를 변경하지 못했습니다.")
@@ -153,7 +173,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await updateCouponType({ couponTypeId: editingCouponId, title: editingCouponTitle, description: editingCouponDescription, couponKind: editingCouponKind, drawWeight: editingCouponWeight })
+        await updateCouponType({ childProfileId: selectedCouponChildId, couponTypeId: editingCouponId, title: editingCouponTitle, description: editingCouponDescription, couponKind: editingCouponKind, drawWeight: editingCouponWeight })
         setEditingCouponId(null)
         router.refresh()
       } catch (err) {
@@ -167,7 +187,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await deleteCouponType(coupon.id)
+        await deleteCouponType({ childProfileId: selectedCouponChildId, couponTypeId: coupon.id })
         if (editingCouponId === coupon.id) setEditingCouponId(null)
         router.refresh()
       } catch (err) {
@@ -292,11 +312,13 @@ export function ParentDashboard({
         ))}
       </section>
 
-      <section id="coupon-rewards" className="space-y-4 rounded-2xl border border-border p-4">
-        <div>
-          <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
-          <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 {childLabel}에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
-        </div>
+      <details id="coupon-rewards" className="rounded-2xl border border-border p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+          <span className="min-w-0"><span className="block text-base font-bold">쿠폰 및 학습 보상 관리</span><span className="mt-0.5 block text-xs text-muted-foreground">보상 조건, 쿠폰 종류, 지급 내역</span></span>
+          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{selectedCouponSettings ? (couponsEnabled ? "사용 중" : "꺼짐") : "자녀 선택 필요"}</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+        <label className="block space-y-1 text-sm"><span className="font-semibold">쿠폰을 설정할 자녀</span><select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5">{children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}</select>{!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}</label>
 <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
           <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
           <input type="checkbox" checked={couponsEnabled} onChange={(event) => setCouponsEnabled(event.target.checked)} className="size-5 accent-foreground" />
@@ -307,7 +329,7 @@ export function ParentDashboard({
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
         <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
-        <button disabled={isPending || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
+        <button disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</button>
         <div className="space-y-3 border-t border-border pt-4">
           <div><h3 className="font-bold">🎮 학습 후 팩맨 게임</h3><p className="text-xs text-muted-foreground">원할 때만 게임을 허용할 수 있어요. 플레이 횟수는 아이별로 관리되며 매일 한국 시간 자정에 초기화됩니다.</p></div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pacmanEnabled} onChange={(event) => setPacmanEnabled(event.target.checked)} className="size-4 accent-foreground" />자녀에게 팩맨 게임 허용</label>
@@ -324,8 +346,8 @@ export function ParentDashboard({
             <label className="space-y-1 text-xs"><span>쿠폰 종류</span><select value={couponKind} onChange={(event) => setCouponKind(event.target.value as "regular" | "blank")} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select></label>
             <label className="space-y-1 text-xs"><span>개별 출현 가중치</span><input type="number" min={1} max={1000} value={couponWeight} onChange={(event) => setCouponWeight(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           </div>
-          <button disabled={isPending || !couponTitle.trim() || !Number.isInteger(couponWeight) || couponWeight < 1 || couponWeight > 1000} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 추가</button>
-          {coupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{coupons.map((coupon) => <div key={coupon.id} className="space-y-2 rounded-xl border border-border p-3">
+          <button disabled={isPending || !selectedCouponChildId || !couponTitle.trim() || !Number.isInteger(couponWeight) || couponWeight < 1 || couponWeight > 1000} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 추가</button>
+          {selectedCoupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{selectedCoupons.map((coupon) => <div key={coupon.id} className="space-y-2 rounded-xl border border-border p-3">
             {editingCouponId === coupon.id ? <div className="space-y-2">
               <input value={editingCouponTitle} onChange={(event) => setEditingCouponTitle(event.target.value)} maxLength={80} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
               <textarea value={editingCouponDescription} onChange={(event) => setEditingCouponDescription(event.target.value)} maxLength={1000} rows={2} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
@@ -344,12 +366,13 @@ export function ParentDashboard({
         </div>
         <div className="space-y-2 border-t border-border pt-4">
           <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
-          {rewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : rewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
+          {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
           </div>)}
         </div>
 
-      </section>
+        </div>
+      </details>
 
       {createdCode && (
         <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">

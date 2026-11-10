@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight, Palette, X } from "lucide-react"
 import { getChildCalendarData, updateChildSubjectColor } from "@/app/actions/child-words"
+import { getParentChildCalendarData, updateParentChildSubjectColor } from "@/app/actions/parent-words"
 
 type Subject = { id: string; name: string; color: string }
 type StorageDate = { date: string; subjectId: string | null; subject: string }
@@ -22,12 +23,13 @@ function formatSelectedDate(value: string) {
   return `${month}월 ${day}일 (${weekday})`
 }
 
-export function WordStorageCalendar({ selectedDate, subjects, initialStorage, refreshKey = 0, onSelectDate }: {
+export function WordStorageCalendar({ selectedDate, subjects, initialStorage, refreshKey = 0, onSelectDate, parentChildProfileId }: {
   selectedDate: string
   subjects: Subject[]
   initialStorage: StorageDate[]
   refreshKey?: number
   onSelectDate: (date: string) => void
+  parentChildProfileId?: string
 }) {
   const [month, setMonth] = useState(() => new Date(Number(selectedDate.slice(0, 4)), Number(selectedDate.slice(5, 7)) - 1, 1))
   const [storage, setStorage] = useState(initialStorage)
@@ -46,9 +48,12 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
 
   useEffect(() => {
     let active = true
-    getChildCalendarData(key).then((rows) => { if (active) setStorage(rows) }).catch(() => {})
+    const load = parentChildProfileId
+      ? getParentChildCalendarData(parentChildProfileId, key)
+      : getChildCalendarData(key)
+    load.then((rows) => { if (active) setStorage(rows) }).catch(() => {})
     return () => { active = false }
-  }, [key, refreshKey])
+  }, [key, refreshKey, parentChildProfileId])
 
   useEffect(() => {
     setColors(Object.fromEntries(subjects.map((s) => [s.id, s.color])))
@@ -75,7 +80,8 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
     setColors((current) => ({ ...current, [subjectId]: color }))
     startTransition(async () => {
       try {
-        await updateChildSubjectColor(subjectId, color)
+        if (parentChildProfileId) await updateParentChildSubjectColor(parentChildProfileId, subjectId, color)
+        else await updateChildSubjectColor(subjectId, color)
       } catch {
         setColors((current) => ({ ...current, [subjectId]: previous ?? "#2563EB" }))
       }

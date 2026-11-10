@@ -1,4 +1,4 @@
-name: Repair and migrate test database
+name: Repair and apply test database migrations
 
 on:
   workflow_dispatch:
@@ -16,8 +16,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: feature/parent-manager-ui-cleanup
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -26,7 +24,7 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-      - name: Validate and inspect test database
+      - name: Validate database secret
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -34,23 +32,7 @@ jobs:
             echo "::error::Database secret is missing."
             exit 1
           fi
-          node --input-type=module <<'NODE'
-          import pg from "pg";
-          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-          await client.connect();
-          try {
-            const identity = await client.query("select current_database() as db, current_user as role");
-            console.log("Connected database:", identity.rows[0].db, "role:", identity.rows[0].role);
-            const tables = await client.query("select count(*)::int as count from information_schema.tables where table_schema='public' and table_type='BASE TABLE'");
-            console.log("Existing public tables:", tables.rows[0].count);
-            if (tables.rows[0].count !== 0) {
-              throw new Error("Safety stop: public schema is not empty. No migration history was changed.");
-            }
-          } finally {
-            await client.end();
-          }
-          NODE
-      - name: Reset stale migration history only
+      - name: Safely remove stale migration history
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -59,9 +41,22 @@ jobs:
           const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
           await client.connect();
           try {
-            const identity = await client.query("select current_database() as db");
-            if (identity.rows[0].db !== "neondb") {
-              throw new Error("Safety stop: unexpected database; expected neondb.");
+            const identity = await client.query("select current_database() as db, current_user as role");
+            const dbName = identity.rows[0].db;
+            console.log("Connected database:", dbName, "role:", identity.rows[0].role);
+            if (dbName !== "neondb") {
+              throw new Error(`Safety stop: expected test database neondb, got ${dbName}`);
+            }
+            const tables = await client.query(`
+              select count(*)::int as count
+              from pg_class c
+              join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relkind in ('r', 'p')
+            `);
+            const tableCount = tables.rows[0].count;
+            console.log("Existing public tables:", tableCount);
+            if (tableCount !== 0) {
+              throw new Error("Safety stop: public schema is not empty. Migration history was not changed.");
             }
             await client.query('DROP SCHEMA IF EXISTS "drizzle" CASCADE');
             console.log("Removed stale Drizzle migration history. Public schema was not touched.");
@@ -69,7 +64,7 @@ jobs:
             await client.end();
           }
           NODE
-      - name: Apply all migrations from current feature branch
+      - name: Apply all migrations
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -80,12 +75,19 @@ jobs:
           const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
           try {
             await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
-            console.log("All feature-branch migrations applied.");
+            console.log("All migration files applied.");
+          } catch (error) {
+            console.error("Migration failed:", error?.message);
+            console.error("PostgreSQL cause:", error?.cause?.message);
+            console.error("PostgreSQL code:", error?.cause?.code);
+            console.error(error?.stack);
+            process.exitCode = 1;
           } finally {
             await pool.end();
           }
           NODE
-      - name: Verify migration history and created tables
+      - name: Verify all migrations and core tables
+        if: success()
         env:
           DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL || secrets.DATABASE_URL || secrets.NEON_DATABASE_URL || secrets.POSTGRES_URL }}
         run: |
@@ -95,11 +97,23 @@ jobs:
           await client.connect();
           try {
             const history = await client.query('select count(*)::int as count from "drizzle"."__drizzle_migrations"');
-            const tables = await client.query("select count(*)::int as count from information_schema.tables where table_schema='public' and table_type='BASE TABLE'");
-            console.log("Recorded migrations:", history.rows[0].count);
-            console.log("Public tables created:", tables.rows[0].count);
-            if (history.rows[0].count !== 12) throw new Error("Expected 12 recorded migrations.");
+            const tables = await client.query(`
+              select count(*)::int as count
+              from pg_class c join pg_namespace n on n.oid = c.relnamespace
+              where n.nspname = 'public' and c.relkind in ('r', 'p')
+            `);
+            const required = await client.query(`
+              select table_name from information_schema.tables
+              where table_schema = 'public'
+                and table_name in ('families', 'child_profiles', 'family_arcade_settings', 'child_pacman_daily_plays', 'child_coupon_settings')
+              order by table_name
+            `);
+            console.log("Applied migration count:", history.rows[0].count);
+            console.log("Public table count:", tables.rows[0].count);
+            console.log("Required feature tables:", required.rows.map(row => row.table_name));
+            if (history.rows[0].count !== 12) throw new Error("Expected exactly 12 applied migrations.");
             if (tables.rows[0].count < 1) throw new Error("No public tables were created.");
+            if (required.rowCount !== 5) throw new Error("One or more required feature tables are missing.");
           } finally {
             await client.end();
           }

@@ -13,6 +13,7 @@ import {
   childSubjects,
   couponTypes,
   couponRewards,
+  childCouponSettings,
   families,
   familySettings,
   familyMembers,
@@ -122,19 +123,33 @@ export async function getParentFamilyDashboard() {
     .where(eq(childProfiles.familyId, family.id))
     .orderBy(asc(childProfiles.createdAt))
 
+  const couponSettings = await db.select({
+    childProfileId: childCouponSettings.childProfileId,
+    couponsEnabled: childCouponSettings.couponsEnabled,
+    rewardMinScore: childCouponSettings.rewardMinScore,
+    rewardMinQuestions: childCouponSettings.rewardMinQuestions,
+    requireNoHint: childCouponSettings.requireNoHint,
+    blankCouponProbability: childCouponSettings.blankCouponProbability,
+  }).from(childCouponSettings)
+    .innerJoin(childProfiles, eq(childCouponSettings.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, family.id))
+
   const coupons = await db.select({
     id: couponTypes.id,
+    childProfileId: couponTypes.childProfileId,
     title: couponTypes.title,
     description: couponTypes.description,
     isActive: couponTypes.isActive,
     couponKind: couponTypes.couponKind,
     drawWeight: couponTypes.drawWeight,
   }).from(couponTypes)
-    .where(eq(couponTypes.familyId, family.id))
+    .innerJoin(childProfiles, eq(couponTypes.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, family.id))
     .orderBy(asc(couponTypes.createdAt))
 
   const rewards = await db.select({
     id: couponRewards.id,
+    childProfileId: couponRewards.childProfileId,
     childName: childProfiles.displayName,
     title: couponRewards.couponTitleSnapshot,
     status: couponRewards.status,
@@ -166,7 +181,7 @@ export async function getParentFamilyDashboard() {
   const familyTerms = role === "owner"
     ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
     : { guardian: currentUserName || "공동관리자", child: "아이" }
-  return { familyId: family.id, settings: settings ?? null, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
+  return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
@@ -190,6 +205,31 @@ export async function createChildProfile(input: { displayName: string }) {
     name: "단어",
     sortOrder: 0,
   })
+
+  const [familyRewardDefaults] = await db.select().from(familySettings)
+    .where(eq(familySettings.familyId, family.id)).limit(1)
+  await db.insert(childCouponSettings).values({
+    childProfileId: child.id,
+    couponsEnabled: familyRewardDefaults?.couponsEnabled ?? false,
+    rewardMinScore: familyRewardDefaults?.rewardMinScore ?? 100,
+    rewardMinQuestions: familyRewardDefaults?.rewardMinQuestions ?? 10,
+    requireNoHint: familyRewardDefaults?.requireNoHint ?? true,
+    blankCouponProbability: familyRewardDefaults?.blankCouponProbability ?? 20,
+  }).onConflictDoNothing()
+  const legacyCouponDefaults = await db.select({
+    title: couponTypes.title,
+    description: couponTypes.description,
+    couponKind: couponTypes.couponKind,
+    drawWeight: couponTypes.drawWeight,
+    isActive: couponTypes.isActive,
+  }).from(couponTypes).where(and(eq(couponTypes.familyId, family.id), isNull(couponTypes.childProfileId)))
+  if (legacyCouponDefaults.length) {
+    await db.insert(couponTypes).values(legacyCouponDefaults.map((coupon) => ({
+      familyId: family.id,
+      childProfileId: child.id,
+      ...coupon,
+    })))
+  }
 
   revalidatePath("/parent")
   return { ...child, accessCode }
@@ -341,49 +381,59 @@ export async function completeChildQrEnrollment(input: { token: string; deviceLa
   return { success: true }
 }
 
+async function requireFamilyChild(childProfileId: string) {
+  const { family } = await requireParentFamily()
+  if (typeof childProfileId !== "string" || !childProfileId) throw new Error("자녀 정보가 올바르지 않습니다.")
+  const [child] = await db.select({ id: childProfiles.id }).from(childProfiles)
+    .where(and(eq(childProfiles.id, childProfileId), eq(childProfiles.familyId, family.id))).limit(1)
+  if (!child) throw new Error("관리할 자녀 프로필을 찾을 수 없습니다.")
+  await db.insert(childCouponSettings).values({ childProfileId }).onConflictDoNothing()
+  return { family, child }
+}
+
 export async function updateFamilyRewardSettings(input: {
+  childProfileId: string
   couponsEnabled: boolean
   rewardMinScore: number
   rewardMinQuestions: number
   requireNoHint: boolean
   blankCouponProbability: number
 }) {
-  const { family } = await requireParentFamily()
-  if (typeof input?.couponsEnabled !== "boolean" || typeof input.requireNoHint !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
+  const { child } = await requireFamilyChild(input?.childProfileId)
+  if (typeof input.couponsEnabled !== "boolean" || typeof input.requireNoHint !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   if (!Number.isInteger(input.rewardMinScore) || input.rewardMinScore < 1 || input.rewardMinScore > 100) throw new Error("보상 점수는 1~100점이어야 합니다.")
   if (!Number.isInteger(input.rewardMinQuestions) || input.rewardMinQuestions < 1 || input.rewardMinQuestions > 100) throw new Error("보상 최소 문제 수는 1~100개여야 합니다.")
   if (!Number.isInteger(input.blankCouponProbability) || input.blankCouponProbability < 0 || input.blankCouponProbability > 100) throw new Error("꽝 쿠폰 확률은 0~100%여야 합니다.")
-
-  await db.update(familySettings).set({
+  await db.update(childCouponSettings).set({
     couponsEnabled: input.couponsEnabled,
     rewardMinScore: input.rewardMinScore,
     rewardMinQuestions: input.rewardMinQuestions,
     requireNoHint: input.requireNoHint,
     blankCouponProbability: input.blankCouponProbability,
     updatedAt: new Date(),
-  }).where(eq(familySettings.familyId, family.id))
+  }).where(eq(childCouponSettings.childProfileId, child.id))
   revalidatePath("/parent")
   return { success: true }
 }
 
-export async function createCouponType(input: { title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
-  const { family } = await requireParentFamily()
-  if (typeof input?.title !== "string" || !["regular", "blank"].includes(input.couponKind) ||
+export async function createCouponType(input: { childProfileId: string; title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
+  const { family, child } = await requireFamilyChild(input?.childProfileId)
+  if (typeof input.title !== "string" || !["regular", "blank"].includes(input.couponKind) ||
       !Number.isInteger(input.drawWeight) || input.drawWeight < 1 || input.drawWeight > 1000) throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   const title = input.title.trim()
   const description = typeof input.description === "string" ? input.description.trim() : ""
   if (!title || title.length > 80 || description.length > 1000) throw new Error("쿠폰 이름은 1~80자, 설명은 1,000자 이내로 입력해 주세요.")
   const [coupon] = await db.insert(couponTypes).values({
-    familyId: family.id, title, description: description || null,
+    familyId: family.id, childProfileId: child.id, title, description: description || null,
     couponKind: input.couponKind, drawWeight: input.drawWeight,
   }).returning({ id: couponTypes.id, title: couponTypes.title, description: couponTypes.description, isActive: couponTypes.isActive, couponKind: couponTypes.couponKind, drawWeight: couponTypes.drawWeight })
   revalidatePath("/parent")
   return coupon
 }
 
-export async function updateCouponType(input: { couponTypeId: string; title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
-  const { family } = await requireParentFamily()
-  if (typeof input?.couponTypeId !== "string" || typeof input.title !== "string" ||
+export async function updateCouponType(input: { childProfileId: string; couponTypeId: string; title: string; description?: string; couponKind: "regular" | "blank"; drawWeight: number }) {
+  const { family, child } = await requireFamilyChild(input?.childProfileId)
+  if (typeof input.couponTypeId !== "string" || typeof input.title !== "string" ||
       !["regular", "blank"].includes(input.couponKind) ||
       !Number.isInteger(input.drawWeight) || input.drawWeight < 1 || input.drawWeight > 1000) throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   const title = input.title.trim()
@@ -391,29 +441,29 @@ export async function updateCouponType(input: { couponTypeId: string; title: str
   if (!title || title.length > 80 || description.length > 1000) throw new Error("쿠폰 이름은 1~80자, 설명은 1,000자 이내로 입력해 주세요.")
   const [updated] = await db.update(couponTypes).set({
     title, description: description || null, couponKind: input.couponKind, drawWeight: input.drawWeight, updatedAt: new Date(),
-  }).where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id)))
+  }).where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id), eq(couponTypes.childProfileId, child.id)))
     .returning({ id: couponTypes.id })
   if (!updated) throw new Error("쿠폰을 찾을 수 없습니다.")
   revalidatePath("/parent")
   return { success: true }
 }
 
-export async function deleteCouponType(couponTypeId: string) {
-  const { family } = await requireParentFamily()
-  if (typeof couponTypeId !== "string" || !couponTypeId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
+export async function deleteCouponType(input: { childProfileId: string; couponTypeId: string }) {
+  const { family, child } = await requireFamilyChild(input?.childProfileId)
+  if (typeof input.couponTypeId !== "string" || !input.couponTypeId) throw new Error("쿠폰 정보가 올바르지 않습니다.")
   const [deleted] = await db.delete(couponTypes)
-    .where(and(eq(couponTypes.id, couponTypeId), eq(couponTypes.familyId, family.id)))
+    .where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id), eq(couponTypes.childProfileId, child.id)))
     .returning({ id: couponTypes.id })
   if (!deleted) throw new Error("쿠폰을 찾을 수 없습니다.")
   revalidatePath("/parent")
   return { success: true }
 }
 
-export async function setCouponTypeActive(input: { couponTypeId: string; isActive: boolean }) {
-  const { family } = await requireParentFamily()
-  if (typeof input?.couponTypeId !== "string" || typeof input.isActive !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
+export async function setCouponTypeActive(input: { childProfileId: string; couponTypeId: string; isActive: boolean }) {
+  const { family, child } = await requireFamilyChild(input?.childProfileId)
+  if (typeof input.couponTypeId !== "string" || typeof input.isActive !== "boolean") throw new Error("쿠폰 설정값이 올바르지 않습니다.")
   const [updated] = await db.update(couponTypes).set({ isActive: input.isActive, updatedAt: new Date() })
-    .where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id)))
+    .where(and(eq(couponTypes.id, input.couponTypeId), eq(couponTypes.familyId, family.id), eq(couponTypes.childProfileId, child.id)))
     .returning({ id: couponTypes.id })
   if (!updated) throw new Error("쿠폰을 찾을 수 없습니다.")
   revalidatePath("/parent")
