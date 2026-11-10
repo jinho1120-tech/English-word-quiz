@@ -283,23 +283,10 @@ export async function recordChildQuizResult(
           eq(couponTypes.isActive, true),
         ))
         sessionResult.couponConfigured = activeCoupons.length > 0
-        if (activeCoupons.length > 0 && score >= settings.rewardMinScore &&
+        if (activeCoupons.some((item) => item.drawWeight > 0) && score >= settings.rewardMinScore &&
             completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
-          // Choose this child's coupon category using their configured probability,
-          // then choose an item within that category using its individual weight.
-          const preferredKind = randomInt(100) < settings.blankCouponProbability ? "blank" : "regular"
-          let candidates = activeCoupons.filter((item) => item.couponKind === preferredKind)
-          if (candidates.length === 0) candidates = activeCoupons.filter((item) => item.couponKind !== preferredKind)
-          const totalWeight = candidates.reduce((sum, item) => sum + item.drawWeight, 0)
-          if (totalWeight > 0) {
-            let ticket = randomInt(totalWeight)
-            const chosen = candidates.find((item) => {
-              ticket -= item.drawWeight
-              return ticket < 0
-            }) ?? candidates[candidates.length - 1]
-            // Do not issue immediately. The child must reveal the scratch card first.
-            sessionResult.couponEligible = true
-          }
+          // Draw only after the child scratches the card on the result screen.
+          sessionResult.couponEligible = true
         }
       }
     }
