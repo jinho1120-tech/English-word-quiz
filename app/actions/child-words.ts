@@ -10,6 +10,8 @@ import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
 import { notifyFamilyParents } from "@/lib/notifications"
 
+const SUBJECT_CALENDAR_COLORS = ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"]
+
 async function requireChild() {
   const session = await getChildDeviceSession()
   if (!session) throw new Error("자녀 기기 로그인이 필요합니다.")
@@ -39,7 +41,7 @@ export async function createChildSubject(nameInput: string) {
   const current = await db.select({ sortOrder: childSubjects.sortOrder }).from(childSubjects)
     .where(eq(childSubjects.childProfileId, child.childProfileId))
   const sortOrder = current.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
-  const [created] = await db.insert(childSubjects).values({ childProfileId: child.childProfileId, name, sortOrder }).returning()
+  const [created] = await db.insert(childSubjects).values({ childProfileId: child.childProfileId, name, sortOrder, calendarColor: SUBJECT_CALENDAR_COLORS[sortOrder % SUBJECT_CALENDAR_COLORS.length] }).returning()
   revalidatePath("/child")
   return created
 }
