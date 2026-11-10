@@ -25,6 +25,7 @@ export function ChildLearning({
   childName,
   subjects,
   initialWords,
+  allWords,
   wrongWords,
   initialDate,
   initialStorage,
@@ -34,6 +35,7 @@ export function ChildLearning({
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
   initialWords: Word[]
+  allWords: Word[]
   wrongWords: Word[]
   initialDate: string
 }) {
@@ -400,7 +402,9 @@ export function ChildLearning({
         <div className="fixed inset-0 z-[130] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
           <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
             <WordDefenseGame
-              words={initialWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              words={initialWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              subjectWords={allWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              allWords={allWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
               onClose={() => setIsWordDefenseOpen(false)}
             />
           </div>
