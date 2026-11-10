@@ -1,6 +1,6 @@
 "use client"
 
-import { HapticButton } from "@/components/haptic-button"
+import { HapticButton, HapticSummary, HapticLink } from "@/components/haptic-button"
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -309,18 +309,18 @@ export function ParentDashboard({
               <p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
             </div>
             {child.isActive ? <>
-              <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">과목 관리</a>
-              <a href={`/parent/children/${child.id}/words`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</a>
+              <HapticLink href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">과목 관리</HapticLink>
+              <HapticLink href={`/parent/children/${child.id}/words`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</HapticLink>
             </> : <span className="text-xs text-muted-foreground">비활성화된 {childLabel}입니다</span>}
           </div>
         ))}
       </section>
 
       <details id="coupon-rewards" className="rounded-2xl border border-border p-4">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <HapticSummary className="flex cursor-pointer list-none items-center justify-between gap-3">
           <span className="min-w-0"><span className="block text-base font-bold">쿠폰 및 학습 보상 관리</span><span className="mt-0.5 block text-xs text-muted-foreground">보상 조건, 쿠폰 종류, 지급 내역</span></span>
           <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{selectedCouponSettings ? (couponsEnabled ? "사용 중" : "꺼짐") : "자녀 선택 필요"}</span>
-        </summary>
+        </HapticSummary>
         <div className="mt-4 space-y-4">
         <label className="block space-y-1 text-sm"><span className="font-semibold">쿠폰을 설정할 자녀</span><select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5">{children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}</select>{!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}</label>
 <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
@@ -399,7 +399,7 @@ export function ParentDashboard({
       )}
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ {childLabel} 추가 및 접속 관리</summary>
+        <HapticSummary className="cursor-pointer list-none font-bold">＋ {childLabel} 추가 및 접속 관리</HapticSummary>
         <div className="mt-4 space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="child-name">{childLabel} 이름</label>
@@ -439,7 +439,7 @@ export function ParentDashboard({
       )}
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</summary>
+        <HapticSummary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</HapticSummary>
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">다른 {guardianLabel}를 초대하면 각자 자기 계정과 기기에서 같은 가족의 {childLabel}와 학습 데이터를 관리할 수 있습니다.</p>
           <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 {guardianLabel}</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
@@ -458,7 +458,7 @@ export function ParentDashboard({
       </details>
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ 연결된 {childLabel} 기기</summary>
+        <HapticSummary className="cursor-pointer list-none font-bold">＋ 연결된 {childLabel} 기기</HapticSummary>
         <div className="mt-4 space-y-3">
           {devices.length === 0 ? <p className="text-sm text-muted-foreground">등록된 기기가 없습니다.</p> : devices.map((device) => (
             <div key={device.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
