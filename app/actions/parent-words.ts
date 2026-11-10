@@ -71,7 +71,7 @@ const PARENT_CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF444
 
 export async function getParentChildCalendarData(childProfileId: string, month: string) {
   const child = await requireParentChild(childProfileId)
-  if (typeof month !== "string" || !/^\\d{4}-\\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
+  if (typeof month !== "string" || !/^\d{4}-\d{2}$/.test(month)) throw new Error("달력 월 형식이 올바르지 않습니다.")
   const start = `${month}-01`
   const end = `${month}-31`
   const rows = await db.select({
