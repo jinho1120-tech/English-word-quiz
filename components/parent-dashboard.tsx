@@ -92,9 +92,10 @@ export function ParentDashboard({
   const [error, setError] = useState("")
   const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
-  const selectedCouponSettings = couponSettings.find((item) => item.childProfileId === selectedCouponChildId)
   const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
   const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
+  const [couponSection, setCouponSection] = useState<"settings" | "game" | "manage">("settings")
+  const [isAddingCoupon, setIsAddingCoupon] = useState(false)
 
   useEffect(() => {
     if (!selectedCouponChildId && children[0]) setSelectedCouponChildId(children[0].id)
@@ -111,6 +112,7 @@ export function ParentDashboard({
     setCouponTitle("")
     setCouponDescription("")
     setEditingCouponId(null)
+    setIsAddingCoupon(false)
   }, [selectedCouponChildId, couponSettings])
 
   function saveRewardSettings() {
@@ -146,6 +148,7 @@ export function ParentDashboard({
         setCouponDescription("")
         setCouponKind("regular")
         setCouponWeight(1)
+        setIsAddingCoupon(false)
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "쿠폰을 만들지 못했습니다.")
@@ -317,71 +320,155 @@ export function ParentDashboard({
         ))}
       </section>
 
-      <details id="coupon-rewards" className="rounded-2xl border border-border p-4">
-        <HapticSummary className="flex cursor-pointer list-none items-center justify-between gap-3">
-          <span className="min-w-0"><span className="block text-base font-bold">쿠폰 및 학습 보상 관리</span><span className="mt-0.5 block text-xs text-muted-foreground">보상 조건, 쿠폰 종류, 지급 내역</span></span>
-          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">{selectedCouponSettings ? (couponsEnabled ? "사용 중" : "꺼짐") : "자녀 선택 필요"}</span>
-        </HapticSummary>
-        <div className="mt-4 space-y-4">
-        <label className="block space-y-1 text-sm"><span className="font-semibold">쿠폰을 설정할 자녀</span><select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5">{children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}</select>{!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}</label>
-<HapticSwitch checked={couponsEnabled} onCheckedChange={setCouponsEnabled} label="쿠폰 보상 사용" description="퀴즈 보상 기능을 사용할지 설정합니다." />
-        <fieldset disabled={!couponsEnabled} className="space-y-4 disabled:opacity-45">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="space-y-1 text-sm"><span className="font-medium">최소 정답률 (%)</span><input type="number" min={1} max={100} value={rewardMinScore} onChange={(event) => setRewardMinScore(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-          <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
-        </div>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requireNoHint} onChange={(event) => setRequireNoHint(event.target.checked)} className="size-4 accent-foreground" />힌트를 사용하지 않은 경우에만 보상</label>
-        <label className="block space-y-1 text-sm"><span className="font-medium">꽝 쿠폰 전체 당첨 확률 (%)</span><input type="number" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">일반 쿠폰 확률은 자동으로 {100 - blankCouponProbability}%가 됩니다.</span></label>
-        <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰함 최대 저장 개수</span><input type="number" min={1} max={100} value={maxStoredCoupons} onChange={(event) => setMaxStoredCoupons(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">자녀별 설정 · 1~100개 · 꽝 쿠폰도 포함됩니다. 가득 차면 새 쿠폰 발급이 잠시 중단됩니다.</span></label>
-        </fieldset>
-        <HapticButton disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100 || !Number.isInteger(maxStoredCoupons) || maxStoredCoupons < 1 || maxStoredCoupons > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "보상 설정 저장"}</HapticButton>
-        <div className="space-y-3 border-t border-border pt-4">
-          <div><h3 className="font-bold">🎮 학습 후 팩맨 게임</h3><p className="text-xs text-muted-foreground">원할 때만 게임을 허용할 수 있어요. 플레이 횟수는 아이별로 관리되며 매일 한국 시간 자정에 초기화됩니다.</p></div>
-          <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="자녀에게 팩맨 게임 허용" />
-          <fieldset disabled={!pacmanEnabled} className="space-y-3 disabled:opacity-45">
-          <label className="block space-y-1 text-sm"><span className="font-medium">아이 한 명당 하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10판 · 게임을 시작할 때 1회 차감됩니다.</span></label>
-          <label className="block space-y-1 text-sm"><span className="font-medium">팩맨을 위한 하루 최소 단어 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있어요.</span></label>
-           <HapticSwitch checked={pacmanRequireNoWrongWords} onCheckedChange={setPacmanRequireNoWrongWords} label="남아 있는 모든 오답을 해결해야 게임 허용" description="끄면 오답이 남아 있어도 최소 문제 수만 채우면 팩맨을 할 수 있어요." />
-          </fieldset>
-           <HapticButton disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10 || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
-        </div>
-        <fieldset disabled={!couponsEnabled} className="space-y-3 border-t border-border pt-4 disabled:opacity-45">
-        <div className="space-y-3">
-          <div><h3 className="font-bold">쿠폰 추가 및 관리</h3><p className="text-xs text-muted-foreground">첫 {guardianLabel} 관리 화면 진입 시 word-test 예시 쿠폰 7종이 기본 등록됩니다. 이름, 종류, 출현 가중치는 언제든 바꿀 수 있어요. 한 종류의 활성 쿠폰이 없으면 다른 종류에서 대신 추첨합니다.</p></div>
-          <input value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="쿠폰 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-          <textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={2} placeholder="쿠폰 설명 또는 사용 조건 (선택)" className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="space-y-1 text-xs"><span>쿠폰 종류</span><select value={couponKind} onChange={(event) => setCouponKind(event.target.value as "regular" | "blank")} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select></label>
-            <label className="space-y-1 text-xs"><span>개별 출현 가중치</span><input type="number" min={1} max={1000} value={couponWeight} onChange={(event) => setCouponWeight(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
+      <section id="coupon-rewards" className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="space-y-3 border-b border-border p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold">쿠폰 · 보상 · 게임</h2>
+              <p className="mt-1 text-xs text-muted-foreground">자녀별 보상 규칙과 쿠폰, 게임 이용을 관리합니다.</p>
+            </div>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
           </div>
-          <HapticButton disabled={isPending || !selectedCouponChildId || !couponTitle.trim() || !Number.isInteger(couponWeight) || couponWeight < 1 || couponWeight > 1000} onClick={addCouponType} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-bold disabled:opacity-50">쿠폰 추가</HapticButton>
-          {selectedCoupons.length > 0 && <div className="space-y-2"><h3 className="text-sm font-semibold">등록된 쿠폰</h3>{selectedCoupons.map((coupon) => <div key={coupon.id} className="space-y-2 rounded-xl border border-border p-3">
-            {editingCouponId === coupon.id ? <div className="space-y-2">
-              <input value={editingCouponTitle} onChange={(event) => setEditingCouponTitle(event.target.value)} maxLength={80} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-              <textarea value={editingCouponDescription} onChange={(event) => setEditingCouponDescription(event.target.value)} maxLength={1000} rows={2} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-              <div className="grid grid-cols-2 gap-2">
-                <select value={editingCouponKind} onChange={(event) => setEditingCouponKind(event.target.value as "regular" | "blank")} className="rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select>
-                <input type="number" min={1} max={1000} value={editingCouponWeight} onChange={(event) => setEditingCouponWeight(Number(event.target.value))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
-              </div>
-              <div className="flex gap-2"><HapticButton disabled={isPending || !editingCouponTitle.trim() || !Number.isInteger(editingCouponWeight) || editingCouponWeight < 1 || editingCouponWeight > 1000} onClick={saveCouponEdit} className="flex-1 rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">저장</HapticButton><HapticButton onClick={() => setEditingCouponId(null)} className="rounded-lg border border-border px-3 py-2 text-xs">취소</HapticButton></div>
-            </div> : <div className="flex flex-wrap items-center gap-2">
-              <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{coupon.couponKind === "blank" ? "💥 꽝 쿠폰" : "🎁 일반 쿠폰"} · {coupon.title}</p>{coupon.description && <p className="mt-0.5 whitespace-pre-wrap text-xs text-muted-foreground">{coupon.description}</p>}<p className="mt-1 text-xs text-muted-foreground">{coupon.isActive ? "사용 중" : "중지됨"} · 가중치 {coupon.drawWeight}</p></div>
-              <HapticButton disabled={isPending} onClick={() => beginEditCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">수정</HapticButton>
-              <HapticButton disabled={isPending} onClick={() => toggleCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "사용"}</HapticButton>
-              <HapticButton disabled={isPending} onClick={() => removeCoupon(coupon)} className="rounded-lg border border-red-300 px-2.5 py-2 text-xs font-semibold text-red-600">삭제</HapticButton>
-            </div>}
-          </div>)}</div>}
-        </div>
-        </fieldset>
-        <div className="space-y-2 border-t border-border pt-4">
-          <h3 className="font-bold">최근 쿠폰 지급 내역</h3>
-          {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => <div key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="text-sm font-semibold">{reward.childName} · {reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")} · {reward.couponKind === "blank" ? (reward.status === "redeemed" ? "꽝 쿠폰 · 사용 완료" : "꽝 쿠폰 · 사용 대기") : reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</p></div>
-          </div>)}
+          <label className="block space-y-1 text-sm">
+            <span className="font-semibold">관리할 자녀</span>
+            <select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5" disabled={!children.length}>
+              {children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}
+            </select>
+            {!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}
+          </label>
         </div>
 
+        <div className="grid grid-cols-3 gap-1 border-b border-border bg-muted/40 p-1.5" role="tablist" aria-label="쿠폰 및 게임 관리">
+          {([
+            { id: "settings", label: "쿠폰 설정", detail: "보상 조건" },
+            { id: "game", label: "게임 설정", detail: "팩맨 이용" },
+            { id: "manage", label: "쿠폰 관리", detail: "쿠폰 목록" },
+          ] as const).map((tab) => (
+            <button key={tab.id} type="button" role="tab" aria-selected={couponSection === tab.id} onClick={() => setCouponSection(tab.id)} className={`min-w-0 rounded-xl px-2 py-2.5 text-center transition-colors ${couponSection === tab.id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              <span className="block text-xs font-bold sm:text-sm">{tab.label}</span>
+              <span className="mt-0.5 block text-[10px] sm:text-xs">{tab.detail}</span>
+            </button>
+          ))}
         </div>
-      </details>
+
+        <div className="p-4">
+          {couponSection === "settings" && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold">학습 보상</h3>
+                <p className="mt-1 text-xs text-muted-foreground">퀴즈를 완료했을 때 쿠폰을 받을 수 있는 조건을 정합니다.</p>
+              </div>
+              <HapticSwitch checked={couponsEnabled} onCheckedChange={setCouponsEnabled} label="쿠폰 보상 사용" description="끄면 새로운 학습 보상 쿠폰이 발급되지 않습니다." />
+              <fieldset disabled={!couponsEnabled} className="space-y-4 disabled:opacity-45">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-1 text-sm"><span className="font-medium">최소 정답률 (%)</span><input type="number" min={1} max={100} value={rewardMinScore} onChange={(event) => setRewardMinScore(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+                  <label className="space-y-1 text-sm"><span className="font-medium">최소 문제 수</span><input type="number" min={1} max={100} value={rewardMinQuestions} onChange={(event) => setRewardMinQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+                </div>
+                <HapticSwitch checked={requireNoHint} onCheckedChange={setRequireNoHint} label="힌트 없이 풀기" description="켜면 힌트를 사용하지 않은 경우에만 보상을 지급합니다." />
+                <div className="space-y-2 rounded-xl bg-muted/50 p-3">
+                  <div className="flex items-center justify-between gap-2 text-sm"><span className="font-medium">꽝 쿠폰 발행 확률</span><strong>{blankCouponProbability}%</strong></div>
+                  <input aria-label="꽝 쿠폰 발행 확률" type="range" min={0} max={100} value={blankCouponProbability} onChange={(event) => setBlankCouponProbability(Number(event.target.value))} className="w-full accent-primary" />
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>일반 쿠폰 {100 - blankCouponProbability}%</span><span>꽝 쿠폰 {blankCouponProbability}%</span></div>
+                  <p className="text-xs text-muted-foreground">꽝 쿠폰도 실제 쿠폰으로 발급되며, 사용할 때까지 쿠폰함에 보관됩니다.</p>
+                </div>
+                <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰함 최대 보관 개수</span><input type="number" min={1} max={100} value={maxStoredCoupons} onChange={(event) => setMaxStoredCoupons(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~100개 · 일반 쿠폰과 꽝 쿠폰을 모두 포함합니다. 가득 차면 새 쿠폰 발급이 중단됩니다.</span></label>
+              </fieldset>
+              <HapticButton disabled={isPending || !selectedCouponChildId || !Number.isInteger(rewardMinScore) || rewardMinScore < 1 || rewardMinScore > 100 || !Number.isInteger(rewardMinQuestions) || rewardMinQuestions < 1 || rewardMinQuestions > 100 || !Number.isInteger(blankCouponProbability) || blankCouponProbability < 0 || blankCouponProbability > 100 || !Number.isInteger(maxStoredCoupons) || maxStoredCoupons < 1 || maxStoredCoupons > 100} onClick={saveRewardSettings} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "쿠폰 설정 저장"}</HapticButton>
+            </div>
+          )}
+
+          {couponSection === "game" && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-bold">팩맨 게임</h3>
+                <p className="mt-1 text-xs text-muted-foreground">학습을 마친 자녀가 하루에 플레이할 수 있는 횟수와 입장 조건을 정합니다.</p>
+              </div>
+              <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="팩맨 게임 허용" description="끄면 자녀 앱에서 팩맨 게임을 이용할 수 없습니다." />
+              <fieldset disabled={!pacmanEnabled} className="space-y-4 disabled:opacity-45">
+                <label className="block space-y-1 text-sm"><span className="font-medium">하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10회 · 게임을 시작할 때 1회 차감됩니다.</span></label>
+                <label className="block space-y-1 text-sm"><span className="font-medium">팩맨 입장을 위한 하루 최소 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있습니다.</span></label>
+                <HapticSwitch checked={pacmanRequireNoWrongWords} onCheckedChange={setPacmanRequireNoWrongWords} label="남아 있는 오답 모두 해결" description="켜면 오늘 푼 문제뿐 아니라 이전부터 남아 있는 오답까지 모두 해결해야 게임을 시작할 수 있습니다." />
+              </fieldset>
+              <HapticButton disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10 || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
+            </div>
+          )}
+
+          {couponSection === "manage" && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-bold">등록된 쿠폰</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">쿠폰 이름과 종류, 추첨 가중치를 관리합니다. 가중치가 높을수록 같은 종류 안에서 더 자주 뽑힙니다.</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold">{selectedCoupons.length}개</span>
+              </div>
+              <HapticButton disabled={!selectedCouponChildId || !couponsEnabled} onClick={() => setIsAddingCoupon(true)} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-45">＋ 새 쿠폰 만들기</HapticButton>
+              {!couponsEnabled && <p className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">쿠폰 보상이 꺼져 있어 쿠폰 추가·수정·사용 설정을 잠시 비활성화했습니다. ‘쿠폰 설정’에서 다시 켤 수 있습니다.</p>}
+              {selectedCoupons.length === 0 ? <div className="rounded-xl border border-dashed border-border p-6 text-center"><p className="text-sm font-semibold">등록된 쿠폰이 없습니다.</p><p className="mt-1 text-xs text-muted-foreground">새 쿠폰 만들기를 눌러 첫 쿠폰을 추가하세요.</p></div> : (
+                <div className="divide-y divide-border rounded-xl border border-border">
+                  {selectedCoupons.map((coupon) => (
+                    <div key={coupon.id} className="flex items-center gap-3 p-3">
+                      <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${coupon.couponKind === "blank" ? "bg-amber-500/10" : "bg-primary/10"}`}>{coupon.couponKind === "blank" ? "💥" : "🎁"}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{coupon.title}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{coupon.couponKind === "blank" ? "꽝 쿠폰" : "일반 쿠폰"} · 가중치 {coupon.drawWeight} · {coupon.isActive ? "사용 중" : "중지됨"}</p>
+                        {coupon.description && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{coupon.description}</p>}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => beginEditCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">편집</HapticButton>
+                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => toggleCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "켜기"}</HapticButton>
+                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => removeCoupon(coupon)} className="rounded-lg px-2 py-2 text-xs text-red-600">삭제</HapticButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <details className="rounded-xl border border-border">
+                <HapticSummary className="cursor-pointer list-none px-3 py-3 text-sm font-semibold">최근 쿠폰 지급 내역 <span className="ml-1 text-xs font-normal text-muted-foreground">({selectedRewards.length})</span></HapticSummary>
+                <div className="space-y-2 border-t border-border p-3">
+                  {selectedRewards.length === 0 ? <p className="text-xs text-muted-foreground">아직 지급된 쿠폰이 없습니다.</p> : selectedRewards.map((reward) => (
+                    <div key={reward.id} className="flex items-center justify-between gap-3 py-1">
+                      <div className="min-w-0"><p className="truncate text-sm font-medium">{reward.title}</p><p className="text-xs text-muted-foreground">{new Date(reward.earnedAt).toLocaleString("ko-KR")}</p></div>
+                      <span className="shrink-0 text-xs text-muted-foreground">{reward.couponKind === "blank" ? "꽝 쿠폰" : "일반 쿠폰"} · {reward.status === "redeemed" ? "사용 완료" : "사용 대기"}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          )}
+        </div>
+
+        {isAddingCoupon && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsAddingCoupon(false) }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="new-coupon-title" className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-background p-5 shadow-xl">
+              <div className="flex items-center justify-between gap-3"><div><h3 id="new-coupon-title" className="font-bold">새 쿠폰 만들기</h3><p className="mt-1 text-xs text-muted-foreground">자녀 쿠폰함에 등록할 보상을 입력하세요.</p></div><HapticButton onClick={() => setIsAddingCoupon(false)} className="rounded-lg px-2 py-1 text-sm text-muted-foreground">닫기</HapticButton></div>
+              <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰 이름</span><input autoFocus value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="예: 아이스크림 먹기" className="w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+              <label className="block space-y-1 text-sm"><span className="font-medium">설명 또는 사용 조건 (선택)</span><textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={3} placeholder="쿠폰을 어떻게 사용할 수 있는지 적어주세요." className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1 text-sm"><span className="font-medium">쿠폰 종류</span><select value={couponKind} onChange={(event) => setCouponKind(event.target.value as "regular" | "blank")} className="w-full rounded-lg border border-border bg-background px-3 py-2"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select></label>
+                <label className="space-y-1 text-sm"><span className="font-medium">출현 가중치</span><input type="number" min={1} max={1000} value={couponWeight} onChange={(event) => setCouponWeight(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+              </div>
+              <div className="flex gap-2"><HapticButton disabled={isPending || !couponTitle.trim() || !Number.isInteger(couponWeight) || couponWeight < 1 || couponWeight > 1000} onClick={addCouponType} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : "쿠폰 등록"}</HapticButton><HapticButton onClick={() => setIsAddingCoupon(false)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold">취소</HapticButton></div>
+            </div>
+          </div>
+        )}
+
+        {editingCouponId && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingCouponId(null) }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="edit-coupon-title" className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-background p-5 shadow-xl">
+              <div className="flex items-center justify-between gap-3"><div><h3 id="edit-coupon-title" className="font-bold">쿠폰 편집</h3><p className="mt-1 text-xs text-muted-foreground">변경한 내용은 저장한 뒤 적용됩니다.</p></div><HapticButton onClick={() => setEditingCouponId(null)} className="rounded-lg px-2 py-1 text-sm text-muted-foreground">닫기</HapticButton></div>
+              <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰 이름</span><input autoFocus value={editingCouponTitle} onChange={(event) => setEditingCouponTitle(event.target.value)} maxLength={80} className="w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+              <label className="block space-y-1 text-sm"><span className="font-medium">설명 또는 사용 조건</span><textarea value={editingCouponDescription} onChange={(event) => setEditingCouponDescription(event.target.value)} maxLength={1000} rows={3} className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="space-y-1 text-sm"><span className="font-medium">쿠폰 종류</span><select value={editingCouponKind} onChange={(event) => setEditingCouponKind(event.target.value as "regular" | "blank")} className="w-full rounded-lg border border-border bg-background px-3 py-2"><option value="regular">일반 쿠폰</option><option value="blank">꽝 쿠폰</option></select></label>
+                <label className="space-y-1 text-sm"><span className="font-medium">출현 가중치</span><input type="number" min={1} max={1000} value={editingCouponWeight} onChange={(event) => setEditingCouponWeight(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+              </div>
+              <div className="flex gap-2"><HapticButton disabled={isPending || !editingCouponTitle.trim() || !Number.isInteger(editingCouponWeight) || editingCouponWeight < 1 || editingCouponWeight > 1000} onClick={saveCouponEdit} className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "저장 중..." : "변경사항 저장"}</HapticButton><HapticButton onClick={() => setEditingCouponId(null)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold">취소</HapticButton></div>
+            </div>
+          </div>
+        )}
+      </section>
 
       {createdCode && (
         <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
