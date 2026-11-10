@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
 import { redeemCouponWithToken } from "@/app/actions/coupons"
 
 export function CouponRedeemConfirmation({ token, childName, title, description, expiresAt }: { token: string; childName: string; title: string; description: string | null; expiresAt: Date }) {
-  const router = useRouter()
   const [error, setError] = useState("")
   const [done, setDone] = useState(false)
   const [pending, startTransition] = useTransition()
