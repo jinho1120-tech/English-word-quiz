@@ -1,6 +1,6 @@
 "use client"
 
-import { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, SummaryHTMLAttributes } from "react"
+import { AnchorHTMLAttributes, ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react"
 import { haptic } from "@/lib/haptics"
 
 interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
@@ -59,7 +59,7 @@ export function HapticButton({
 }
 
 
-interface HapticSummaryProps extends SummaryHTMLAttributes<HTMLElement> {
+interface HapticSummaryProps extends HTMLAttributes<HTMLElement> {
   hapticLabel?: string
   children?: ReactNode
 }
