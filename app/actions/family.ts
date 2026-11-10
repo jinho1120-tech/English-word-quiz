@@ -166,7 +166,7 @@ export async function getParentFamilyDashboard() {
   const familyTerms = role === "owner"
     ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
     : { guardian: currentUserName || "공동관리자", child: "아이" }
-  return { familyId: family.id, settings: settings ?? null, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1 }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
+  return { familyId: family.id, settings: settings ?? null, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
