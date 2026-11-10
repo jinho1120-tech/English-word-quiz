@@ -1,7 +1,7 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte, lte, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
@@ -257,12 +257,12 @@ export async function recordChildQuizResult(
     eq(childQuizAttempts.quizSessionId, session.quizSessionId),
   )).orderBy(asc(childQuizAttempts.answeredAt))
 
-  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean; couponEligible: boolean } | null = null
+  let sessionResult: { total: number; correct: number; score: number; rewardTitle: string | null; couponConfigured: boolean; couponEligible: boolean; couponFull: boolean; storedCouponCount: number; maxStoredCoupons: number } | null = null
   if (attempts.length >= session.sessionQuestionCount) {
     const completed = attempts.slice(0, session.sessionQuestionCount)
     const correctCount = completed.filter((item) => item.isCorrect).length
     const score = Math.round(correctCount / completed.length * 100)
-    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false, couponEligible: false }
+    sessionResult = { total: completed.length, correct: correctCount, score, rewardTitle: null, couponConfigured: false, couponEligible: false, couponFull: false, storedCouponCount: 0, maxStoredCoupons: 20 }
 
     const [childProfile] = await db.select({
       familyId: childProfiles.familyId,
@@ -283,10 +283,16 @@ export async function recordChildQuizResult(
           eq(couponTypes.isActive, true),
         ))
         sessionResult.couponConfigured = activeCoupons.length > 0
+        sessionResult.maxStoredCoupons = settings.maxStoredCoupons
         if (activeCoupons.some((item) => item.drawWeight > 0) && score >= settings.rewardMinScore &&
             completed.length >= settings.rewardMinQuestions && (!settings.requireNoHint || !hasHint)) {
-          // Draw only after the child scratches the card on the result screen.
-          sessionResult.couponEligible = true
+          const storedRows = await db.select({ id: couponRewards.id }).from(couponRewards).where(and(
+            eq(couponRewards.childProfileId, child.childProfileId),
+            or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank")),
+          ))
+          sessionResult.storedCouponCount = storedRows.length
+          sessionResult.couponFull = sessionResult.storedCouponCount >= settings.maxStoredCoupons
+          sessionResult.couponEligible = !sessionResult.couponFull
         }
       }
     }
