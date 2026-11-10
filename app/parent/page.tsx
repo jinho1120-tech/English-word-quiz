@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic"
 export const metadata = { manifest: "/parent/manifest.webmanifest", title: "영단어 마스터 매니저", applicationName: "영단어 마스터 매니저", appleWebApp: { capable: true, statusBarStyle: "default" as const, title: "영단어 마스터 매니저" }, icons: { apple: [{ url: "/icons/parent-icon-180.png", sizes: "180x180", type: "image/png" }] } }
 
 
-export default async function ParentPage() {
+export default async function ParentPage({ searchParams }: { searchParams: Promise<{ invited?: string }> }) {
+  const params = await searchParams
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) redirect("/login")
   const dashboard = await getParentFamilyDashboard()
@@ -23,11 +24,12 @@ export default async function ParentPage() {
   return (
     <main className="mx-auto min-h-dvh w-full max-w-xl space-y-6 px-4 py-8">
       <header className="flex items-center justify-between">
-        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">부모 관리 화면</h1><p className="text-sm text-muted-foreground">{session.user.name}님 가족 공간</p></div>
+        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">{dashboard.familyTerms.guardian} 관리 화면</h1><p className="text-sm text-muted-foreground">{session.user.name}님 가족 공간</p></div>
         <div className="flex items-center gap-2"><ChildProfileSettings profileKey="family" /><LogoutButton /></div>
       </header>
+      {params.invited === "success" ? <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">가족 공동관리자 초대가 성공적으로 수락되었습니다.</p> : params.invited === "already_member" ? <p role="status" className="rounded-xl border border-border bg-muted p-3 text-sm font-semibold">이미 이 가족의 공동관리자로 참여하고 있습니다.</p> : null}
       <ParentNotifications initialData={notificationData} />
-      <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} settings={dashboard.settings} coupons={dashboard.coupons} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} />
+      <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} settings={dashboard.settings} coupons={dashboard.coupons} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} familyTerms={dashboard.familyTerms} />
       <AccountWithdrawal />
     </main>
   )

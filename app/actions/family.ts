@@ -78,7 +78,7 @@ async function requireParentFamily() {
       }
     }
   })
-  return { userId: session.user.id, family, role, email: session.user.email }
+  return { userId: session.user.id, family, role, email: session.user.email, familyOwnerName: guardian, currentUserName: session.user.name?.trim() || guardian }
 }
 
 function validatePin(pin: string) {
@@ -86,8 +86,17 @@ function validatePin(pin: string) {
 }
 
 
+export async function getFamilyDisplayTerms() {
+  const { role, currentUserName } = await requireParentFamily()
+  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
+  if (role === "owner") {
+    return { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
+  }
+  return { guardian: currentUserName || "공동관리자", child: "아이" }
+}
+
 export async function getParentFamilyDashboard() {
-  const { family, role, userId } = await requireParentFamily()
+  const { family, role, userId, currentUserName } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
     rewardMinScore: familySettings.rewardMinScore,
@@ -145,7 +154,11 @@ export async function getParentFamilyDashboard() {
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
-  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId }
+  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
+  const familyTerms = role === "owner"
+    ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
+    : { guardian: currentUserName || "공동관리자", child: "아이" }
+  return { familyId: family.id, settings: settings ?? null, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
