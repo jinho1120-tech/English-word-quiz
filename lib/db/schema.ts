@@ -5,6 +5,7 @@ import {
   serial,
   varchar,
   text,
+  jsonb,
   timestamp,
   integer,
   boolean,
@@ -259,6 +260,20 @@ export const wordEntries = pgTable("word_entries", {
   childDateIdx: index("word_entries_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childWrongIdx: index("word_entries_child_wrong_idx").on(table.childProfileId, table.wrongCount),
   subjectIdx: index("word_entries_subject_idx").on(table.subjectId, table.assignmentDate),
+}))
+
+/** Durable audit trail for privileged support changes; intentionally not FK-cascaded with families. */
+export const superAdminAuditLogs = pgTable("super_admin_audit_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  actorUserId: text("actor_user_id").notNull(),
+  actorEmail: varchar("actor_email", { length: 320 }).notNull(),
+  action: varchar("action", { length: 80 }).notNull(),
+  targetFamilyId: uuid("target_family_id").notNull(),
+  targetRecordId: text("target_record_id"),
+  details: jsonb("details").$type<Record<string, unknown>>().default({}).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  familyCreatedIdx: index("super_admin_audit_family_created_idx").on(table.targetFamilyId, table.createdAt),
 }))
 
 export type WordEntry = typeof wordEntries.$inferSelect
