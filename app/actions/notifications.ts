@@ -1,6 +1,6 @@
 "use server"
 
-import { and, count, desc, eq, isNull } from "drizzle-orm"
+import { and, count, desc, eq, isNotNull, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -71,6 +71,28 @@ export async function markAllParentNotificationsRead() {
   const { userId } = await requireParent()
   await db.update(parentNotifications).set({ readAt: new Date() })
     .where(and(eq(parentNotifications.recipientUserId, userId), isNull(parentNotifications.readAt)))
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function deleteParentNotification(id: string) {
+  const { userId } = await requireParent()
+  if (typeof id !== "string" || !id) throw new Error("알림 정보가 올바르지 않습니다.")
+  await db.delete(parentNotifications).where(and(
+    eq(parentNotifications.id, id),
+    eq(parentNotifications.recipientUserId, userId),
+    isNotNull(parentNotifications.readAt),
+  ))
+  revalidatePath("/parent")
+  return { success: true }
+}
+
+export async function deleteAllReadParentNotifications() {
+  const { userId } = await requireParent()
+  await db.delete(parentNotifications).where(and(
+    eq(parentNotifications.recipientUserId, userId),
+    isNotNull(parentNotifications.readAt),
+  ))
   revalidatePath("/parent")
   return { success: true }
 }
