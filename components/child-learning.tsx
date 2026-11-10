@@ -209,7 +209,7 @@ export function ChildLearning({
 
   const sourceWords = reviewMode === "wrong" ? wrongWords : initialWords
   const visibleWords = sourceWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === filterSubjectId)?.name))
-  const managerSubjectFilter = managerFilterSubjectId === "__all__" ? "" : managerFilterSubjectId || subjectId
+  const managerSubjectFilter = managerFilterSubjectId === "__all__" ? "" : managerFilterSubjectId
   const managerWords = initialWords.filter((item) => !managerSubjectFilter || item.subjectId === managerSubjectFilter || (!item.subjectId && item.subject === subjects.find((s) => s.id === managerSubjectFilter)?.name))
   const quizWord = visibleWords.length ? visibleWords[quizIndex % visibleWords.length] : null
 
