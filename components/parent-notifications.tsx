@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
   getParentNotificationData,
+  deleteParentNotification,
+  deleteAllReadParentNotifications,
   getPushPublicKey,
   markAllParentNotificationsRead,
   markParentNotificationRead,
@@ -162,6 +164,26 @@ export function ParentNotifications({ initialData }: { initialData: Notification
     router.push(item.href || "/parent")
   }
 
+  async function deleteReadNotification(id: string) {
+    try {
+      await deleteParentNotification(id)
+      setData((current) => ({ ...current, notifications: current.notifications.filter((item) => item.id !== id) }))
+      setMessage("읽은 알림을 삭제했어요.")
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "알림을 삭제하지 못했습니다.")
+    }
+  }
+
+  async function deleteAllRead() {
+    try {
+      await deleteAllReadParentNotifications()
+      setData((current) => ({ ...current, notifications: current.notifications.filter((item) => !item.readAt) }))
+      setMessage("읽은 알림을 모두 삭제했어요.")
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "읽은 알림을 삭제하지 못했습니다.")
+    }
+  }
+
   async function markAllRead() {
     await markAllParentNotificationsRead()
     setData((current) => ({
@@ -181,23 +203,29 @@ export function ParentNotifications({ initialData }: { initialData: Notification
           </span>
           <div><h2 className="font-bold">알림함</h2><p className="text-xs text-muted-foreground">확인하지 않은 알림 {data.unreadCount}개</p></div>
         </div>
-        {data.unreadCount > 0 && <button onClick={markAllRead} className="text-xs font-semibold text-muted-foreground underline underline-offset-2">모두 읽음</button>}
+        <div className="flex items-center gap-3">
+          {data.unreadCount > 0 && <button onClick={markAllRead} className="text-xs font-semibold text-muted-foreground underline underline-offset-2">모두 읽음</button>}
+          {data.notifications.some((item) => item.readAt) && <button onClick={() => void deleteAllRead()} className="text-xs font-semibold text-red-600 underline underline-offset-2">읽은 알림 모두 삭제</button>}
+        </div>
       </div>
 
       <div className="max-h-72 space-y-2 overflow-y-auto">
         {data.notifications.length === 0 ? (
           <p className="rounded-xl bg-muted/60 p-4 text-center text-sm text-muted-foreground">새로운 알림이 없습니다.</p>
         ) : data.notifications.map((item) => (
-          <button key={item.id} onClick={() => void openNotification(item)} className={`w-full rounded-xl border p-3 text-left transition-colors ${item.readAt ? "border-border bg-background" : "border-blue-200 bg-blue-50/70"}`}>
-            <div className="flex items-start gap-2">
-              {!item.readAt && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" />}
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{item.title}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{item.message}</span>
-                <span className="mt-1 block text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString("ko-KR")}</span>
+          <div key={item.id} className={`flex items-start gap-2 rounded-xl border p-2 ${item.readAt ? "border-border bg-background" : "border-blue-200 bg-blue-50/70"}`}>
+            <button onClick={() => void openNotification(item)} className="min-w-0 flex-1 p-1 text-left">
+              <span className="flex items-start gap-2">
+                {!item.readAt && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{item.title}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{item.message}</span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString("ko-KR")}</span>
+                </span>
               </span>
-            </div>
-          </button>
+            </button>
+            {item.readAt && <button type="button" onClick={() => void deleteReadNotification(item.id)} aria-label="읽은 알림 삭제" className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-red-600">삭제</button>}
+          </div>
         ))}
       </div>
 
