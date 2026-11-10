@@ -7,6 +7,7 @@ import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
+import { WordDefenseGame } from "@/components/arcade/word-defense-game"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
@@ -72,6 +73,7 @@ export function ChildLearning({
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
   const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "manage">("daily")
   const [isPacmanOpen, setIsPacmanOpen] = useState(false)
+  const [isWordDefenseOpen, setIsWordDefenseOpen] = useState(false)
   const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
   const [pacmanError, setPacmanError] = useState("")
   const [filterSubjectId, setFilterSubjectId] = useState("")
@@ -359,16 +361,21 @@ export function ChildLearning({
           <div className="flex items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-bold">보너스 게임 · 팩맨</h3>
+              <h3 className="font-bold">보너스 게임</h3>
               <p className="text-xs text-muted-foreground">오늘 남은 게임 {pacmanRemainingPlays} / {pacmanStatus.dailyPlayLimit}판</p>
             </div>
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 팩맨이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
-          <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
-            {!pacmanStatus.eligible ? "학습 조건을 달성하면 게임이 열려요 🔒" : pacmanRemainingPlays > 0 ? "팩맨 게임 시작하기 🎮" : "오늘의 게임을 모두 사용했어요"}
-          </HapticButton>
-          <p className="text-[11px] text-muted-foreground">게임 시작 시 1회 차감되며, 게임을 중간에 나가도 사용 횟수는 복구되지 않아요.</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+              팩맨 시작 🎮
+            </HapticButton>
+            <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsWordDefenseOpen(true) }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+              영어 타자 디펜스 👻
+            </HapticButton>
+          </div>
+          <p className="text-[11px] text-muted-foreground">두 게임은 오늘의 보너스 게임 횟수를 함께 사용해요. 시작 시 1회 차감되며 중간에 나가도 복구되지 않아요.</p>
         </section>
       )}
       {isPacmanOpen && (
@@ -385,6 +392,16 @@ export function ChildLearning({
               onReplay={reservePacmanPlay}
               replayError={pacmanError}
               onClose={() => setIsPacmanOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+      {isWordDefenseOpen && (
+        <div className="fixed inset-0 z-[130] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
+          <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
+            <WordDefenseGame
+              words={initialWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              onClose={() => setIsWordDefenseOpen(false)}
             />
           </div>
         </div>
