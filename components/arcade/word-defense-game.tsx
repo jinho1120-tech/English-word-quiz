@@ -201,7 +201,7 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         }
         const depth = monster.depth
         const perspective = depth * depth
-        const x = WIDTH / 2 + monster.lane * (170 + perspective * 180) + Math.sin(monster.phase) * (2 + depth * 5)
+        const x = WIDTH / 2 + monster.lane * (180 + perspective * 100) + Math.sin(monster.phase) * (2 + depth * 5)
         const y = horizonY + 26 + perspective * (HEIGHT - horizonY - 112)
         const radius = 9 + perspective * 47
         const labelFont = 10 + perspective * 19
@@ -215,15 +215,16 @@ export function WordDefenseGame({ words, onClose }: WordDefenseGameProps) {
         const boxHeight = 22 + perspective * 12
         ctx.fillStyle = prefixMatch ? "#fde68a" : "rgba(255,255,255,0.94)"
         ctx.beginPath()
-        const bx = x - boxWidth / 2
+        const bx = Math.max(8, Math.min(WIDTH - boxWidth - 8, x - boxWidth / 2))
         const by = labelY - boxHeight / 2
         const bw = boxWidth
+        const labelCenterX = bx + bw / 2
         ctx.roundRect(bx, by, bw, boxHeight, 10)
         ctx.fill()
         ctx.fillStyle = "#172033"
         ctx.textAlign = "center"
         ctx.textBaseline = "middle"
-        ctx.fillText(label, x, labelY, bw - 14)
+        ctx.fillText(label, labelCenterX, labelY, bw - 14)
         ctx.textBaseline = "alphabetic"
       })
 
