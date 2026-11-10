@@ -182,7 +182,9 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           <span>최고 연속 <span className="font-bold text-foreground">{bestStreak}</span></span>
         </div>
         
-        {rewardChecked && couponFull ? (\n          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>\n        ) : rewardChecked && couponEligible ? (
+        {rewardChecked && couponFull ? (
+          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>
+        ) : rewardChecked && couponEligible ? (
           <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} description={rewardDescription} onReveal={onRevealCoupon} />
         ) : rewardChecked && !couponConfigured ? (
           <p className="mt-5 rounded-xl border border-border bg-background px-4 py-3 text-center text-sm font-semibold text-foreground">{score === 100 ? "완벽해! 오늘의 단어를 모두 정복했어! 정말 대단해! 🌟" : "끝까지 도전한 네가 정말 멋져! 오늘 배운 단어가 하나 더 네 것이 됐어. 👏"}</p>
