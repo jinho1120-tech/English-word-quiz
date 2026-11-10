@@ -37,6 +37,7 @@ export function ParentDashboard({
   settings,
   coupons,
   rewards,
+  familyTerms,
 }: {
   children: Child[]
   devices: Device[]
@@ -48,7 +49,10 @@ export function ParentDashboard({
   parentRole: "owner" | "admin"
   currentUserId: string
   ownerUserId: string
+  familyTerms: { guardian: string; child: string }
 }) {
+  const guardianLabel = familyTerms.guardian
+  const childLabel = familyTerms.child
   const router = useRouter()
   const [name, setName] = useState("")
   const [createdCode, setCreatedCode] = useState("")
@@ -57,6 +61,7 @@ export function ParentDashboard({
   const [qrChildName, setQrChildName] = useState("")
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
+  const [inviteCopyFeedback, setInviteCopyFeedback] = useState<"success" | "error" | "">("")
   const [couponsEnabled, setCouponsEnabled] = useState(settings?.couponsEnabled ?? false)
   const [rewardMinScore, setRewardMinScore] = useState(settings?.rewardMinScore ?? 100)
   const [rewardMinQuestions, setRewardMinQuestions] = useState(settings?.rewardMinQuestions ?? 10)
@@ -191,6 +196,16 @@ export function ParentDashboard({
     }
   }
 
+  async function copyInviteLink() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("클립보드를 사용할 수 없습니다.")
+      await navigator.clipboard.writeText(inviteUrl)
+      setInviteCopyFeedback("success")
+    } catch {
+      setInviteCopyFeedback("error")
+    }
+  }
+
   function toggleChild(child: Child) {
     const action = child.isActive ? "비활성화" : "다시 활성화"
     if (!window.confirm(`${child.displayName} 자녀 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
@@ -240,10 +255,10 @@ export function ParentDashboard({
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-bold">자녀별 과목 관리</h2>
-          <p className="text-sm text-muted-foreground">자녀를 선택해 과목과 단어장을 관리하세요.</p>
+          <h2 className="text-lg font-bold">{childLabel}별 과목 관리</h2>
+          <p className="text-sm text-muted-foreground">{childLabel}를 선택해 과목과 단어장을 관리하세요.</p>
         </div>
-        {children.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">아직 등록된 자녀가 없습니다. 아래의 ‘자녀 추가’를 눌러 시작하세요.</p> : children.map((child) => (
+        {children.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">아직 등록된 {childLabel}가 없습니다. 아래의 ‘{childLabel} 추가’를 눌러 시작하세요.</p> : children.map((child) => (
           <div key={child.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{child.displayName}</p>
@@ -252,7 +267,7 @@ export function ParentDashboard({
             {child.isActive ? <>
               <a href={`/parent/children/${child.id}/subjects`} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">과목 관리</a>
               <a href={`/parent/children/${child.id}/words`} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">단어장</a>
-            </> : <span className="text-xs text-muted-foreground">비활성화된 자녀입니다</span>}
+            </> : <span className="text-xs text-muted-foreground">비활성화된 {childLabel}입니다</span>}
           </div>
         ))}
       </section>
@@ -260,7 +275,7 @@ export function ParentDashboard({
       <section id="coupon-rewards" className="space-y-4 rounded-2xl border border-border p-4">
         <div>
           <h2 className="text-lg font-bold">쿠폰 및 학습 보상 관리</h2>
-          <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 자녀에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
+          <p className="text-sm text-muted-foreground">퀴즈 보상 조건과 {childLabel}에게 제공할 쿠폰 종류를 설정하고, 발급된 쿠폰을 확인합니다.</p>
         </div>
 <label className="flex items-center justify-between gap-3 rounded-xl bg-muted p-3">
           <span><span className="block text-sm font-semibold">쿠폰 보상 사용</span><span className="block text-xs text-muted-foreground">퀴즈 보상 기능을 사용할지 설정합니다.</span></span>
@@ -315,7 +330,7 @@ export function ParentDashboard({
             <button onClick={() => { setCreatedCode(""); setCopyFeedback("") }} className="text-sm text-muted-foreground">닫기</button>
           </div>
           <p className="select-all text-2xl font-black tracking-[0.2em]">{createdCode}</p>
-          <p className="text-xs text-muted-foreground">자녀 기기에서 이 코드만 입력하면 됩니다. PIN은 필요하지 않습니다. 코드는 부모 화면에서 언제든 새로 발급할 수 있습니다.</p>
+          <p className="text-xs text-muted-foreground">{childLabel} 기기에서 이 코드만 입력하면 됩니다. PIN은 필요하지 않습니다. 코드는 가족 관리 화면에서 언제든 새로 발급할 수 있습니다.</p>
           <button onClick={copyCreatedCode} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">
             {copyFeedback === "success" ? "✓ 복사 완료!" : "접속코드 복사"}
           </button>
@@ -328,16 +343,16 @@ export function ParentDashboard({
       )}
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ 자녀 추가 및 접속 관리</summary>
+        <summary className="cursor-pointer list-none font-bold">＋ {childLabel} 추가 및 접속 관리</summary>
         <div className="mt-4 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="child-name">자녀 이름</label>
-            <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="자녀 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
-            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : "자녀 프로필 만들기"}</button>
+            <label className="text-sm font-medium" htmlFor="child-name">{childLabel} 이름</label>
+            <input id="child-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={40} placeholder="{childLabel} 이름" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+            <button disabled={isPending || !name.trim()} onClick={addChild} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{isPending ? "등록 중..." : "{childLabel} 프로필 만들기"}</button>
             <p className="text-xs text-muted-foreground">PIN은 필요하지 않습니다. 접속코드는 필요할 때마다 새로 발급할 수 있으며, 새 코드를 발급하면 이전 코드는 사용할 수 없습니다. QR도 언제든 다시 만들 수 있습니다.</p>
           </div>
           <div className="space-y-3 border-t border-border pt-3">
-            <h3 className="text-sm font-bold">등록된 자녀</h3>
+            <h3 className="text-sm font-bold">등록된 {childLabel}</h3>
             {children.map((child) => (
               <div key={child.id} className="space-y-2 rounded-xl border border-border p-3">
                 <div className="flex items-center justify-between gap-2">
@@ -363,15 +378,15 @@ export function ParentDashboard({
         <section className="space-y-3 rounded-2xl border border-border p-4">
           <div className="flex items-center justify-between"><h2 className="font-bold">{qrChildName} 기기 등록 QR</h2><button onClick={() => setQrUrl("")} className="text-sm text-muted-foreground">닫기</button></div>
           <div className="flex justify-center rounded-xl bg-white p-4"><QRCodeSVG value={qrUrl} size={220} level="H" /></div>
-          <p className="text-xs text-muted-foreground">자녀 기기로 QR 코드를 스캔하세요. QR은 보안을 위해 5분간 유효하고 한 번만 사용할 수 있습니다. 필요하면 새 QR을 발급하세요.</p>
+          <p className="text-xs text-muted-foreground">{childLabel} 기기로 QR 코드를 스캔하세요. QR은 보안을 위해 5분간 유효하고 한 번만 사용할 수 있습니다. 필요하면 새 QR을 발급하세요.</p>
         </section>
       )}
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ 부모 공동관리자 관리</summary>
+        <summary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</summary>
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-muted-foreground">다른 부모를 초대하면 각자 자기 계정과 기기에서 같은 가족의 자녀와 학습 데이터를 관리할 수 있습니다.</p>
-          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 부모</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
+          <p className="text-sm text-muted-foreground">다른 {guardianLabel}를 초대하면 각자 자기 계정과 기기에서 같은 가족의 {childLabel}와 학습 데이터를 관리할 수 있습니다.</p>
+          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 {guardianLabel}</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
           {members.map((member) => (
             <div key={member.userId} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <div className="min-w-0 flex-1"><p className="break-all text-sm font-semibold">{member.email}</p><p className="text-xs text-muted-foreground">공동 관리자</p></div>
@@ -379,15 +394,15 @@ export function ParentDashboard({
             </div>
           ))}
           {parentRole === "owner" ? <>
-            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 부모의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">부모 관리자 초대 링크 만들기</button></div>
-            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">초대 링크 복사</button><p className="text-xs text-muted-foreground">초대받은 부모에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
+            <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 공동관리자의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><button disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "부모 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">공동관리자 초대 링크 만들기</button></div>
+            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><button onClick={() => navigator.clipboard.writeText(inviteUrl)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">초대 링크 복사</button><p className="text-xs text-muted-foreground">초대받은 공동관리자에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><button disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</button></div>)}
-          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 부모 초대와 관리자 해제는 가족 대표 부모만 할 수 있습니다.</p>}
+          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 부모 초대와 관리자 해제는 가족 대표 {guardianLabel}만 할 수 있습니다.</p>}
         </div>
       </details>
 
       <details className="rounded-2xl border border-border p-4">
-        <summary className="cursor-pointer list-none font-bold">＋ 연결된 자녀 기기</summary>
+        <summary className="cursor-pointer list-none font-bold">＋ 연결된 {childLabel} 기기</summary>
         <div className="mt-4 space-y-3">
           {devices.length === 0 ? <p className="text-sm text-muted-foreground">등록된 기기가 없습니다.</p> : devices.map((device) => (
             <div key={device.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
