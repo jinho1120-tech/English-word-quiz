@@ -683,6 +683,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       router.refresh()
     } catch (error) {
       alert(error instanceof Error ? error.message : "쿠폰을 확인하지 못했습니다. 다시 시도해 주세요.")
+      throw error
     }
   }
 
