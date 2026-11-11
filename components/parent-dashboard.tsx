@@ -5,7 +5,7 @@ import { HapticSwitch } from "@/components/haptic-switch"
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Pencil, X } from "lucide-react"
+import { Check, Copy, MessageSquare, Pencil, X } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import {
   createChildProfile,
@@ -102,6 +102,7 @@ export function ParentDashboard({
   const [editingCouponWeight, setEditingCouponWeight] = useState(1)
   const [error, setError] = useState("")
   const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
+  const [childAppCopyFeedback, setChildAppCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
   const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
   const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
@@ -304,6 +305,26 @@ export function ParentDashboard({
     }
   }
 
+  function getChildAppUrl() {
+    return new URL("/child/login", window.location.origin).toString()
+  }
+
+  async function copyChildAppUrl() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("클립보드를 사용할 수 없습니다.")
+      await navigator.clipboard.writeText(getChildAppUrl())
+      setChildAppCopyFeedback("success")
+    } catch {
+      setChildAppCopyFeedback("error")
+    }
+  }
+
+  function sendChildAppSms() {
+    const message = `영단어 학습 앱에 접속해 주세요.\\n\\n${getChildAppUrl()}\\n\\n접속 후 발급받은 자녀 접속코드를 입력하면 됩니다. 아이폰은 Safari, 안드로이드는 Chrome으로 열어주세요. 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.`
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    window.location.href = `sms:${isIOS ? "&" : "?"}body=${encodeURIComponent(message)}`
+  }
+
   function toggleChild(child: Child) {
     const action = child.isActive ? "비활성화" : "다시 활성화"
     if (!window.confirm(`${child.displayName} ${childLabel} 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
@@ -355,6 +376,22 @@ export function ParentDashboard({
         <div>
           <h2 className="text-lg font-bold">{childLabel}별 과목 관리</h2>
           <p className="text-sm text-muted-foreground">{childLabel}를 선택해 과목과 단어장을 관리하세요.</p>
+        </div>
+        <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+          <div>
+            <h3 className="text-sm font-bold">{childLabel} 앱 접속 안내</h3>
+            <p className="mt-1 text-xs text-muted-foreground">QR 없이 주소로 접속한 뒤 기존 접속코드로 로그인할 수 있습니다.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <HapticButton onClick={copyChildAppUrl} className="flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-semibold">
+              <Copy className="size-4" /> {childAppCopyFeedback === "success" ? "복사 완료" : "주소 복사"}
+            </HapticButton>
+            <HapticButton onClick={sendChildAppSms} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
+              <MessageSquare className="size-4" /> 문자 보내기
+            </HapticButton>
+          </div>
+          {childAppCopyFeedback === "error" ? <p role="alert" className="text-xs text-red-600">주소를 복사하지 못했습니다. 브라우저 주소창에서 직접 복사해 주세요.</p> : childAppCopyFeedback === "success" ? <p role="status" className="text-xs text-emerald-600">자녀 앱 주소를 복사했습니다.</p> : null}
+          <p className="text-[11px] text-muted-foreground">문자 보내기를 누르면 기본 메시지 앱이 열리고 안내 문구가 입력됩니다. 받는 사람을 선택해 전송해 주세요.</p>
         </div>
         {children.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">아직 등록된 {childLabel}가 없습니다. 아래의 ‘{childLabel} 추가’를 눌러 시작하세요.</p> : children.map((child) => (
           <div key={child.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-3">
