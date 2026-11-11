@@ -55,7 +55,7 @@ type WordDefenseGameProps = {
 }
 
 const WIDTH = 760
-const HEIGHT = 620
+const HEIGHT = 700
 const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
@@ -479,11 +479,6 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </HapticButton>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-black tabular-nums">{score}</p></div>
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">LIFE</p><p className="flex justify-center gap-1 pt-1">{[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}</p></div>
-      </div>
-
       <div className="space-y-2 rounded-2xl border border-border bg-card p-3">
         <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
         <input
@@ -509,7 +504,17 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/31] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/35] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
+          <div className="rounded-xl border border-white/10 bg-slate-950/75 px-3 py-1.5 text-left text-white shadow-lg backdrop-blur-sm">
+            <p className="text-[9px] font-bold tracking-wider text-slate-300">SCORE</p>
+            <p className="text-lg font-black leading-tight tabular-nums">{score}</p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/75 px-3 py-2 text-white shadow-lg backdrop-blur-sm" aria-label={`남은 생명 ${lives}개`}>
+            <p className="mr-1 text-[9px] font-bold tracking-wider text-slate-300">LIFE</p>
+            {[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}
+          </div>
+        </div>
         {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-start gap-2 overflow-y-auto overscroll-contain bg-slate-950/90 px-3 py-3 text-center text-white backdrop-blur-sm sm:justify-center sm:gap-3 sm:p-5">
           <p className="shrink-0 text-3xl sm:text-4xl">👻</p>
           <p className="shrink-0 text-xl font-black sm:text-2xl">게임 방법</p>
