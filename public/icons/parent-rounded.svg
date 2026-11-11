@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Parent app icon</title>
+  <defs>
+    <clipPath id="rounded-corners">
+      <rect x="0" y="0" width="1024" height="1024" rx="176" ry="176"/>
+    </clipPath>
+  </defs>
+  <image x="0" y="0" width="1024" height="1024" xlink:href="/icons/parent-icon-1024.png" preserveAspectRatio="xMidYMid meet" clip-path="url(#rounded-corners)"/>
+</svg>
