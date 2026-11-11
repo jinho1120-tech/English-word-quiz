@@ -28,39 +28,59 @@ function clearConnectedWhiteBorder(data, width, height) {
   const total = width * height
   const visited = new Uint8Array(total)
   const queue = new Uint32Array(total)
-  let head = 0
-  let tail = 0
+  let cleared = 0
 
-  const add = (index) => {
-    if (visited[index]) return
-    const offset = index * 4
-    if (!isEdgeWhite(data, offset)) return
-    visited[index] = 1
-    queue[tail++] = index
+  // The source artwork has white corner padding from its old rounded frame.
+  // Limit flood fill to corner zones so white snow/cloud details elsewhere stay.
+  const marginX = Math.ceil(width * 0.18)
+  const marginY = Math.ceil(height * 0.18)
+  const zones = [
+    { x0: 0, x1: marginX, y0: 0, y1: marginY },
+    { x0: width - marginX, x1: width, y0: 0, y1: marginY },
+    { x0: 0, x1: marginX, y0: height - marginY, y1: height },
+    { x0: width - marginX, x1: width, y0: height - marginY, y1: height },
+  ]
+
+  for (const zone of zones) {
+    let head = 0
+    let tail = 0
+    const add = (x, y) => {
+      if (x < zone.x0 || x >= zone.x1 || y < zone.y0 || y >= zone.y1) return
+      const index = y * width + x
+      if (visited[index] || !isEdgeWhite(data, index * 4)) return
+      visited[index] = 1
+      queue[tail++] = index
+    }
+
+    for (let offset = 0; offset < 16; offset += 1) {
+      const left = zone.x0
+      const right = zone.x1 - 1
+      const top = zone.y0
+      const bottom = zone.y1 - 1
+      add(Math.min(left + offset, right), top)
+      add(Math.max(right - offset, left), top)
+      add(Math.min(left + offset, right), bottom)
+      add(Math.max(right - offset, left), bottom)
+      add(left, Math.min(top + offset, bottom))
+      add(left, Math.max(bottom - offset, top))
+      add(right, Math.min(top + offset, bottom))
+      add(right, Math.max(bottom - offset, top))
+    }
+
+    while (head < tail) {
+      const index = queue[head++]
+      const x = index % width
+      const y = Math.floor(index / width)
+      data[index * 4 + 3] = 0
+      cleared += 1
+      add(x - 1, y)
+      add(x + 1, y)
+      add(x, y - 1)
+      add(x, y + 1)
+    }
   }
 
-  for (let x = 0; x < width; x += 1) {
-    add(x)
-    add((height - 1) * width + x)
-  }
-  for (let y = 0; y < height; y += 1) {
-    add(y * width)
-    add(y * width + width - 1)
-  }
-
-  while (head < tail) {
-    const index = queue[head++]
-    const x = index % width
-    const y = Math.floor(index / width)
-    data[index * 4 + 3] = 0
-
-    if (x > 0) add(index - 1)
-    if (x + 1 < width) add(index + 1)
-    if (y > 0) add(index - width)
-    if (y + 1 < height) add(index + width)
-  }
-
-  return tail
+  return cleared
 }
 
 const iconDir = path.join(process.cwd(), "public", "icons")
