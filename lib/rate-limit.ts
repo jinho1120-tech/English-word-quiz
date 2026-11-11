@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db"
+import { recordServiceUsageRequest } from "@/lib/service-usage"
 
 /**
  * Atomic, database-backed per-user fixed-window limiter.
@@ -25,5 +26,7 @@ export async function consumeUserRateLimit(
     [userId, action, windowSeconds],
   )
 
-  return Number(result.rows[0]?.request_count ?? limit + 1) <= limit
+  const allowed = Number(result.rows[0]?.request_count ?? limit + 1) <= limit
+  if (allowed) await recordServiceUsageRequest(userId, action)
+  return allowed
 }

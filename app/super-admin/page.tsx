@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { requireSuperAdmin, getSuperAdminFamilies, getSuperAdminFamilyDetail } from "@/lib/super-admin"
 import { updateSuperAdminChildName, updateSuperAdminMemberName, updateSuperAdminOwnerName } from "@/app/actions/super-admin"
 import { LogoutButton } from "@/components/logout-button"
+import { SuperAdminNav } from "@/components/super-admin-nav"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
         </div>
         <LogoutButton />
       </header>
+      <SuperAdminNav active="/super-admin" />
 
       <section className="rounded-2xl border bg-card p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
