@@ -491,19 +491,19 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             {[0,1,2].map((item) => <Heart key={item} className={`size-4 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}
           </div>
         </div>
-        {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-start gap-2 overflow-y-auto overscroll-contain bg-slate-950/90 px-3 py-3 text-center text-white backdrop-blur-sm sm:justify-center sm:gap-3 sm:p-5">
-          <p className="shrink-0 text-3xl sm:text-4xl">👻</p>
-          <p className="shrink-0 text-xl font-black sm:text-2xl">게임 방법</p>
-          <div className="w-full max-w-xs shrink-0 space-y-1.5 rounded-2xl bg-white/10 p-3 text-left text-xs leading-relaxed sm:space-y-2 sm:p-4 sm:text-sm">
-            <p>1. 몬스터가 달고 오는 <strong>한글 뜻</strong>을 확인해요.</p>
-            <p>2. 그 뜻에 맞는 <strong>영어 단어를 입력</strong>해요.</p>
-            <p>3. 정답이면 몬스터가 영단어로 변신해 도망가요!</p>
-            <p>4. 몬스터가 방어선에 닿기 전에 물리쳐요.</p>
+        {!started && !gameOver && <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-1 overflow-hidden bg-slate-950/90 px-2 py-1.5 text-center text-white backdrop-blur-sm">
+          <p className="shrink-0 text-xl leading-none">👻</p>
+          <p className="shrink-0 text-base font-black leading-tight">게임 방법</p>
+          <div className="grid w-full max-w-sm shrink-0 grid-cols-2 gap-x-2 gap-y-0.5 rounded-lg bg-white/10 px-2 py-1 text-left text-[10px] leading-tight">
+            <p>① 한글 뜻을 확인해요</p>
+            <p>② 영어 단어를 입력해요</p>
+            <p>③ 정답이면 유령이 도망가요</p>
+            <p>④ 방어선 전에 물리쳐요</p>
           </div>
-          <p className="shrink-0 text-xs text-sky-200">점수가 오르면 더 넓은 단어장에서 출제되고 몬스터도 늘어나요.</p>
-          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="sticky bottom-0 shrink-0 rounded-xl bg-amber-400 px-6 py-3 font-black text-amber-950 shadow-lg">게임 시작!</HapticButton>
+          <p className="shrink-0 text-[9px] leading-tight text-sky-200">점수가 오르면 단어와 몬스터가 늘어나요.</p>
+          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="shrink-0 rounded-lg bg-amber-400 px-5 py-1.5 text-xs font-black leading-tight text-amber-950 shadow-lg">게임 시작!</HapticButton>
         </div>}
-        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><p className="text-sm font-bold">놓친 단어 {missedWords.length}개</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
+        {gameOver && <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-1 overflow-hidden bg-slate-950/90 px-2 py-1.5 text-center text-white backdrop-blur-sm"><p className="text-2xl leading-none">👻</p><p className="text-lg font-black leading-tight">게임 종료!</p><div className="flex shrink-0 items-center gap-3 text-xs"><p className="text-slate-200">최종 점수 <strong>{score}점</strong></p><p className="font-bold">놓친 단어 {missedWords.length}개</p></div><HapticButton onClick={restart} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-1.5 text-xs font-black leading-tight text-amber-950"><RotateCcw className="size-3.5" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
 
       </div>
