@@ -1,0 +1,30 @@
+{
+  "id": "/child",
+  "name": "영단어 마스터",
+  "short_name": "영단어 마스터",
+  "description": "자녀의 영어 단어 학습 앱",
+  "start_url": "/child",
+  "scope": "/child",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#f8faf9",
+  "theme_color": "#1675d1",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icons/child-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/child-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
