@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord, updateParentChildWord } from "@/app/actions/parent-words"
+import { addParentChildWord, addParentChildWordsBulk, scanParentChildWordsImage, deleteParentChildWord, deleteParentChildWordsByDate, updateParentChildWord } from "@/app/actions/parent-words"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 
 type Subject = { id: string; name: string; color: string }
@@ -24,6 +24,8 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
   const [isScanning, setIsScanning] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+  const [listFilterSubjectId, setListFilterSubjectId] = useState("__all__")
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editSubjectId, setEditSubjectId] = useState("")
   const [editWord, setEditWord] = useState("")
@@ -33,6 +35,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
 
   function run(action: () => Promise<unknown>) {
     setError("")
+    setNotice("")
     startTransition(async () => {
       try { await action(); router.refresh() }
       catch (err) { setError(err instanceof Error ? err.message : "요청을 처리하지 못했습니다.") }
@@ -60,7 +63,22 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
     setBulkText("")
   }
 
-  const visibleWords = initialWords.filter((item) => !subjectId || item.subjectId === subjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === subjectId)?.name))
+  const visibleWords = initialWords.filter((item) => listFilterSubjectId === "__all__" || item.subjectId === listFilterSubjectId || (!item.subjectId && item.subject === subjects.find((s) => s.id === listFilterSubjectId)?.name))
+
+  function deleteFilteredWords() {
+    const count = visibleWords.length
+    if (!count) return
+    const subjectName = listFilterSubjectId === "__all__" ? "전체 과목" : subjects.find((s) => s.id === listFilterSubjectId)?.name ?? "선택 과목"
+    const message = listFilterSubjectId === "__all__"
+      ? `${date}에 등록된 전체 과목 단어 ${count}개를 모두 삭제할까요?`
+      : `${date}에 등록된 [${subjectName}] 단어 ${count}개를 모두 삭제할까요?`
+    if (!window.confirm(message + "\n삭제한 단어는 복구할 수 없습니다.")) return
+    run(async () => {
+      const result = await deleteParentChildWordsByDate(childProfileId, date, listFilterSubjectId === "__all__" ? undefined : listFilterSubjectId)
+      setEditingId(null)
+      setNotice(`단어 ${result.count}개를 삭제했습니다.`)
+    })
+  }
 
   function beginEdit(item: Word) {
     setEditingId(item.id)
@@ -148,8 +166,20 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
         <button disabled={pending || !subjectId || !word.trim() || !meaning.trim()} onClick={() => run(async () => { await addParentChildWord(childProfileId, { date, subjectId, word, meaning, example }); setWord(""); setMeaning(""); setExample("") })} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">자녀 단어장에 추가</button>
       </section>
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {notice && <p role="status" className="text-sm text-emerald-700">{notice}</p>}
       <section className="space-y-3">
-        <div className="flex items-center justify-between"><h2 className="font-bold">등록된 단어</h2><select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="rounded-lg border border-border bg-background px-2 py-1 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select></div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-bold">등록된 단어 ({visibleWords.length})</h2>
+          <button type="button" disabled={pending || visibleWords.length === 0} onClick={deleteFilteredWords} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-40"><Trash2 className="size-3.5" />{listFilterSubjectId === "__all__" ? "전체 삭제" : "과목 삭제"}</button>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <button type="button" onClick={() => setListFilterSubjectId("__all__")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${listFilterSubjectId === "__all__" ? "bg-foreground text-background" : "border border-border bg-muted text-muted-foreground"}`}>전체 <span className="ml-1 rounded-full bg-background/20 px-1.5">{initialWords.length}</span></button>
+          {subjects.map((subject) => {
+            const count = initialWords.filter((item) => item.subjectId === subject.id || (!item.subjectId && item.subject === subject.name)).length
+            if (!count) return null
+            return <button key={subject.id} type="button" onClick={() => setListFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${listFilterSubjectId === subject.id ? "bg-foreground text-background" : "border border-border bg-muted text-muted-foreground"}`}>{subject.name} <span className="ml-1 rounded-full bg-background/20 px-1.5">{count}</span></button>
+          })}
+        </div>
         {visibleWords.map((item) => <article key={item.id} className="rounded-xl border border-border p-3">
           {editingId === item.id ? <div className="space-y-2">
             <select value={editSubjectId} onChange={(event) => setEditSubjectId(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}</select>

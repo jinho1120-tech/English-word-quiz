@@ -30,7 +30,7 @@ export function ChildLearning({
   initialDate,
   initialStorage,
 }: {
-  pacmanStatus: { showPacman: boolean; showWordDefense: boolean; enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
+  pacmanStatus: { showPacman: boolean; showWordDefense: boolean; enabled: boolean; dailyPlayLimit: number; unlimitedPlays: boolean; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
   childName: string
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
@@ -364,7 +364,7 @@ export function ChildLearning({
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
             <div className="min-w-0 flex-1">
               <h3 className="font-bold">보너스 게임</h3>
-              <p className="text-xs text-muted-foreground">오늘 남은 게임 {pacmanRemainingPlays} / {pacmanStatus.dailyPlayLimit}판</p>
+              <p className="text-xs text-muted-foreground">{pacmanStatus.unlimitedPlays ? "오늘은 무제한으로 이용할 수 있어요" : `오늘 남은 게임 ${pacmanRemainingPlays} / ${pacmanStatus.dailyPlayLimit}판`}</p>
             </div>
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
@@ -377,7 +377,11 @@ export function ChildLearning({
               영어 타자 디펜스 👻
             </HapticButton>}
           </div>
-          <p className="text-[11px] text-muted-foreground">두 게임은 오늘의 보너스 게임 횟수를 함께 사용해요. 시작 시 1회 차감되며 중간에 나가도 복구되지 않아요.</p>
+          <p className="text-[11px] text-muted-foreground">{pacmanStatus.unlimitedPlays
+            ? "게임을 무제한으로 이용할 수 있어요. 게임 시작 기록만 저장되고 횟수는 차감되지 않아요."
+            : pacmanStatus.showPacman && pacmanStatus.showWordDefense
+              ? "두 게임은 오늘의 보너스 게임 횟수를 함께 사용해요. 시작 시 1회 차감되며 중간에 나가도 복구되지 않아요."
+              : "오늘의 보너스 게임 이용 횟수를 사용해요. 시작 시 1회 차감되며 중간에 나가도 복구되지 않아요."}</p>
         </section>
       )}
       {isPacmanOpen && (
@@ -390,6 +394,7 @@ export function ChildLearning({
             <PacmanGame
               extraPlaysLeft={pacmanRemainingPlays}
               dailyPlayLimit={pacmanStatus.dailyPlayLimit}
+              unlimitedPlays={pacmanStatus.unlimitedPlays}
               onGameOver={handlePacmanGameOver}
               onReplay={reservePacmanPlay}
               replayError={pacmanError}

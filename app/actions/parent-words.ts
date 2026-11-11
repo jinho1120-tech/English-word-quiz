@@ -1,6 +1,6 @@
 "use server"
 
-import { and, asc, desc, eq, gte, lte } from "drizzle-orm"
+import { and, asc, desc, eq, gte, isNull, lte, or } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
@@ -133,6 +133,26 @@ export async function deleteParentChildWord(childProfileId: string, id: number) 
   const child = await requireParentChild(childProfileId)
   await db.delete(wordEntries).where(and(eq(wordEntries.id, id), eq(wordEntries.userId, child.ownerUserId), eq(wordEntries.childProfileId, child.id)))
   revalidatePath("/parent")
+}
+
+export async function deleteParentChildWordsByDate(childProfileId: string, date: string, subjectId?: string) {
+  const child = await requireParentChild(childProfileId)
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("날짜 형식이 올바르지 않습니다.")
+  const conditions = [
+    eq(wordEntries.userId, child.ownerUserId),
+    eq(wordEntries.childProfileId, child.id),
+    eq(wordEntries.assignmentDate, date),
+  ]
+  if (subjectId && subjectId !== "__all__") {
+    const subject = await ownedSubject(child.id, subjectId)
+    conditions.push(or(
+      eq(wordEntries.subjectId, subject.id),
+      and(isNull(wordEntries.subjectId), eq(wordEntries.subject, subject.name)),
+    )!)
+  }
+  const deleted = await db.delete(wordEntries).where(and(...conditions)).returning({ id: wordEntries.id })
+  revalidatePath("/parent")
+  return { count: deleted.length }
 }
 
 export async function scanParentChildWordsImage(childProfileId: string, base64Image: string, mimeType: string) {

@@ -45,13 +45,14 @@ interface Ghost {
 interface PacmanGameProps {
   extraPlaysLeft: number;
   dailyPlayLimit: number;
+  unlimitedPlays: boolean;
   onGameOver: () => void;
   onReplay: () => Promise<boolean>;
   replayError?: string;
   onClose: () => void;
 }
 
-export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onReplay, replayError, onClose }: PacmanGameProps) {
+export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onGameOver, onReplay, replayError, onClose }: PacmanGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [score, setScore] = useState(0);
@@ -614,7 +615,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onRepla
             <p className="text-xs font-bold text-amber-300 mb-3">최종 점수: {score}점</p>
             {replayError && <p role="alert" className="mb-2 text-[11px] font-semibold text-rose-300">{replayError}</p>}
 
-            {extraPlaysLeft > 0 ? (
+            {unlimitedPlays || extraPlaysLeft > 0 ? (
               <HapticButton
                 hapticLabel="새 게임 시작"
                 onClick={handleReplay}
@@ -623,7 +624,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, onGameOver, onRepla
                 className="w-full rounded-2xl bg-primary py-2.5 px-3 text-primary-foreground shadow-md active:scale-95 transition-transform flex flex-col items-center justify-center cursor-pointer touch-manipulation"
               >
                 <span className="text-sm font-bold leading-tight">{replayPending ? "코인 확인 중..." : "다시 도전 🔄"}</span>
-                <span className="text-[11px] font-normal opacity-85 mt-0.5">추가 플레이 {extraPlaysLeft}회</span>
+                <span className="text-[11px] font-normal opacity-85 mt-0.5">{unlimitedPlays ? "무제한 플레이" : `추가 플레이 ${extraPlaysLeft}회`}</span>
               </HapticButton>
             ) : (
               <div className="w-full flex flex-col items-center gap-2">

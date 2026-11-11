@@ -655,8 +655,8 @@ export async function getChildPacmanStatus() {
   return {
     showPacman: profile?.showPacman ?? true, showWordDefense: profile?.showWordDefense ?? true,
     enabled: eligibility.settings?.pacmanEnabled ?? false,
-    dailyPlayLimit, playsUsed,
-    remainingPlays: Math.max(0, dailyPlayLimit - playsUsed),
+    dailyPlayLimit, unlimitedPlays: dailyPlayLimit === 0, playsUsed,
+    remainingPlays: dailyPlayLimit === 0 ? Number.MAX_SAFE_INTEGER : Math.max(0, dailyPlayLimit - playsUsed),
     dailyQuestionCount: eligibility.dailyQuestionCount,
     minDailyQuestions: eligibility.minDailyQuestions,
     outstandingWrongCount: eligibility.outstandingWrongCount,
@@ -683,12 +683,17 @@ export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pa
     VALUES (${child.childProfileId}::uuid, ${eligibility.today}, 1)
     ON CONFLICT (child_profile_id, play_date)
     DO UPDATE SET plays_used = child_pacman_daily_plays.plays_used + 1, updated_at = now()
-    WHERE child_pacman_daily_plays.plays_used < ${dailyPlayLimit}
+    WHERE ${dailyPlayLimit === 0} OR child_pacman_daily_plays.plays_used < ${dailyPlayLimit}
     RETURNING plays_used
   `)
   const row = result.rows[0] as { plays_used: number } | undefined
   if (!row) throw new Error("오늘 사용할 수 있는 팩맨 게임 횟수를 모두 사용했어요. 내일 다시 도전해요!")
   await db.insert(childGamePlays).values({ childProfileId: child.childProfileId, game })
   revalidatePath("/child")
-  return { playsUsed: Number(row.plays_used), remainingPlays: Math.max(0, dailyPlayLimit - Number(row.plays_used)), dailyPlayLimit }
+  return {
+    playsUsed: Number(row.plays_used),
+    remainingPlays: dailyPlayLimit === 0 ? Number.MAX_SAFE_INTEGER : Math.max(0, dailyPlayLimit - Number(row.plays_used)),
+    dailyPlayLimit,
+    unlimitedPlays: dailyPlayLimit === 0,
+  }
 }

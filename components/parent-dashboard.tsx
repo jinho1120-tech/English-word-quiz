@@ -86,7 +86,8 @@ export function ParentDashboard({
   const [blankCouponProbability, setBlankCouponProbability] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.blankCouponProbability ?? 20)
   const [maxStoredCoupons, setMaxStoredCoupons] = useState(couponSettings.find((item) => item.childProfileId === (children[0]?.id ?? ""))?.maxStoredCoupons ?? 20)
   const [pacmanEnabled, setPacmanEnabled] = useState(arcadeSettings.pacmanEnabled)
-  const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit)
+  const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit || 1)
+  const [pacmanUnlimitedPlays, setPacmanUnlimitedPlays] = useState(arcadeSettings.pacmanDailyPlayLimit === 0)
   const [pacmanMinDailyQuestions, setPacmanMinDailyQuestions] = useState(arcadeSettings.pacmanMinDailyQuestions)
   const [pacmanRequireNoWrongWords, setPacmanRequireNoWrongWords] = useState(arcadeSettings.pacmanRequireNoWrongWords)
   const selectedGameChild = children.find((child) => child.id === selectedCouponChildId)
@@ -103,7 +104,6 @@ export function ParentDashboard({
   const [editingCouponWeight, setEditingCouponWeight] = useState(1)
   const [error, setError] = useState("")
   const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | "">("")
-  const [childAppCopyFeedback, setChildAppCopyFeedback] = useState<"success" | "error" | "">("")
   const [isPending, startTransition] = useTransition()
   const selectedCoupons = coupons.filter((item) => item.childProfileId === selectedCouponChildId)
   const selectedRewards = rewards.filter((item) => item.childProfileId === selectedCouponChildId)
@@ -148,7 +148,7 @@ export function ParentDashboard({
     setError("")
     startTransition(async () => {
       try {
-        await updateFamilyPacmanSettings({ pacmanEnabled, pacmanDailyPlayLimit, pacmanMinDailyQuestions, pacmanRequireNoWrongWords })
+        await updateFamilyPacmanSettings({ pacmanEnabled, pacmanDailyPlayLimit, pacmanUnlimitedPlays, pacmanMinDailyQuestions, pacmanRequireNoWrongWords })
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : "팩맨 게임 설정을 저장하지 못했습니다.")
@@ -334,22 +334,6 @@ export function ParentDashboard({
     return new URL("/child/login", window.location.origin).toString()
   }
 
-  async function copyChildAppUrl() {
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("클립보드를 사용할 수 없습니다.")
-      await navigator.clipboard.writeText(getChildAppUrl())
-      setChildAppCopyFeedback("success")
-    } catch {
-      setChildAppCopyFeedback("error")
-    }
-  }
-
-  function sendChildAppSms() {
-    const message = `영단어 학습 앱에 접속해 주세요.\n\n${getChildAppUrl()}\n\n접속 후 발급받은 자녀 접속코드를 입력하면 됩니다. 아이폰은 Safari, 안드로이드는 Chrome으로 열어주세요. 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.`
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-    window.location.href = `sms:${isIOS ? "&" : "?"}body=${encodeURIComponent(message)}`
-  }
-
   function toggleChild(child: Child) {
     const action = child.isActive ? "비활성화" : "다시 활성화"
     if (!window.confirm(`${child.displayName} ${childLabel} 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
@@ -401,22 +385,6 @@ export function ParentDashboard({
         <div>
           <h2 className="text-lg font-bold">{childLabel}별 과목 관리</h2>
           <p className="text-sm text-muted-foreground">{childLabel}를 선택해 과목과 단어장을 관리하세요.</p>
-        </div>
-        <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
-          <div>
-            <h3 className="text-sm font-bold">{childLabel} 앱 접속 안내</h3>
-            <p className="mt-1 text-xs text-muted-foreground">QR 없이 주소로 접속한 뒤 기존 접속코드로 로그인할 수 있습니다.</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <HapticButton onClick={copyChildAppUrl} className="flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-semibold">
-              <Copy className="size-4" /> {childAppCopyFeedback === "success" ? "복사 완료" : "주소 복사"}
-            </HapticButton>
-            <HapticButton onClick={sendChildAppSms} className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground">
-              <MessageSquare className="size-4" /> 문자 보내기
-            </HapticButton>
-          </div>
-          {childAppCopyFeedback === "error" ? <p role="alert" className="text-xs text-red-600">주소를 복사하지 못했습니다. 브라우저 주소창에서 직접 복사해 주세요.</p> : childAppCopyFeedback === "success" ? <p role="status" className="text-xs text-emerald-600">자녀 앱 주소를 복사했습니다.</p> : null}
-          <p className="text-[11px] text-muted-foreground">문자 보내기를 누르면 기본 메시지 앱이 열리고 안내 문구가 입력됩니다. 받는 사람을 선택해 전송해 주세요.</p>
         </div>
         {children.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">아직 등록된 {childLabel}가 없습니다. 아래의 ‘{childLabel} 추가’를 눌러 시작하세요.</p> : children.map((child) => (
           <div key={child.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-3">
@@ -526,11 +494,13 @@ export function ParentDashboard({
                 </div>
                 <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="팩맨 게임 허용" description={`끄면 ${childLabel} 앱에서 팩맨 게임을 이용할 수 없습니다.`} />
                 <fieldset disabled={!pacmanEnabled} className="space-y-4 disabled:opacity-45">
-                  <label className="block space-y-1 text-sm"><span className="font-medium">하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10회 · 게임을 시작할 때 1회 차감됩니다.</span></label>
+                  <HapticSwitch checked={pacmanUnlimitedPlays} onCheckedChange={setPacmanUnlimitedPlays} label="하루 게임 횟수 무제한" description="켜면 하루 플레이 횟수 제한 없이 게임을 이용할 수 있습니다." />
+                  {!pacmanUnlimitedPlays && <label className="block space-y-1 text-sm"><span className="font-medium">하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10회 · 게임을 시작할 때 1회 차감됩니다.</span></label>}
+                  {pacmanUnlimitedPlays && <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">하루 플레이 횟수 제한이 없습니다. 게임 시작 기록은 통계에 계속 저장됩니다.</p>}
                   <label className="block space-y-1 text-sm"><span className="font-medium">게임 입장을 위한 하루 최소 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있습니다.</span></label>
                   <HapticSwitch checked={pacmanRequireNoWrongWords} onCheckedChange={setPacmanRequireNoWrongWords} label="남아 있는 오답 모두 해결" description="켜면 오늘 푼 문제뿐 아니라 이전부터 남아 있는 오답까지 모두 해결해야 게임을 시작할 수 있습니다." />
                 </fieldset>
-                <HapticButton disabled={isPending || !Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10 || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
+                <HapticButton disabled={isPending || (!pacmanUnlimitedPlays && (!Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10)) || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
               </section>
 
               <section className="space-y-4 border-t border-border pt-5">
