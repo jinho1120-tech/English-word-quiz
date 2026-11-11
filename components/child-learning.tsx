@@ -230,15 +230,15 @@ export function ChildLearning({
 
 
   return (
-    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start lg:gap-6">
-      <section className="space-y-3 lg:col-start-1 lg:row-start-1">
+    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start lg:gap-5">
+      <section className="space-y-2 sm:space-y-3 lg:col-start-1 lg:row-start-1">
         <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
-        <div className="grid grid-cols-3 gap-1 sm:gap-1.5 rounded-2xl border border-border bg-muted/50 p-1 sm:p-1.5">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-muted/50 p-1 sm:gap-1.5 sm:p-1.5">
           <HapticButton
             hapticLabel="날짜별 퀴즈 탭"
             onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <GraduationCap className={`size-5 shrink-0 ${activeTab === "daily" ? "animate-tab-pulse" : ""}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>날짜별 퀴즈</span>
           </HapticButton>
@@ -246,7 +246,7 @@ export function ChildLearning({
             hapticLabel="오답 몬스터 탭"
             onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <Ghost className={`size-5 shrink-0 ${activeTab === "wrong" ? "animate-monster-hop" : ""}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
             <span>오답 몬스터</span>
@@ -255,7 +255,7 @@ export function ChildLearning({
             hapticLabel="단어 입력 탭"
             onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <Pencil className={`size-5 shrink-0 ${activeTab === "manage" ? "animate-pencil-write" : ""}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>단어 입력</span>
           </HapticButton>
@@ -341,7 +341,7 @@ export function ChildLearning({
       </div>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {activeTab !== "manage" && (
-        <section className="min-w-0 space-y-3 lg:col-start-2 lg:row-start-1">
+        <section className="min-w-0 space-y-2 sm:space-y-3 lg:col-start-2 lg:row-start-1">
           <WordQuiz
             key={`child-${activeTab}-${filterSubjectId}-${date}`}
             words={(activeTab === "wrong" ? visibleWords : visibleWords).map((item): QuizWord => ({
