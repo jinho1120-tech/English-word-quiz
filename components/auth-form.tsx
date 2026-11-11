@@ -8,7 +8,7 @@ import { Eye, EyeOff } from "lucide-react"
 
 type ParentRole = "아빠" | "엄마" | "기타 보호자"
 
-export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError }: { inviteToken?: string; inviteEmail?: string; signedInEmail?: string; inviteError?: string }) {
+export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError, callbackURL: requestedCallbackURL }: { inviteToken?: string; inviteEmail?: string; signedInEmail?: string; inviteError?: string; callbackURL?: string }) {
   const router = useRouter()
   const [mode, setMode] = useState<"signin" | "signup">(inviteToken ? "signup" : "signin")
   const [parentRole, setParentRole] = useState<ParentRole>("아빠")
@@ -63,7 +63,10 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError 
     setBusy(true)
     setError("")
     try {
-      const callbackURL = inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : "/"
+      const safeNext = requestedCallbackURL && requestedCallbackURL.startsWith("/") && !requestedCallbackURL.startsWith("//") && !requestedCallbackURL.includes("\\")
+        ? requestedCallbackURL
+        : "/"
+      const callbackURL = inviteToken ? "/parent/invite/accept?token=" + encodeURIComponent(inviteToken) : safeNext
       const relation = guardianRelation.trim()
       if (mode === "signup" && password !== confirmPassword) {
         setError("비밀번호가 일치하지 않습니다. 다시 확인해 주세요.")
