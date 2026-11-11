@@ -320,7 +320,7 @@ export function ParentDashboard({
   }
 
   function sendChildAppSms() {
-    const message = `영단어 학습 앱에 접속해 주세요.\\n\\n${getChildAppUrl()}\\n\\n접속 후 발급받은 자녀 접속코드를 입력하면 됩니다. 아이폰은 Safari, 안드로이드는 Chrome으로 열어주세요. 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.`
+    const message = `영단어 학습 앱에 접속해 주세요.\n\n${getChildAppUrl()}\n\n접속 후 발급받은 자녀 접속코드를 입력하면 됩니다. 아이폰은 Safari, 안드로이드는 Chrome으로 열어주세요. 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.`
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
     window.location.href = `sms:${isIOS ? "&" : "?"}body=${encodeURIComponent(message)}`
   }
