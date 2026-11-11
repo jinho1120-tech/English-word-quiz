@@ -1,0 +1,85 @@
+name: Apply super admin operations migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-super-admin-operations-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install isolated PostgreSQL client
+        run: npm install --prefix "$RUNNER_TEMP/db-migrate" --no-save --no-package-lock pg@8
+
+      - name: Validate production database and apply additive operations tables
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const { Client } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+
+          (async () => {
+            if (!process.env.DATABASE_URL) throw new Error("Missing ENGLISH_WORD_QUIZ_DATABASE_URL.");
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            try {
+              const identity = await client.query("select current_database() as db, current_user as role");
+              console.log("DATABASE_IDENTITY:", JSON.stringify(identity.rows[0]));
+              if (identity.rows[0].db !== "neondb" || identity.rows[0].role !== "neondb_owner") {
+                throw new Error("Safety stop: database identity differs from the reviewed production target.");
+              }
+
+              const required = await client.query(`
+                select
+                  to_regclass('public.families') as families,
+                  to_regclass('public.child_profiles') as child_profiles,
+                  to_regclass('public.super_admin_audit_logs') as audit_logs,
+                  to_regclass('drizzle.__drizzle_migrations') as migration_history
+              `);
+              console.log("REQUIRED_TABLES:", JSON.stringify(required.rows[0]));
+              if (!required.rows[0].families || !required.rows[0].child_profiles ||
+                  !required.rows[0].audit_logs || !required.rows[0].migration_history) {
+                throw new Error("Safety stop: expected application schema or migration history is missing.");
+              }
+
+              const history = await client.query('select count(*)::int as count, max(created_at)::text as latest from "drizzle"."__drizzle_migrations"');
+              console.log("DRIZZLE_HISTORY:", JSON.stringify(history.rows[0]));
+              if (history.rows[0].count < 16 || Number(history.rows[0].latest) < 1794320000006) {
+                throw new Error("Safety stop: expected application migrations 0000–0015 before operations migration.");
+              }
+
+              const sql = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, "ops-migrations/0001_super_admin_operations.sql"), "utf8");
+              await client.query(sql);
+
+              const verified = await client.query(`
+                select
+                  to_regclass('public.service_usage_events') as usage_events,
+                  to_regclass('public.service_usage_limits') as usage_limits,
+                  to_regclass('public.provider_monthly_costs') as monthly_costs,
+                  to_regclass('public.super_admin_system_audit_logs') as system_audit
+              `);
+              console.log("OPERATIONS_TABLES_AFTER:", JSON.stringify(verified.rows[0]));
+              if (Object.values(verified.rows[0]).some(value => !value)) {
+                throw new Error("Operations table verification failed.");
+              }
+              console.log("SUPER_ADMIN_OPERATIONS_MIGRATION: applied and verified.");
+            } finally {
+              await client.end();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
