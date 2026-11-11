@@ -633,10 +633,12 @@ export function ParentDashboard({
                     <p className="shrink-0 whitespace-nowrap font-semibold">{child.displayName}</p>
                     <p className="whitespace-nowrap text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
                   </div>
-                  {child.isActive && <div className="flex flex-wrap gap-2">
-                    <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기</HapticButton>
-                    <HapticButton disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
-                    <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
+                  {child.isActive && <div className="space-y-2">
+                    <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="w-full rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기</HapticButton>
+                    <div className="grid grid-cols-2 gap-2">
+                      <HapticButton disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
+                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
+                    </div>
                   </div>}
                 </div>
                 <div className="flex flex-wrap gap-2">
