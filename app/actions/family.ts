@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, desc, eq, gt, isNull, or } from "drizzle-orm"
+import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -19,6 +19,7 @@ import {
   familyMembers,
   familyInvitations,
   familyArcadeSettings,
+  childGamePlays,
   user,
 } from "@/lib/db/schema"
 import {
@@ -118,6 +119,8 @@ export async function getParentFamilyDashboard() {
     id: childProfiles.id,
     displayName: childProfiles.displayName,
     isActive: childProfiles.isActive,
+    showPacman: childProfiles.showPacman,
+    showWordDefense: childProfiles.showWordDefense,
     createdAt: childProfiles.createdAt,
   }).from(childProfiles)
     .where(eq(childProfiles.familyId, family.id))
@@ -176,6 +179,8 @@ export async function getParentFamilyDashboard() {
     .where(and(eq(childProfiles.familyId, family.id), isNull(childDeviceSessions.revokedAt)))
     .orderBy(asc(childProfiles.displayName), asc(childDeviceSessions.createdAt))
 
+  const gameUsage = await db.select({ childProfileId: childGamePlays.childProfileId, game: childGamePlays.game, total: sql<number>`count(*)::int` }).from(childGamePlays).innerJoin(childProfiles, eq(childGamePlays.childProfileId, childProfiles.id)).where(eq(childProfiles.familyId, family.id)).groupBy(childGamePlays.childProfileId, childGamePlays.game)
+
   const members = await db.select({ userId: familyMembers.userId, email: familyMembers.email, role: familyMembers.role, createdAt: familyMembers.createdAt })
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
@@ -184,7 +189,7 @@ export async function getParentFamilyDashboard() {
   const familyTerms = role === "owner"
     ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
     : { guardian: currentUserName || "공동관리자", child: "아이" }
-  return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
+  return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, gameUsage, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
 
@@ -565,4 +570,13 @@ export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean
   revalidatePath("/parent")
   revalidatePath("/child")
   return { success: true }
+}
+
+
+export async function updateChildGameVisibility(input: { childProfileId: string; showPacman: boolean; showWordDefense: boolean }) {
+ const { family } = await requireParentFamily()
+ if (typeof input?.childProfileId !== "string" || typeof input.showPacman !== "boolean" || typeof input.showWordDefense !== "boolean") throw new Error("게임 노출 설정이 올바르지 않습니다.")
+ const [updated] = await db.update(childProfiles).set({ showPacman: input.showPacman, showWordDefense: input.showWordDefense, updatedAt: new Date() }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id))).returning({ id: childProfiles.id })
+ if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
+ revalidatePath("/parent"); revalidatePath("/child"); return { success: true }
 }
