@@ -33,7 +33,7 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
   const [data, couponWallet, calendarData, pacmanStatus] = await Promise.all([getChildLearningData(date), getChildCouponWallet(), getChildCalendarData(date.slice(0, 7)), getChildPacmanStatus()])
 
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-lg space-y-5 px-4 py-5">
+    <main className="mx-auto min-h-dvh w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0"><p className="text-xs font-semibold text-muted-foreground">영단어 마스터</p><h1 className="truncate text-xl font-black">{data.childName}의 학습 공간</h1></div>
         <div className="flex shrink-0 items-center gap-2">
