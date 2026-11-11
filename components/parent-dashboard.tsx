@@ -549,7 +549,7 @@ export function ParentDashboard({
         <HapticSummary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</HapticSummary>
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">다른 {guardianLabel}를 초대하면 각자 자기 계정과 기기에서 같은 가족의 {childLabel}와 학습 데이터를 관리할 수 있습니다.</p>
-          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 {guardianLabel}</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
+          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 계정</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
           {members.map((member) => (
             <div key={member.userId} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <div className="min-w-0 flex-1"><p className="break-all text-sm font-semibold">{member.email}</p><p className="text-xs text-muted-foreground">공동 관리자</p></div>
