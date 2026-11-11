@@ -5,9 +5,11 @@ import { HapticSwitch } from "@/components/haptic-switch"
 
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { Check, Pencil, X } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import {
   createChildProfile,
+  updateChildProfileName,
   createChildQrEnrollment,
   deleteChildProfile,
   regenerateChildAccessCode,
@@ -67,6 +69,8 @@ export function ParentDashboard({
   const router = useRouter()
   const [selectedCouponChildId, setSelectedCouponChildId] = useState(children[0]?.id ?? "")
   const [name, setName] = useState("")
+  const [editingChildId, setEditingChildId] = useState<string | null>(null)
+  const [editingChildName, setEditingChildName] = useState("")
   const [createdCode, setCreatedCode] = useState("")
   const [codeChildName, setCodeChildName] = useState("")
   const [qrUrl, setQrUrl] = useState("")
@@ -231,6 +235,41 @@ export function ParentDashboard({
     })
   }
 
+  function startEditingChildName(child: Child) {
+    setError("")
+    setEditingChildId(child.id)
+    setEditingChildName(child.displayName)
+  }
+
+  function cancelEditingChildName() {
+    setEditingChildId(null)
+    setEditingChildName("")
+  }
+
+  function saveChildName(child: Child) {
+    const nextName = editingChildName.trim()
+    if (!nextName) {
+      setError("이름을 입력해 주세요.")
+      return
+    }
+    if (nextName === child.displayName) {
+      cancelEditingChildName()
+      return
+    }
+    setError("")
+    startTransition(async () => {
+      try {
+        const result = await updateChildProfileName({ childProfileId: child.id, displayName: nextName })
+        if (codeChildName === child.displayName) setCodeChildName(result.displayName)
+        if (qrChildName === child.displayName) setQrChildName(result.displayName)
+        cancelEditingChildName()
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "이름을 수정하지 못했습니다.")
+      }
+    })
+  }
+
   function showNewCode(childId: string) {
     setError("")
     startTransition(async () => {
@@ -320,7 +359,35 @@ export function ParentDashboard({
         {children.length === 0 ? <p className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">아직 등록된 {childLabel}가 없습니다. 아래의 ‘{childLabel} 추가’를 눌러 시작하세요.</p> : children.map((child) => (
           <div key={child.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-3">
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">{child.displayName}</p>
+              {editingChildId === child.id ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    autoFocus
+                    aria-label={`${childLabel} 이름 수정`}
+                    value={editingChildName}
+                    onChange={(event) => setEditingChildName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") saveChildName(child)
+                      if (event.key === "Escape") cancelEditingChildName()
+                    }}
+                    maxLength={40}
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <HapticButton type="button" disabled={isPending} onClick={() => saveChildName(child)} aria-label="이름 저장" className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50">
+                    <Check className="size-4" />
+                  </HapticButton>
+                  <HapticButton type="button" disabled={isPending} onClick={cancelEditingChildName} aria-label="이름 수정 취소" className="flex size-9 items-center justify-center rounded-lg border border-border disabled:opacity-50">
+                    <X className="size-4" />
+                  </HapticButton>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold">{child.displayName}</p>
+                  <HapticButton type="button" disabled={isPending} onClick={() => startEditingChildName(child)} aria-label={`${childLabel} 이름 수정`} title="이름 수정" className="flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                    <Pencil className="size-3.5" />
+                  </HapticButton>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
             </div>
             {child.isActive ? <>
