@@ -21,7 +21,7 @@ export default function SuperAdminLayout({ children }: Readonly<{ children: Reac
   return (
     <>
       <div className="mx-auto w-full max-w-5xl px-4 pt-4">
-        <PwaInstallGuide title="슈퍼 관리자 앱을 홈 화면에 추가하기" />
+        <PwaInstallGuide title="슈퍼 관리자 앱을 홈 화면에 추가하기" installButtonLabel="슈퍼 관리자 앱 설치" note="이 바로가기는 슈퍼 관리자 전용 화면을 열어요. 설치 후에도 운영자 계정 로그인이 필요하며, 설치만으로 권한이 부여되지는 않습니다." />
       </div>
       {children}
     </>
