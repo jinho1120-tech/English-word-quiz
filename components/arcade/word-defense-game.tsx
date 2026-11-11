@@ -55,7 +55,7 @@ type WordDefenseGameProps = {
 }
 
 const WIDTH = 760
-const HEIGHT = 760
+const HEIGHT = 420
 const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
@@ -156,45 +156,6 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   const [message, setMessage] = useState("")
   const [missedWords, setMissedWords] = useState<DefenseWord[]>([])
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const canvasStageRef = useRef<HTMLDivElement | null>(null)
-  const inputPanelRef = useRef<HTMLDivElement | null>(null)
-  const [canvasHeight, setCanvasHeight] = useState(0)
-
-  useEffect(() => {
-    const updateCanvasHeight = () => {
-      const stage = canvasStageRef.current
-      const inputPanel = inputPanelRef.current
-      if (!stage || !inputPanel) return
-
-      const viewport = window.visualViewport
-      const visibleHeight = viewport?.height ?? window.innerHeight
-      const viewportTop = viewport?.offsetTop ?? 0
-      const stageTop = stage.getBoundingClientRect().top - viewportTop
-      const inputHeight = inputPanel.getBoundingClientRect().height
-      const availableHeight = visibleHeight - stageTop - inputHeight - 28
-      const naturalHeight = stage.clientWidth * HEIGHT / WIDTH
-      const nextHeight = Math.max(0, Math.min(naturalHeight, availableHeight))
-
-      setCanvasHeight((current) => Math.abs(current - nextHeight) > 1 ? nextHeight : current)
-    }
-
-    updateCanvasHeight()
-    window.addEventListener("resize", updateCanvasHeight)
-    window.addEventListener("scroll", updateCanvasHeight, { passive: true })
-    window.visualViewport?.addEventListener("resize", updateCanvasHeight)
-    window.visualViewport?.addEventListener("scroll", updateCanvasHeight)
-    const observer = new ResizeObserver(updateCanvasHeight)
-    if (canvasStageRef.current) observer.observe(canvasStageRef.current)
-    if (inputPanelRef.current) observer.observe(inputPanelRef.current)
-
-    return () => {
-      window.removeEventListener("resize", updateCanvasHeight)
-      window.removeEventListener("scroll", updateCanvasHeight)
-      window.visualViewport?.removeEventListener("resize", updateCanvasHeight)
-      window.visualViewport?.removeEventListener("scroll", updateCanvasHeight)
-      observer.disconnect()
-    }
-  }, [started, gameOver])
 
   const cleanWords = useMemo(() => uniqueWords(words), [words])
   const cleanSubjectWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
@@ -518,16 +479,16 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </HapticButton>
       </div>
 
-      <div ref={canvasStageRef} className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} style={{ height: `${canvasHeight}px` }} className="block w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
-        <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
-          <div className="rounded-xl border border-white/10 bg-slate-950/75 px-3 py-1.5 text-left text-white shadow-lg backdrop-blur-sm">
-            <p className="text-[9px] font-bold tracking-wider text-slate-300">SCORE</p>
-            <p className="text-lg font-black leading-tight tabular-nums">{score}</p>
+      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-[210px] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2">
+          <div className="rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1 text-left text-white shadow-lg backdrop-blur-sm">
+            <p className="text-[8px] font-bold tracking-wider text-slate-300">SCORE</p>
+            <p className="text-sm font-black leading-tight tabular-nums">{score}</p>
           </div>
-          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/75 px-3 py-2 text-white shadow-lg backdrop-blur-sm" aria-label={`남은 생명 ${lives}개`}>
-            <p className="mr-1 text-[9px] font-bold tracking-wider text-slate-300">LIFE</p>
-            {[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}
+          <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1.5 text-white shadow-lg backdrop-blur-sm" aria-label={`남은 생명 ${lives}개`}>
+            <p className="mr-0.5 text-[8px] font-bold tracking-wider text-slate-300">LIFE</p>
+            {[0,1,2].map((item) => <Heart key={item} className={`size-4 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}
           </div>
         </div>
         {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-start gap-2 overflow-y-auto overscroll-contain bg-slate-950/90 px-3 py-3 text-center text-white backdrop-blur-sm sm:justify-center sm:gap-3 sm:p-5">
@@ -547,8 +508,8 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
 
       </div>
 
-      <div ref={inputPanelRef} className="space-y-2 rounded-2xl border border-border bg-card p-3">
-        <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
+      <div className="space-y-1.5 rounded-2xl border border-border bg-card p-2">
+        <label htmlFor="word-defense-input" className="block text-center text-[11px] font-bold leading-tight text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
         <input
           ref={inputRef}
           id="word-defense-input"
@@ -563,11 +524,11 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           autoComplete="off"
           placeholder="영어 단어 입력..."
           disabled={gameOver || !started}
-          className="w-full rounded-xl border-2 border-sky-400 bg-background px-4 py-4 text-center text-xl font-black tracking-widest outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50"
+          className="w-full rounded-xl border-2 border-sky-400 bg-background px-3 py-2.5 text-center text-lg font-black tracking-wide outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50"
         />
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 text-[10px] leading-tight text-muted-foreground">
           <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
-          <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
+          <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-0.5 font-bold">지우기</HapticButton>
         </div>
       </div>
 
