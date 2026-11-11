@@ -50,14 +50,9 @@ async function requireParentFamily() {
   if (!family) throw new Error("가족 공간을 찾거나 만들지 못했습니다.")
   await db.insert(familySettings).values({ familyId: family.id }).onConflictDoNothing()
 
-  // Seed the family defaults once, using the representative parent's signup role.
-  // An invited co-admin must never determine the family's default coupon wording.
-  const [familyOwner] = await db.select({ name: user.name }).from(user)
-    .where(eq(user.id, family.ownerUserId)).limit(1)
-  const guardian = familyOwner?.name?.trim() || "보호자"
-  const lastSyllable = guardian.charCodeAt(guardian.length - 1)
-  const hasFinalConsonant = lastSyllable >= 0xac00 && lastSyllable <= 0xd7a3 && (lastSyllable - 0xac00) % 28 !== 0
-  const guardianSubject = guardian + (hasFinalConsonant ? "이" : "가")
+  const [account] = await db.select({ guardianType: user.guardianType }).from(user)
+    .where(eq(user.id, session.user.id)).limit(1)
+  const guardianType = account?.guardianType === "parent" ? "parent" : "guardian"
 
   // Keep the flag and inserted rows atomic so a failed seed can safely retry.
   await db.transaction(async (tx) => {
@@ -70,18 +65,18 @@ async function requireParentFamily() {
         .where(eq(couponTypes.familyId, family.id)).limit(1)
       if (existing.length === 0) {
         await tx.insert(couponTypes).values([
-          { familyId: family.id, title: `${guardian}의 엉덩이 춤 관람권 🕺`, description: `${guardian}의 신나는 엉덩이 춤을 관람해요.`, couponKind: "regular", drawWeight: 15 },
-          { familyId: family.id, title: "인간 놀이기구 탑승권 ✈️", description: `${guardianSubject} 안전하게 태워주는 인간 놀이기구를 즐겨요.`, couponKind: "regular", drawWeight: 20 },
-          { familyId: family.id, title: "침대까지 어부바 특급열차 🚂", description: `${guardian} 등에 업혀 침대까지 이동해요.`, couponKind: "regular", drawWeight: 25 },
-          { familyId: family.id, title: `${guardian}의 특급 안마 3분 💆‍♀️`, description: `${guardian}에게 3분 동안 안마를 받아요.`, couponKind: "regular", drawWeight: 20 },
-          { familyId: family.id, title: `꽝 쿠폰: ${guardian} 볼에 뽀뽀 3번 하기 😘`, description: `꽝 쿠폰 미션: ${guardian} 볼에 뽀뽀 3번 하기`, couponKind: "blank", drawWeight: 1 },
-          { familyId: family.id, title: `꽝 쿠폰: ${guardian}에게 하트 날리며 사랑해요 외치기 🫶`, description: `꽝 쿠폰 미션: ${guardian}에게 사랑한다고 표현하기`, couponKind: "blank", drawWeight: 1 },
-          { familyId: family.id, title: `꽝 쿠폰: ${guardian} 어깨 1분 주물러주기 💆‍♂️`, description: `꽝 쿠폰 미션: ${guardian} 어깨 1분 주물러주기`, couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: "함께하는 놀이 시간 🎲", description: "보호자와 함께 즐거운 놀이 시간을 보내요.", couponKind: "regular", drawWeight: 15 },
+          { familyId: family.id, title: "좋아하는 간식 선택권 🍎", description: "오늘 먹고 싶은 간식을 골라요.", couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: "특별한 활동 선택권 ✨", description: "가족과 함께하고 싶은 활동을 골라요.", couponKind: "regular", drawWeight: 25 },
+          { familyId: family.id, title: "칭찬 듬뿍 받기 🌟", description: "보호자에게 칭찬을 들어요.", couponKind: "regular", drawWeight: 20 },
+          { familyId: family.id, title: "꽝 쿠폰: 다음 기회에! 🍀", description: "아쉬워요. 다음 도전을 응원할게요.", couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: "꽝 쿠폰: 서로 칭찬 한마디 💬", description: "서로에게 따뜻한 칭찬을 한마디 전해요.", couponKind: "blank", drawWeight: 1 },
+          { familyId: family.id, title: "꽝 쿠폰: 응원 메시지 보내기 🫶", description: "가족에게 응원 메시지를 보내요.", couponKind: "blank", drawWeight: 1 },
         ])
       }
     }
   })
-  return { userId: session.user.id, family, role, email: session.user.email, familyOwnerName: guardian, currentUserName: session.user.name?.trim() || guardian }
+  return { userId: session.user.id, family, role, email: session.user.email, guardianType }
 }
 
 function validatePin(pin: string) {
@@ -90,12 +85,14 @@ function validatePin(pin: string) {
 
 
 export async function getFamilyDisplayTerms() {
-  await requireParentFamily()
-  return { guardian: "보호자", child: "자녀" }
+  const { guardianType } = await requireParentFamily()
+  return guardianType === "parent"
+    ? { guardian: "부모", child: "자녀" }
+    : { guardian: "보호자", child: "자녀" }
 }
 
 export async function getParentFamilyDashboard() {
-  const { family, role, userId } = await requireParentFamily()
+  const { family, role, userId, guardianType } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
     rewardMinScore: familySettings.rewardMinScore,
@@ -181,7 +178,9 @@ export async function getParentFamilyDashboard() {
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
-  const familyTerms = { guardian: "보호자", child: "자녀" }
+  const familyTerms = guardianType === "parent"
+    ? { guardian: "부모", child: "자녀" }
+    : { guardian: "보호자", child: "자녀" }
   return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, gameUsage, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 

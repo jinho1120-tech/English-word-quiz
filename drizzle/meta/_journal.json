@@ -120,6 +120,13 @@
       "when": 1794320000007,
       "tag": "0016_arcade_game_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794320000008,
+      "tag": "0017_guardian_type_and_neutral_coupon_defaults",
+      "breakpoints": true
     }
   ]
 }

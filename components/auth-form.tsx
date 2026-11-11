@@ -82,7 +82,7 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError,
       }
       const displayName = parentRole === "기타 보호자" ? relation : parentRole
       const result = mode === "signup"
-        ? await authClient.signUp.email({ name: displayName, email: email.trim(), password, callbackURL })
+        ? await authClient.signUp.email({ name: displayName, email: email.trim(), password, callbackURL, guardianType: parentRole === "기타 보호자" ? "guardian" : "parent" })
         : await authClient.signIn.email({ email: email.trim(), password, callbackURL })
       if (result.error) {
         setError(result.error.message || "로그인에 실패했습니다.")
