@@ -9,11 +9,8 @@ export const metadata: Metadata = {
   applicationName: "영단어 마스터 매니저",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [
-      { url: "/icons/parent-icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/parent-icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    shortcut: ["/icons/parent-icon-192.png"],
+    icon: [{ url: "/icons/parent-rounded.svg", type: "image/svg+xml" }],
+    shortcut: ["/icons/parent-rounded.svg"],
     apple: [{ url: "/icons/parent-icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "영단어 마스터 매니저" },
