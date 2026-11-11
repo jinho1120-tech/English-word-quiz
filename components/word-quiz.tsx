@@ -380,7 +380,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
     try {
       const sdk = await import("microsoft-cognitiveservices-speech-sdk")
       
-      const tokenRes = childMode ? await getChildAzureSpeechToken() : await getAzureSpeechToken();
+      const tokenRes = await getChildAzureSpeechToken();
       if (!tokenRes.success || !tokenRes.token || !tokenRes.region) {
         alert("음성 평가 토큰을 발급받지 못했습니다.")
         setIsRecording(false)
@@ -1401,7 +1401,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
             isGenerating={isGenerating} 
             onBegin={() => begin(words)} 
             isMonsterMode={isMonsterMode}
-            childMode
+            childMode={true}
           />
         )}
         {phase === "result" && (

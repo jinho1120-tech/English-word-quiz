@@ -91,7 +91,10 @@ function validatePin(pin: string) {
 
 export async function getFamilyDisplayTerms() {
   const { currentUserName } = await requireParentFamily()
-  return { guardian: "보호자", child: "자녀" }
+  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
+  return isParent
+    ? { guardian: "부모", child: "자녀" }
+    : { guardian: "보호자", child: "아이" }
 }
 
 export async function getParentFamilyDashboard() {
