@@ -28,6 +28,52 @@ type DefeatEffect = {
   mood: GhostMood
 }
 
+type Difficulty = "easy" | "normal" | "hard"
+
+const DIFFICULTY_CONFIG: Record<Difficulty, {
+  label: string
+  speedMultiplier: number
+  initialSpawnInterval: number
+  minSpawnInterval: number
+  scoreMultiplier: number
+  monsterLimit: number
+  spawnProgressStep: number
+  speedDescription: string
+}> = {
+  easy: {
+    label: "쉬움",
+    speedMultiplier: 0.65,
+    initialSpawnInterval: 5000,
+    minSpawnInterval: 1800,
+    scoreMultiplier: 1,
+    monsterLimit: 3,
+    spawnProgressStep: 220,
+    speedDescription: "천천히 · 3마리",
+  },
+  normal: {
+    label: "보통",
+    speedMultiplier: 1,
+    initialSpawnInterval: 3600,
+    minSpawnInterval: 1050,
+    scoreMultiplier: 1.5,
+    monsterLimit: 5,
+    spawnProgressStep: 150,
+    speedDescription: "기본 속도 · 5마리",
+  },
+  hard: {
+    label: "어려움",
+    speedMultiplier: 1.3,
+    initialSpawnInterval: 3000,
+    minSpawnInterval: 800,
+    scoreMultiplier: 2,
+    monsterLimit: 5,
+    spawnProgressStep: 130,
+    speedDescription: "빠르게 · 5마리",
+  },
+}
+
+const DIFFICULTY_OPTIONS: Difficulty[] = ["easy", "normal", "hard"]
+
 function shuffleWords(items: DefenseWord[]) {
   const shuffled = [...items]
   for (let index = shuffled.length - 1; index > 0; index--) {
@@ -144,10 +190,13 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   const missedWordsRef = useRef<DefenseWord[]>([])
   const nextIdRef = useRef(1)
   const scoreRef = useRef(0)
+  // 배율 적용 점수와 난이도 진행도를 분리해 높은 배율이 난이도를 과속시키지 않게 한다.
+  const progressScoreRef = useRef(0)
   const livesRef = useRef(3)
   const lastFrameRef = useRef(0)
   const lastSpawnRef = useRef(0)
   const [score, setScore] = useState(0)
+  const [difficulty, setDifficulty] = useState<Difficulty>("easy")
   const [lives, setLives] = useState(3)
   const [typed, setTyped] = useState("")
   const [gameOver, setGameOver] = useState(false)
@@ -173,6 +222,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
     setMissedWords([])
     nextIdRef.current = 1
     scoreRef.current = 0
+    progressScoreRef.current = 0
     livesRef.current = 3
     lastFrameRef.current = 0
     lastSpawnRef.current = 0
@@ -198,11 +248,12 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       if (!alive) return
       const dt = lastFrameRef.current ? Math.min((time - lastFrameRef.current) / 1000, 0.05) : 0
       lastFrameRef.current = time
-      const currentScore = scoreRef.current
-      const tier = currentTier(currentScore)
+      const progressScore = progressScoreRef.current
+      const mode = DIFFICULTY_CONFIG[difficulty]
+      const tier = currentTier(progressScore)
       const activePool = poolForTier(tier)
-      const maxMonsters = Math.min(5, 1 + Math.floor(currentScore / 150))
-      const spawnInterval = Math.max(1050, 3600 - currentScore * 2.8)
+      const maxMonsters = Math.min(mode.monsterLimit, 1 + Math.floor(progressScore / mode.spawnProgressStep))
+      const spawnInterval = Math.max(mode.minSpawnInterval, mode.initialSpawnInterval - progressScore * 2.8)
 
       if (tier !== deckTierRef.current) {
         const activeWords = new Set(monstersRef.current.map((monster) => normalizeWord(monster.word.word)))
@@ -233,7 +284,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             word: selected,
             lane,
             depth: 0,
-            speed: 0.026 + Math.min(0.022, currentScore / 30000),
+            speed: (0.026 + Math.min(0.022, progressScore / 30000)) * mode.speedMultiplier,
             phase: Math.random() * Math.PI * 2,
             mood: (["mischievous", "angry", "surprised", "worried", "sleepy"] as GhostMood[])[Math.floor(Math.random() * 5)],
           })
@@ -416,7 +467,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       window.cancelAnimationFrame(frame)
       lastFrameRef.current = 0
     }
-  }, [cleanWords, cleanSubjectWords, cleanAllWords, gameOver, paused, started, typed])
+  }, [cleanWords, cleanSubjectWords, cleanAllWords, difficulty, gameOver, paused, started, typed])
 
   function handleTyping(value: string) {
     const next = value.slice(0, 100)
@@ -436,7 +487,9 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         phase: defeated.phase,
         mood: defeated.mood,
       })
-      const points = 10 + Math.round(defeated.depth * 15)
+      const basePoints = 10 + Math.round(defeated.depth * 15)
+      progressScoreRef.current += basePoints
+      const points = Math.round(basePoints * DIFFICULTY_CONFIG[difficulty].scoreMultiplier)
       scoreRef.current += points
       setScore(scoreRef.current)
       setTyped("")
@@ -454,9 +507,10 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
     setMissedWords([])
     nextIdRef.current = 1
     scoreRef.current = 0
+    progressScoreRef.current = 0
     livesRef.current = 3
     lastFrameRef.current = 0
-    lastSpawnRef.current = 0
+    lastSpawnRef.current = performance.now()
     setScore(0)
     setLives(3)
     setTyped("")
@@ -483,7 +537,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-[210px] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
         <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2">
           <div className="rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1 text-left text-white shadow-lg backdrop-blur-sm">
-            <p className="text-[8px] font-bold tracking-wider text-slate-300">SCORE</p>
+            <p className="text-[8px] font-bold tracking-wider text-slate-300">SCORE · {DIFFICULTY_CONFIG[difficulty].label}</p>
             <p className="text-sm font-black leading-tight tabular-nums">{score}</p>
           </div>
           <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1.5 text-white shadow-lg backdrop-blur-sm" aria-label={`남은 생명 ${lives}개`}>
@@ -500,8 +554,28 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             <p>③ 정답이면 유령이 도망가요</p>
             <p>④ 방어선 전에 물리쳐요</p>
           </div>
-          <p className="shrink-0 text-[9px] leading-tight text-sky-200">점수가 오르면 단어와 몬스터가 늘어나요.</p>
-          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="shrink-0 rounded-lg bg-amber-400 px-5 py-1.5 text-xs font-black leading-tight text-amber-950 shadow-lg">게임 시작!</HapticButton>
+          <p className="shrink-0 text-[9px] font-bold leading-tight text-sky-100">난이도를 선택하세요</p>
+          <div className="grid w-full max-w-sm shrink-0 grid-cols-3 gap-1">
+            {DIFFICULTY_OPTIONS.map((option) => {
+              const config = DIFFICULTY_CONFIG[option]
+              const selected = difficulty === option
+              return (
+                <HapticButton
+                  key={option}
+                  type="button"
+                  onClick={() => setDifficulty(option)}
+                  aria-pressed={selected}
+                  className={selected ? "flex min-w-0 flex-col items-center rounded-lg border border-sky-300 bg-sky-400/25 px-1 py-1 text-center text-white ring-1 ring-sky-300" : "flex min-w-0 flex-col items-center rounded-lg border border-white/15 bg-white/5 px-1 py-1 text-center text-slate-200"}
+                >
+                  <span className="text-[11px] font-black">{config.label}</span>
+                  <span className="text-[8px] leading-tight opacity-90">{config.speedDescription}</span>
+                  <span className="text-[9px] font-bold text-amber-200">점수 ×{config.scoreMultiplier}</span>
+                </HapticButton>
+              )
+            })}
+          </div>
+          <p className="shrink-0 text-[8px] leading-tight text-sky-200">쉬움은 유령이 천천히 오고, 어려움은 더 빠르게 등장해요.</p>
+          <HapticButton onClick={() => { lastSpawnRef.current = performance.now(); setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="shrink-0 rounded-lg bg-amber-400 px-5 py-1.5 text-xs font-black leading-tight text-amber-950 shadow-lg">게임 시작!</HapticButton>
         </div>}
         {gameOver && <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-1 overflow-hidden bg-slate-950/90 px-2 py-1.5 text-center text-white backdrop-blur-sm"><p className="text-2xl leading-none">👻</p><p className="text-lg font-black leading-tight">게임 종료!</p><div className="flex shrink-0 items-center gap-3 text-xs"><p className="text-slate-200">최종 점수 <strong>{score}점</strong></p><p className="font-bold">놓친 단어 {missedWords.length}개</p></div><HapticButton onClick={restart} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-1.5 text-xs font-black leading-tight text-amber-950"><RotateCcw className="size-3.5" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}

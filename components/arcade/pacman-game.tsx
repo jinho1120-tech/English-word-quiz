@@ -29,6 +29,40 @@ const INITIAL_MAP = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
+const STAGE_WALL_ADDITIONS: Array<Array<[number, number]>> = [
+  // Stage 2: 중앙 통로 일부를 막아 우회 경로를 사용하게 한다.
+  [[4, 7], [9, 8], [4, 6], [8, 4], [10, 6]],
+  // Stage 3: 좌우 통로의 연결 지점을 바꾼다.
+  [[10, 7], [2, 7], [4, 5], [8, 3], [8, 11]],
+  // Stage 4: 위쪽과 아래쪽의 길을 더 복잡하게 만든다.
+  [[10, 8], [3, 8], [10, 5], [4, 4], [7, 13], [8, 2]],
+  // Stage 5: 여러 갈림길을 막아 가장 복잡한 미로를 만든다.
+  [[10, 9], [2, 8], [10, 4], [3, 4], [4, 3], [9, 2]],
+];
+
+const STAGE_THEMES = [
+  { name: "클래식 미로", background: "#020617", wall: "#1e3a8a", stroke: "#3b82f6", dot: "#fef08a", power: "#facc15" },
+  { name: "바다 미로", background: "#031b2f", wall: "#0e7490", stroke: "#22d3ee", dot: "#a5f3fc", power: "#67e8f9" },
+  { name: "수정 동굴", background: "#160b2e", wall: "#6d28d9", stroke: "#c4b5fd", dot: "#ddd6fe", power: "#a78bfa" },
+  { name: "화산 미로", background: "#2a1008", wall: "#9a3412", stroke: "#fb923c", dot: "#fed7aa", power: "#f97316" },
+  { name: "우주 미로", background: "#07152d", wall: "#047857", stroke: "#34d399", dot: "#bbf7d0", power: "#a3e635" },
+];
+
+function createStageMap(stage: number): number[][] {
+  const layoutStage = ((stage - 1) % STAGE_THEMES.length) + 1;
+  const map = INITIAL_MAP.map((row) => [...row]);
+  for (let index = 0; index < layoutStage - 1; index++) {
+    for (const [x, y] of STAGE_WALL_ADDITIONS[index]) {
+      map[y][x] = 1;
+    }
+  }
+  return map;
+}
+
+function countDotsInMap(map: number[][]): number {
+  return map.reduce((total, row) => total + row.filter((cell) => cell === 2 || cell === 3).length, 0);
+}
+
 interface Ghost {
   id: string;
   x: number;
@@ -57,6 +91,9 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
 
   const [score, setScore] = useState(0);
   const [stage, setStage] = useState(1); // 💡 스테이지 레벨
+  const stageRef = useRef(1);
+  stageRef.current = stage;
+  const stageTheme = STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
   const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
   const [dotsLeft, setDotsLeft] = useState(0);
@@ -95,9 +132,12 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   const gameStartTimeRef = useRef<number>(Date.now());
   const lastTimeRef = useRef<number>(performance.now());
   const totalDotsCountRef = useRef(0);
+  const stageClearTriggeredRef = useRef(false);
 
   // 라운드 내 위치 초기화 (피격 시)
-  const resetPositions = useCallback(() => {
+  const resetPositions = useCallback((targetStage: number = stageRef.current) => {
+    const releaseScale = Math.max(0.35, Math.pow(0.86, Math.max(0, targetStage - 1)));
+    const releaseDelays = [0, 2500, 5000, 7500].map((delay) => Math.round(delay * releaseScale));
     pacmanRef.current = {
       x: 7.0,
       y: 10.0,
@@ -110,9 +150,9 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
     };
     ghostsRef.current = [
       { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "" },
-      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "" },
-      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "" },
-      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "" },
+      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "" },
+      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "" },
+      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "" },
     ];
     gameStartTimeRef.current = Date.now();
     lastTimeRef.current = performance.now();
@@ -129,6 +169,9 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
 
   // 💡 다음 스테이지 시작 (도트 리필 & 보너스 점수)
   const advanceToNextStage = useCallback(() => {
+    if (stageClearTriggeredRef.current) return;
+    stageClearTriggeredRef.current = true;
+    const nextStage = stageRef.current + 1;
     setIsStageClear(true);
     setScore((prev) => prev + 1000); // 스테이지 완주 보너스 1,000점
 
@@ -137,34 +180,37 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
     cherrySpawnedRef.current = false;
 
     setTimeout(() => {
-      mapRef.current = INITIAL_MAP.map((r) => [...r]);
-      setDotsLeft(totalDotsCountRef.current);
-      setStage((prev) => prev + 1);
+      const nextMap = createStageMap(nextStage);
+      mapRef.current = nextMap;
+      const nextDotCount = countDotsInMap(nextMap);
+      totalDotsCountRef.current = nextDotCount;
+      setDotsLeft(nextDotCount);
+      stageClearTriggeredRef.current = false;
+      stageRef.current = nextStage;
+      setStage(nextStage);
       setIsStageClear(false);
-      resetPositions();
+      resetPositions(nextStage);
     }, 1800);
   }, [resetPositions]);
 
   // 전체 게임 새판 시작
   const startNewGame = useCallback(() => {
-    mapRef.current = INITIAL_MAP.map((r) => [...r]);
-    let count = 0;
-    INITIAL_MAP.forEach((row) =>
-      row.forEach((cell) => {
-        if (cell === 2 || cell === 3) count++;
-      })
-    );
+    const initialMap = createStageMap(1);
+    mapRef.current = initialMap;
+    const count = countDotsInMap(initialMap);
     totalDotsCountRef.current = count;
     setDotsLeft(count);
     setScore(0);
+    stageRef.current = 1;
     setStage(1);
     setLives(3);
     setGameOver(false);
     setIsStageClear(false);
+    stageClearTriggeredRef.current = false;
     setCherryVisible(false);
     setCherryPopup(null);
     cherrySpawnedRef.current = false;
-    resetPositions();
+    resetPositions(1);
   }, [resetPositions]);
 
   useEffect(() => {
@@ -233,6 +279,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
       const pac = pacmanRef.current;
       const currentMap = mapRef.current;
       const nowMs = Date.now();
+      const currentTheme = STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 
       // 스테이지 클리어 대기 중이거나 READY 상태면 물리 연산 정지
       if (!isReady && !isStageClear) {
@@ -446,7 +493,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
       // ==========================================
       // 4. 캔버스 렌더링
       // ==========================================
-      ctx.fillStyle = "#020617";
+      ctx.fillStyle = currentTheme.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // 미로 및 도트 그리기 (스테이지 클리어 시 벽 반짝임)
@@ -457,17 +504,17 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
           const py = r * CELL_SIZE;
 
           if (val === 1) {
-            ctx.fillStyle = isStageClear && Math.floor(nowMs / 150) % 2 === 0 ? "#ffffff" : "#1e3a8a";
+            ctx.fillStyle = isStageClear && Math.floor(nowMs / 150) % 2 === 0 ? "#ffffff" : currentTheme.wall;
             ctx.fillRect(px, py, CELL_SIZE, CELL_SIZE);
-            ctx.strokeStyle = isStageClear ? "#fde047" : "#3b82f6";
+            ctx.strokeStyle = isStageClear ? "#fde047" : currentTheme.stroke;
             ctx.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
           } else if (val === 2) {
-            ctx.fillStyle = "#fef08a";
+            ctx.fillStyle = currentTheme.dot;
             ctx.beginPath();
             ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 2.5, 0, Math.PI * 2);
             ctx.fill();
           } else if (val === 3) {
-            ctx.fillStyle = "#facc15";
+            ctx.fillStyle = currentTheme.power;
             ctx.beginPath();
             ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 5.5, 0, Math.PI * 2);
             ctx.fill();
@@ -544,7 +591,11 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
         ctx.fillStyle = "#facc15";
         ctx.font = "bold 16px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("READY!", (COLS * CELL_SIZE) / 2, (ROWS * CELL_SIZE) / 2 + 28);
+        ctx.fillText(stage === 1 ? "READY!" : "STAGE " + stage, (COLS * CELL_SIZE) / 2, (ROWS * CELL_SIZE) / 2 + 22);
+        if (stage > 1) {
+          ctx.font = "bold 10px sans-serif";
+          ctx.fillText(currentTheme.name, (COLS * CELL_SIZE) / 2, (ROWS * CELL_SIZE) / 2 + 38);
+        }
       }
 
       // 🌟 STAGE CLEAR 문구
@@ -584,6 +635,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
           <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-primary/20 text-primary">
             ST.{stage}
           </span>
+          <span className="text-[10px] font-bold text-muted-foreground">{stageTheme.name}</span>
           <span className="text-base font-black text-primary">{score}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -598,7 +650,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
       </div>
 
       {/* 팩맨 캔버스 미로 */}
-      <div className="relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md">
+      <div className="relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md" style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
         <canvas
           ref={canvasRef}
           width={COLS * CELL_SIZE}
