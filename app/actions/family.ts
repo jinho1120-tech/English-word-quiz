@@ -202,11 +202,15 @@ export async function createChildProfile(input: { displayName: string }) {
   // Keep the legacy non-null PIN hash column populated; children no longer use a PIN.
   const internalPinHash = await hashChildPin(randomBytes(16).toString("hex"))
   const accessCode = generateChildAccessCode()
+  const [arcadeSettings] = await db.select({ enabled: familyArcadeSettings.pacmanEnabled }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, family.id)).limit(1)
+  const defaultGameVisibility = arcadeSettings?.enabled ?? false
   const [child] = await db.insert(childProfiles).values({
     familyId: family.id,
     displayName,
     pinHash: internalPinHash,
     accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
+    showPacman: defaultGameVisibility,
+    showWordDefense: defaultGameVisibility,
   }).returning({ id: childProfiles.id, displayName: childProfiles.displayName })
 
   await db.insert(childSubjects).values({
@@ -595,17 +599,34 @@ export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean
   if (!Number.isInteger(input.pacmanMinDailyQuestions) || input.pacmanMinDailyQuestions < 1 || input.pacmanMinDailyQuestions > 100) throw new Error("하루 최소 문제 수는 1~100개로 설정해 주세요.")
   if (typeof input.pacmanRequireNoWrongWords !== "boolean") throw new Error("오답 정리 조건이 올바르지 않습니다.")
   const storedDailyPlayLimit = input.pacmanUnlimitedPlays ? 0 : input.pacmanDailyPlayLimit
-  await db.insert(familyArcadeSettings).values({
-    familyId: family.id,
-    pacmanEnabled: input.pacmanEnabled,
-    pacmanDailyPlayLimit: storedDailyPlayLimit,
-    pacmanMinDailyQuestions: input.pacmanMinDailyQuestions,
-    pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords,
-    updatedAt: new Date(),
-  }).onConflictDoUpdate({
-    target: familyArcadeSettings.familyId,
-    set: { pacmanEnabled: input.pacmanEnabled, pacmanDailyPlayLimit: storedDailyPlayLimit, pacmanMinDailyQuestions: input.pacmanMinDailyQuestions, pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords, updatedAt: new Date() },
+  const updatedAt = new Date()
+
+  await db.transaction(async (tx) => {
+    await tx.insert(familyArcadeSettings).values({
+      familyId: family.id,
+      pacmanEnabled: input.pacmanEnabled,
+      pacmanDailyPlayLimit: storedDailyPlayLimit,
+      pacmanMinDailyQuestions: input.pacmanMinDailyQuestions,
+      pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords,
+      updatedAt,
+    }).onConflictDoUpdate({
+      target: familyArcadeSettings.familyId,
+      set: {
+        pacmanEnabled: input.pacmanEnabled,
+        pacmanDailyPlayLimit: storedDailyPlayLimit,
+        pacmanMinDailyQuestions: input.pacmanMinDailyQuestions,
+        pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords,
+        updatedAt,
+      },
+    })
+
+    if (!input.pacmanEnabled) {
+      await tx.update(childProfiles)
+        .set({ showPacman: false, showWordDefense: false, updatedAt })
+        .where(eq(childProfiles.familyId, family.id))
+    }
   })
+
   revalidatePath("/parent")
   revalidatePath("/child")
   return { success: true }
@@ -615,6 +636,8 @@ export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean
 export async function updateChildGameVisibility(input: { childProfileId: string; showPacman: boolean; showWordDefense: boolean }) {
  const { family } = await requireParentFamily()
  if (typeof input?.childProfileId !== "string" || typeof input.showPacman !== "boolean" || typeof input.showWordDefense !== "boolean") throw new Error("게임 노출 설정이 올바르지 않습니다.")
+ const [settings] = await db.select({ enabled: familyArcadeSettings.pacmanEnabled }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, family.id)).limit(1)
+ if (!settings?.enabled) throw new Error("게임 허용을 먼저 켜주세요.")
  const [updated] = await db.update(childProfiles).set({ showPacman: input.showPacman, showWordDefense: input.showWordDefense, updatedAt: new Date() }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id))).returning({ id: childProfiles.id })
  if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
  revalidatePath("/parent"); revalidatePath("/child"); return { success: true }
