@@ -90,15 +90,12 @@ function validatePin(pin: string) {
 
 
 export async function getFamilyDisplayTerms() {
-  const { currentUserName } = await requireParentFamily()
-  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
-  return isParent
-    ? { guardian: "부모", child: "자녀" }
-    : { guardian: "보호자", child: "아이" }
+  await requireParentFamily()
+  return { guardian: "보호자", child: "자녀" }
 }
 
 export async function getParentFamilyDashboard() {
-  const { family, role, userId, currentUserName } = await requireParentFamily()
+  const { family, role, userId } = await requireParentFamily()
   const [settings] = await db.select({
     couponsEnabled: familySettings.couponsEnabled,
     rewardMinScore: familySettings.rewardMinScore,
@@ -184,12 +181,7 @@ export async function getParentFamilyDashboard() {
     .from(familyMembers).where(eq(familyMembers.familyId, family.id))
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
-  const isParent = currentUserName === "아빠" || currentUserName === "엄마"
-  // Display vocabulary depends on the signed-in account's signup type,
-  // never on whether this person owns the family or joined as a co-admin.
-  const familyTerms = isParent
-    ? { guardian: "부모", child: "자녀" }
-    : { guardian: "보호자", child: "아이" }
+  const familyTerms = { guardian: "보호자", child: "자녀" }
   return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, gameUsage, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
@@ -250,8 +242,8 @@ export async function createChildProfile(input: { displayName: string }) {
 
 
 export async function updateChildProfileName(input: { childProfileId: string; displayName: string }) {
-  const { family, currentUserName } = await requireParentFamily()
-  const childLabel = currentUserName === "아빠" || currentUserName === "엄마" ? "자녀" : "아이"
+  const { family } = await requireParentFamily()
+  const childLabel = "자녀"
   if (typeof input?.childProfileId !== "string" || !input.childProfileId || typeof input.displayName !== "string") {
     throw new Error(`${childLabel} 이름 정보가 올바르지 않습니다.`)
   }
