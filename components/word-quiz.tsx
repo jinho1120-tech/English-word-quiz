@@ -5,14 +5,11 @@ import { useRouter } from "next/navigation"
 import { Lightbulb, Check, X, ArrowRight, Volume2, Sparkles, BrainCircuit, Mic, Loader2, Headphones, Ghost } from "lucide-react"
 import { HapticButton } from "./haptic-button"
 import { cn } from "@/lib/utils"
-import { recordQuizResult, generateContextQuiz, generateSpeakingCoachFeedback, getAzureSpeechToken, gradeKoreanMeaningWithGemini } from "@/app/actions/words"
 import { recordChildQuizResult, revealChildQuizCoupon, generateChildContextQuiz, generateChildSpeakingCoachFeedback, getChildAzureSpeechToken, gradeChildListeningAnswer } from "@/app/actions/child-words"
 import confetti from "canvas-confetti"
 
 import { QuizStart } from "./quiz-start"
 import { QuizResult } from "./quiz-result"
-
-const DAD_PHONE = process.env.NEXT_PUBLIC_DAD_PHONE || ""
 
 function accentTint(accent: string, opacityPercent: number) {
   return `color-mix(in srgb, ${accent} ${opacityPercent}%, transparent)`
@@ -89,7 +86,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-export function WordQuiz({ words, accent, isMonsterMode = false, childMode = false, childName }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childMode?: boolean; childName?: string }) {
+export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childName?: string }) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>("start")
   const [deck, setDeck] = useState<QuizWord[]>([])
@@ -150,7 +147,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
 
   const current = deck[index]
   const total = deck.length
-  const currentName = childName || (accent === "#6366f1" || accent === "#a78bfa" || accent === "#c4b5fd" ? "지온" : "예온")
+  const currentName = childName || "친구"
 
   // 💡 에러의 원인이었던 배열 선언부 복구
   const loadingMessages = [
@@ -221,7 +218,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
         return;
       }
 
-      const tokenRes = childMode ? await getChildAzureSpeechToken() : await getAzureSpeechToken();
+      const tokenRes = await getChildAzureSpeechToken();
       if (!tokenRes.success || !tokenRes.token || !tokenRes.region) {
         fallbackTTS(cleanTargetText)
         return
@@ -385,7 +382,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       
       const tokenRes = childMode ? await getChildAzureSpeechToken() : await getAzureSpeechToken();
       if (!tokenRes.success || !tokenRes.token || !tokenRes.region) {
-        alert(childMode ? "음성 평가 토큰을 발급받지 못했습니다." : "아빠에게 알려주세요: Azure 발음 평가 키(토큰)를 발급받지 못했습니다.")
+        alert("음성 평가 토큰을 발급받지 못했습니다.")
         setIsRecording(false)
         return
       }
@@ -485,9 +482,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
               pronResult: finalResult,
               wordScores: mappedWords
             };
-            const coachRes = childMode
-              ? await generateChildSpeakingCoachFeedback(coachInput)
-              : await generateSpeakingCoachFeedback({ ...coachInput, childName: currentName });
+            const coachRes = await generateChildSpeakingCoachFeedback(coachInput);
             setIsCoachLoading(false);
 
             if (coachRes.success && coachRes.feedback) {
@@ -600,7 +595,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       const d = shuffle(list).slice(0, countToTake) 
       const reqData = d.map(w => ({ word: w.word, meaning: w.meaning }))
       
-      const res = childMode ? await generateChildContextQuiz(reqData, quizType) : await generateContextQuiz(reqData, quizType)
+      const res = await generateChildContextQuiz(reqData, quizType)
       setIsGenerating(false)
       
       if (!res.success || !res.quizData) {
@@ -672,7 +667,6 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   }
 
   async function recordAnswer(id: number, isCorrect: boolean, type: "standard" | "listening") {
-    if (!childMode) { await recordQuizResult(id, isCorrect); return }
     const result = await recordChildQuizResult(id, isCorrect, type, { quizSessionId: childQuizSessionId, hintUsed: usedHintInQuiz, sessionQuestionCount: childSessionQuestionCount })
     if (result?.sessionResult) {
       setChildRewardChecked(true)
@@ -684,7 +678,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   }
 
   async function handleRevealCoupon() {
-    if (!childMode || !childQuizSessionId || childCouponOutcome) return
+    if (!childQuizSessionId || childCouponOutcome) return
     try {
       const result = await revealChildQuizCoupon(childQuizSessionId)
       setChildCouponOutcome(result.outcome === "full" ? null : result.outcome)
@@ -735,20 +729,6 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
     if (!guess) return
     try { if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel() } catch (e) {}
     
-    if (["아빠최고", "아빠사랑해", "지온천재", "예온천재"].includes(guess)) {
-      if (!DAD_PHONE) {
-        alert("아빠 전화번호 설정 오류!");
-        setValue("");
-        return;
-      }
-      alert(`🎉 삐빅- 비밀 치트키 발견!\n\n아빠한테 진짜 iMessage 문자를 보냅니다! ❤️`)
-      setValue("") 
-      const message = guess.includes("천재") ? `아빠! 영단어 퀴즈 풀고 있는 천재 ${currentName}이에요! 😎` : `아빠 최고! 퀴즈 풀다가 아빠 생각나서 문자 보내요! 사랑해 ❤️`
-      window.location.href = `sms:${DAD_PHONE}&body=${encodeURIComponent(message)}`
-      requestAnimationFrame(() => inputRef.current?.focus())
-      return
-    }
-
     // 💡 스마트 따옴표를 모두 직선 따옴표로 정규화하여 비교
     const normalizedGuess = guess.replace(/['‘’`]/g, "'")
     const normalizedAnswer = current.word.toLowerCase().replace(/['‘’`]/g, "'")
@@ -763,9 +743,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
       }
       
       setFeedback("grading")
-      const aiRes = childMode
-        ? await gradeChildListeningAnswer(current.id, guess, meaningGuess)
-        : await gradeKoreanMeaningWithGemini(current.meaning, meaningGuess)
+      const aiRes = await gradeChildListeningAnswer(current.id, guess, meaningGuess)
       
       if (isEngCorrect && aiRes.isCorrect) {
         const newStreak = streak + 1; 
@@ -815,7 +793,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
   }
 
   if (words.length === 0) {
-    if (isMonsterMode && childMode) {
+    if (isMonsterMode) {
       return (
         <div className="flex flex-col items-center rounded-3xl border border-dashed border-border bg-gradient-to-b from-emerald-50/80 to-background px-6 py-10 text-center dark:from-emerald-950/20">
           <div className="mb-4 flex size-24 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner dark:bg-emerald-900/40 dark:text-emerald-200">
@@ -1423,7 +1401,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
             isGenerating={isGenerating} 
             onBegin={() => begin(words)} 
             isMonsterMode={isMonsterMode}
-            childMode={childMode}
+            childMode
           />
         )}
         {phase === "result" && (
