@@ -72,6 +72,8 @@ export const childProfiles = pgTable("child_profiles", {
   pinHash: text("pin_hash").notNull(),
   accessCodeHash: text("access_code_hash").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  showPacman: boolean("show_pacman").default(true).notNull(),
+  showWordDefense: boolean("show_word_defense").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -356,3 +358,11 @@ export const childPacmanDailyPlays = pgTable("child_pacman_daily_plays", {
 }, (table) => ({
   childDateUnique: uniqueIndex("child_pacman_daily_plays_child_date_unique").on(table.childProfileId, table.playDate),
 }))
+
+
+export const childGamePlays = pgTable("child_game_plays", {
+ id: uuid("id").defaultRandom().primaryKey(),
+ childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+ game: varchar("game", { length: 24 }).notNull(),
+ startedAt: timestamp("started_at").defaultNow().notNull(),
+}, (table) => ({ childStartedIdx: index("child_game_plays_child_started_idx").on(table.childProfileId, table.startedAt), childGameStartedIdx: index("child_game_plays_child_game_started_idx").on(table.childProfileId, table.game, table.startedAt) }))
