@@ -795,11 +795,11 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
   if (words.length === 0) {
     if (isMonsterMode) {
       return (
-        <div className="flex flex-col items-center rounded-3xl border border-dashed border-border bg-gradient-to-b from-emerald-50/80 to-background px-6 py-10 text-center dark:from-emerald-950/20">
-          <div className="mb-4 flex size-24 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner dark:bg-emerald-900/40 dark:text-emerald-200">
-            <Ghost className="size-14 animate-monster-idle" />
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-border bg-gradient-to-b from-emerald-50/80 to-background px-4 py-5 text-center dark:from-emerald-950/20 sm:px-6 sm:py-7">
+          <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner dark:bg-emerald-900/40 dark:text-emerald-200 sm:mb-3 sm:size-20">
+            <Ghost className="size-10 animate-monster-idle sm:size-12" />
           </div>
-          <p className="text-xl font-black text-foreground">와! 오답 몬스터가 없어요!</p>
+          <p className="text-lg font-black text-foreground sm:text-xl">와! 오답 몬스터가 없어요!</p>
           <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">모든 단어를 잘 맞혔거나, 아직 틀린 단어가 없어요. 지금처럼 멋지게 도전해 봐요!</p>
           <div className="mt-4 text-2xl" aria-hidden="true">🌟 🎉 🏆</div>
         </div>
