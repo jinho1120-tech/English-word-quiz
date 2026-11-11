@@ -22,7 +22,7 @@ function normalizeHex(value: string) {
 
 function relativeLuminance(color: string) {
   const hex = normalizeHex(color) || DEFAULT_THEME_COLOR
-  const channels = [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255)
+  const channels = [0, 2, 4].map((index) => parseInt(hex.slice(index + 1, index + 3), 16) / 255)
   const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
   return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 }
@@ -37,8 +37,8 @@ function mixHex(first: string, second: string, amount: number) {
   const a = normalizeHex(first) || DEFAULT_THEME_COLOR
   const b = normalizeHex(second) || "#FFFFFF"
   const channels = [0, 2, 4].map((index) => {
-    const start = parseInt(a.slice(index, index + 2), 16)
-    const end = parseInt(b.slice(index, index + 2), 16)
+    const start = parseInt(a.slice(index + 1, index + 3), 16)
+    const end = parseInt(b.slice(index + 1, index + 3), 16)
     return Math.round(start + (end - start) * amount).toString(16).padStart(2, "0")
   })
   return "#" + channels.join("").toUpperCase()
