@@ -833,8 +833,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
       )}
 
       {phase === "quiz" && current && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background sm:bg-background/95 sm:backdrop-blur-sm sm:p-6 animate-in fade-in duration-200">
-          <div className="relative flex h-full w-full max-w-lg flex-col overflow-hidden bg-card sm:h-auto sm:max-h-[850px] sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl transition-all duration-500" style={streak >= 5 ? { boxShadow: "0 0 30px rgba(245, 158, 11, 0.4)", borderColor: "#f59e0b" } : undefined}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background sm:bg-background/95 sm:backdrop-blur-sm sm:p-4 lg:p-6 animate-in fade-in duration-200">
+          <div className="relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-card sm:h-[min(92dvh,900px)] sm:max-h-[900px] sm:rounded-3xl sm:border sm:border-border sm:shadow-2xl transition-all duration-500" style={streak >= 5 ? { boxShadow: "0 0 30px rgba(245, 158, 11, 0.4)", borderColor: "#f59e0b" } : undefined}>
             <div className="h-1.5 w-full bg-muted shrink-0">
               <div className="h-1.5 transition-all duration-300" style={{ width: `${((index + 1) / total) * 100}%`, backgroundColor: streak >= 5 ? "#f59e0b" : accent }} />
             </div>
@@ -876,7 +876,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
               </HapticButton>
             </div>
 
-            <div className="flex flex-col px-6 pb-8 pt-2 flex-1 overflow-y-auto">
+            <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-y-auto overscroll-contain px-5 pb-6 pt-2 sm:px-8 sm:pb-8 lg:px-14">
               
               {quizType === "speaking" ? (
                 <div className="mb-4 flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -908,7 +908,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                 <div className="mb-4 flex flex-col items-center justify-center w-full">
                   
                   {wordScores.length > 0 ? (
-                    <div className="mb-6 text-center text-3xl sm:text-4xl font-black tracking-tight text-foreground leading-relaxed flex flex-wrap justify-center items-baseline gap-x-1 gap-y-2 px-1">
+                    <div className="mb-6 text-center text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground leading-relaxed flex flex-wrap justify-center items-baseline gap-x-1 gap-y-2 px-1">
                       {(() => {
                         const fullSent = getFullSentence()
                         const availableScores = [...wordScores]
@@ -1025,7 +1025,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                       })()}
                     </div>
                   ) : (
-                    <div className="mb-6 text-balance text-center text-3xl sm:text-4xl font-black tracking-tight text-foreground leading-relaxed px-1">
+                    <div className="mb-6 text-balance text-center text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-foreground leading-relaxed px-1">
                       {getFullSentence().replace(/\s*\/\s*/g, ' ').split(new RegExp(`(${current.word})`, 'gi')).map((part, i) => 
                         part.toLowerCase() === current.word.toLowerCase() ? (
                           <span key={i} className="underline decoration-4 underline-offset-4" style={{ color: accent, textDecorationColor: accent }}>{part}</span>
@@ -1142,7 +1142,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                   <div className="mb-3 flex justify-center">
                     <span className="rounded-full bg-muted/80 px-2.5 py-1 text-[11px] font-bold tracking-wide text-muted-foreground">{current.subject}</span>
                   </div>
-                  <h2 className="mb-6 text-balance text-center text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-snug">
+                  <h2 className="mb-6 text-balance text-center text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-foreground leading-snug">
                     {contextData[index].sentence.split('___').map((part: string, i: number, arr: any[]) => (
                       <React.Fragment key={i}>
                         {part}
@@ -1174,7 +1174,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                 </div>
               ) : (
                 quizType === "standard" ? (
-                  <h2 className="mb-4 text-balance text-center text-4xl font-black tracking-tight text-foreground">
+                  <h2 className="mb-4 text-balance text-center text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-foreground">
                     <div className="mb-3 flex justify-center">
                       <span className="rounded-full bg-muted/80 px-2.5 py-1 text-[11px] font-bold tracking-wide text-muted-foreground">{current.subject}</span>
                     </div>
@@ -1277,7 +1277,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                     disabled={feedback !== "idle"} 
                     placeholder="영단어를 입력하세요" 
                     className={cn(
-                      "w-full border-b-4 bg-transparent p-3 text-center text-2xl font-bold outline-none transition-colors placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground", 
+                      "w-full border-b-4 bg-transparent p-3 sm:p-4 text-center text-2xl sm:text-3xl font-bold outline-none transition-colors placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground", 
                       feedback === "idle" && "border-border text-foreground", 
                       feedback === "correct" && "border-green-500 text-green-600", 
                       feedback === "wrong" && "animate-shake border-red-500 text-red-500"
@@ -1362,7 +1362,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                   disabled={(feedback === "idle" && !value.trim()) || feedback === "grading"} 
                   wrapperClassName="relative flex w-full"
                   className={cn(
-                    "w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold text-white shadow-md transition-colors disabled:opacity-60", 
+                    "w-full flex items-center justify-center gap-2 rounded-2xl py-4 sm:py-5 text-lg sm:text-xl font-bold text-white shadow-md transition-colors disabled:opacity-60", 
                     feedback === "correct" && "bg-green-500 hover:bg-green-600", 
                     feedback === "wrong" && "bg-red-500 hover:bg-red-600"
                   )} 

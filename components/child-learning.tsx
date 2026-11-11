@@ -230,8 +230,8 @@ export function ChildLearning({
 
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-3">
+    <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start lg:gap-6">
+      <section className="space-y-3 lg:col-start-1 lg:row-start-1">
         <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
         <div className="grid grid-cols-3 gap-1 sm:gap-1.5 rounded-2xl border border-border bg-muted/50 p-1 sm:p-1.5">
           <HapticButton
@@ -266,7 +266,7 @@ export function ChildLearning({
         </div>}
       </section>
 
-      {activeTab === "manage" && <div className="space-y-6">
+      {activeTab === "manage" && <div className="space-y-6 lg:col-span-2">
       <section className="space-y-3 rounded-2xl border border-border p-4">
         <h2 className="font-bold">AI 단어 입력</h2>
         <p className="text-xs text-muted-foreground">단어장 사진을 올리면 AI가 영어 단어와 뜻을 추출합니다. 저장 전에 내용을 확인하고 수정할 수 있어요.</p>
@@ -341,7 +341,7 @@ export function ChildLearning({
       </div>}
       {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
       {activeTab !== "manage" && (
-        <section className="space-y-3">
+        <section className="min-w-0 space-y-3 lg:col-start-2 lg:row-start-1">
           <WordQuiz
             key={`child-${activeTab}-${filterSubjectId}-${date}`}
             words={(activeTab === "wrong" ? visibleWords : visibleWords).map((item): QuizWord => ({
@@ -358,7 +358,7 @@ export function ChildLearning({
         </section>
       )}
       {activeTab === "wrong" && pacmanStatus.enabled && (pacmanStatus.showPacman || pacmanStatus.showWordDefense) && (
-        <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+        <section className="space-y-2 rounded-2xl border border-border bg-card p-4 lg:col-span-2">
           <div className="flex items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
             <div className="min-w-0 flex-1">
