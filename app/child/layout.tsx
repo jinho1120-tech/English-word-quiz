@@ -5,8 +5,8 @@ export const metadata: Metadata = {
   applicationName: "영단어 마스터",
   manifest: "/child/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/icons/child-rounded.svg", type: "image/svg+xml" }],
-    shortcut: ["/icons/child-rounded.svg"],
+    icon: [{ url: "/icons/child-icon-192.png", sizes: "192x192", type: "image/png" }],
+    shortcut: ["/icons/child-icon-192.png"],
     apple: [{ url: "/icons/child-icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: { capable: true, statusBarStyle: "default", title: "영단어 마스터" },
