@@ -30,7 +30,7 @@ export function ChildLearning({
   initialDate,
   initialStorage,
 }: {
-  pacmanStatus: { enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
+  pacmanStatus: { showPacman: boolean; showWordDefense: boolean; enabled: boolean; dailyPlayLimit: number; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
   childName: string
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
@@ -358,7 +358,7 @@ export function ChildLearning({
           />
         </section>
       )}
-      {activeTab === "wrong" && pacmanStatus.enabled && (
+      {activeTab === "wrong" && pacmanStatus.enabled && (pacmanStatus.showPacman || pacmanStatus.showWordDefense) && (
         <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-3">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
@@ -370,12 +370,12 @@ export function ChildLearning({
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               팩맨 시작 🎮
-            </HapticButton>
-            <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsWordDefenseOpen(true) }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            </HapticButton>}
+            {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               영어 타자 디펜스 👻
-            </HapticButton>
+            </HapticButton>}
           </div>
           <p className="text-[11px] text-muted-foreground">두 게임은 오늘의 보너스 게임 횟수를 함께 사용해요. 시작 시 1회 차감되며 중간에 나가도 복구되지 않아요.</p>
         </section>
