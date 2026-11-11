@@ -7,7 +7,15 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
-export function PwaInstallGuide({ title = "홈 화면에 아이콘 추가하기" }: { title?: string }) {
+export function PwaInstallGuide({
+  title = "홈 화면에 아이콘 추가하기",
+  installButtonLabel = "앱 설치하기",
+  note = "아이콘 추가는 기기에서 한 번만 직접 승인하면 됩니다. 이후에는 주소창 없이 앱처럼 실행돼요.",
+}: {
+  title?: string
+  installButtonLabel?: string
+  note?: string
+}) {
   const [platform, setPlatform] = useState<"ios" | "android" | "other">("other")
   const [isStandalone, setIsStandalone] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null)
@@ -52,7 +60,7 @@ export function PwaInstallGuide({ title = "홈 화면에 아이콘 추가하기"
         ) : platform === "android" ? (
           <>
             {installPrompt ? (
-              <button onClick={install} className="w-full rounded-lg bg-foreground px-3 py-2.5 font-bold text-background">슈퍼 관리자 앱 설치</button>
+              <button onClick={install} className="w-full rounded-lg bg-foreground px-3 py-2.5 font-bold text-background">{installButtonLabel}</button>
             ) : null}
             <ol className="list-decimal space-y-1.5 pl-5 text-muted-foreground">
               <li>Chrome 오른쪽 위 <strong className="text-foreground">⋮ 메뉴</strong>를 누르세요.</li>
@@ -64,7 +72,7 @@ export function PwaInstallGuide({ title = "홈 화면에 아이콘 추가하기"
           <p className="text-muted-foreground">브라우저 메뉴에서 ‘홈 화면에 추가’ 또는 ‘앱 설치’를 선택하세요. 아이폰·아이패드는 Safari, 안드로이드는 Chrome 사용을 권장합니다.</p>
         )}
         {installMessage && <p role="status" className="text-xs text-muted-foreground">{installMessage}</p>}
-        <p className="text-xs text-muted-foreground">이 바로가기는 슈퍼 관리자 전용 화면을 열어요. 설치 후에도 운영자 계정 로그인이 필요하며, 설치만으로 권한이 부여되지는 않습니다.</p>
+        <p className="text-xs text-muted-foreground">{note}</p>
       </div>
     </details>
   )
