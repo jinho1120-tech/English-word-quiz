@@ -1,0 +1,81 @@
+name: Read-only database schema diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: english-word-quiz-db-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Inspect database identity and required schema (read only)
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::GitHub secret ENGLISH_WORD_QUIZ_DATABASE_URL is missing."
+            exit 1
+          fi
+          node --input-type=module <<'NODE'
+          import pg from "pg";
+
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const identity = await client.query(`
+              select current_database() as database_name,
+                     current_user as database_role,
+                     current_schema() as current_schema,
+                     current_setting('server_version') as server_version
+            `);
+            console.log("DATABASE_IDENTITY:", JSON.stringify(identity.rows[0]));
+
+            const columns = await client.query(`
+              select column_name
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'child_profiles'
+                and column_name in ('show_pacman', 'show_word_defense')
+              order by column_name
+            `);
+            console.log("GAME_VISIBILITY_COLUMNS:", JSON.stringify(columns.rows.map(r => r.column_name)));
+
+            const gameTable = await client.query(
+              "select to_regclass('public.child_game_plays') as table_name"
+            );
+            console.log("CHILD_GAME_PLAYS_TABLE:", JSON.stringify(gameTable.rows[0].table_name));
+
+            const migrationTable = await client.query(
+              "select to_regclass('drizzle.__drizzle_migrations') as table_name"
+            );
+            console.log("DRIZZLE_HISTORY_TABLE:", JSON.stringify(migrationTable.rows[0].table_name));
+
+            if (migrationTable.rows[0].table_name) {
+              const history = await client.query(
+                'select count(*)::int as applied_count, max(created_at)::text as latest_created_at from "drizzle"."__drizzle_migrations"'
+              );
+              console.log("DRIZZLE_HISTORY_SUMMARY:", JSON.stringify(history.rows[0]));
+            } else {
+              console.log("DRIZZLE_HISTORY_SUMMARY: unavailable (migration history table not found)");
+            }
+          } finally {
+            await client.end();
+          }
+          NODE
