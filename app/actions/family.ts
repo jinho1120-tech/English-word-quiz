@@ -90,12 +90,11 @@ function validatePin(pin: string) {
 
 
 export async function getFamilyDisplayTerms() {
-  const { role, currentUserName } = await requireParentFamily()
+  const { currentUserName } = await requireParentFamily()
   const isParent = currentUserName === "아빠" || currentUserName === "엄마"
-  if (role === "owner") {
-    return { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
-  }
-  return { guardian: currentUserName || "공동관리자", child: "아이" }
+  return isParent
+    ? { guardian: "부모", child: "자녀" }
+    : { guardian: "보호자", child: "아이" }
 }
 
 export async function getParentFamilyDashboard() {
@@ -186,9 +185,11 @@ export async function getParentFamilyDashboard() {
   const invitations = await db.select({ id: familyInvitations.id, email: familyInvitations.email, expiresAt: familyInvitations.expiresAt, createdAt: familyInvitations.createdAt })
     .from(familyInvitations).where(and(eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt), gt(familyInvitations.expiresAt, new Date())))
   const isParent = currentUserName === "아빠" || currentUserName === "엄마"
-  const familyTerms = role === "owner"
-    ? { guardian: isParent ? "부모" : "보호자", child: isParent ? "자녀" : "아이" }
-    : { guardian: currentUserName || "공동관리자", child: "아이" }
+  // Display vocabulary depends on the signed-in account's signup type,
+  // never on whether this person owns the family or joined as a co-admin.
+  const familyTerms = isParent
+    ? { guardian: "부모", child: "자녀" }
+    : { guardian: "보호자", child: "아이" }
   return { familyId: family.id, settings: settings ?? null, couponSettings, arcadeSettings: arcadeSettings ?? { pacmanEnabled: false, pacmanDailyPlayLimit: 1, pacmanMinDailyQuestions: 10, pacmanRequireNoWrongWords: true }, children, gameUsage, coupons, rewards, devices, members, invitations, parentRole: role, currentUserId: userId, ownerUserId: family.ownerUserId, familyTerms }
 }
 
@@ -511,8 +512,8 @@ function normalizeEmail(email: string): string { return email.trim().toLowerCase
 /** Only the family representative can invite or remove co-parent administrators. */
 export async function createParentInvitation(emailInput: string) {
   const { family, userId, role, email: currentEmail } = await requireParentFamily()
-  if (role !== "owner") throw new Error("가족 대표 부모만 다른 관리자를 초대할 수 있습니다.")
-  if (typeof emailInput !== "string") throw new Error("초대할 부모의 이메일을 입력해 주세요.")
+  if (role !== "owner") throw new Error("가족 대표 계정만 다른 공동관리자를 초대할 수 있습니다.")
+  if (typeof emailInput !== "string") throw new Error("초대할 공동관리자의 이메일을 입력해 주세요.")
   const email = normalizeEmail(emailInput)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) throw new Error("이메일 주소를 확인해 주세요.")
   if (email === normalizeEmail(currentEmail || "")) throw new Error("본인 이메일은 초대할 수 없습니다.")
@@ -530,7 +531,7 @@ export async function createParentInvitation(emailInput: string) {
 
 export async function revokeParentInvitation(invitationId: string) {
   const { family, role } = await requireParentFamily()
-  if (role !== "owner") throw new Error("가족 대표 부모만 초대를 취소할 수 있습니다.")
+  if (role !== "owner") throw new Error("가족 대표 계정만 초대를 취소할 수 있습니다.")
   if (typeof invitationId !== "string" || !invitationId) throw new Error("초대 정보가 올바르지 않습니다.")
   const [revoked] = await db.update(familyInvitations).set({ revokedAt: new Date() }).where(and(eq(familyInvitations.id, invitationId), eq(familyInvitations.familyId, family.id), isNull(familyInvitations.acceptedAt), isNull(familyInvitations.revokedAt))).returning({ id: familyInvitations.id })
   if (!revoked) throw new Error("취소할 초대를 찾을 수 없습니다.")
@@ -540,7 +541,7 @@ export async function revokeParentInvitation(invitationId: string) {
 
 export async function removeParentAdministrator(memberUserId: string) {
   const { family, role, userId } = await requireParentFamily()
-  if (role !== "owner") throw new Error("가족 대표 부모만 공동 관리자를 해제할 수 있습니다.")
+  if (role !== "owner") throw new Error("가족 대표 계정만 공동관리자를 해제할 수 있습니다.")
   if (typeof memberUserId !== "string" || !memberUserId || memberUserId === userId) throw new Error("관리자 정보가 올바르지 않습니다.")
   const [removed] = await db.delete(familyMembers).where(and(eq(familyMembers.familyId, family.id), eq(familyMembers.userId, memberUserId), eq(familyMembers.role, "admin"))).returning({ userId: familyMembers.userId })
   if (!removed) throw new Error("해제할 공동 관리자를 찾을 수 없습니다.")

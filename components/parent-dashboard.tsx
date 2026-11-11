@@ -336,16 +336,16 @@ export function ParentDashboard({
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <h2 className="text-lg font-bold">쿠폰 · 보상 · 게임</h2>
-              <p className="mt-1 text-xs text-muted-foreground">자녀별 보상 규칙과 쿠폰, 게임 이용을 관리합니다.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{childLabel}별 보상 규칙과 쿠폰, 게임 이용을 관리합니다.</p>
             </div>
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
           </div>
           <label className="block space-y-1 text-sm">
-            <span className="font-semibold">관리할 자녀</span>
+            <span className="font-semibold">관리할 {childLabel}</span>
             <select value={selectedCouponChildId} onChange={(event) => setSelectedCouponChildId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5" disabled={!children.length}>
               {children.map((child) => <option key={child.id} value={child.id}>{child.displayName}</option>)}
             </select>
-            {!children.length && <span className="text-xs text-muted-foreground">먼저 자녀 프로필을 추가해 주세요.</span>}
+            {!children.length && <span className="text-xs text-muted-foreground">먼저 {childLabel} 프로필을 추가해 주세요.</span>}
           </label>
         </div>
 
@@ -392,14 +392,14 @@ export function ParentDashboard({
             <div className="space-y-4">
               <div>
                 <h3 className="font-bold">게임 노출 및 이용 통계</h3>
-                <p className="mt-1 text-xs text-muted-foreground">자녀 앱에 표시할 게임을 선택하고 실제 시작 횟수를 확인합니다. 숨겨도 이용 기록은 보존됩니다.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{childLabel} 앱에 표시할 게임을 선택하고 실제 시작 횟수를 확인합니다. 숨겨도 이용 기록은 보존됩니다.</p>
               </div>
-              <HapticSwitch checked={showPacman} onCheckedChange={setShowPacman} label="팩맨 표시" description="끄면 이 자녀의 앱에서 팩맨 시작 버튼을 숨깁니다." />
-              <HapticSwitch checked={showWordDefense} onCheckedChange={setShowWordDefense} label="영단어 디펜스 표시" description="끄면 이 자녀의 앱에서 타자 디펜스 버튼을 숨깁니다." />
+              <HapticSwitch checked={showPacman} onCheckedChange={setShowPacman} label="팩맨 표시" description={`끄면 이 ${childLabel}의 앱에서 팩맨 시작 버튼을 숨깁니다.`} />
+              <HapticSwitch checked={showWordDefense} onCheckedChange={setShowWordDefense} label="영단어 디펜스 표시" description={`끄면 이 ${childLabel}의 앱에서 타자 디펜스 버튼을 숨깁니다.`} />
               <HapticButton disabled={isPending || !selectedCouponChildId} onClick={saveGameVisibility} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold">게임 노출 설정 저장</HapticButton>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-3 text-sm"><div><p className="text-xs text-muted-foreground">팩맨 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "pacman")?.total ?? 0}회</strong></div><div><p className="text-xs text-muted-foreground">디펜스 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "word_defense")?.total ?? 0}회</strong></div></div>
               <h3 className="font-bold">팩맨 게임 이용 조건</h3>
-              <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="팩맨 게임 허용" description="끄면 자녀 앱에서 팩맨 게임을 이용할 수 없습니다." />
+              <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="팩맨 게임 허용" description={`끄면 ${childLabel} 앱에서 팩맨 게임을 이용할 수 없습니다.`} />
               <fieldset disabled={!pacmanEnabled} className="space-y-4 disabled:opacity-45">
                 <label className="block space-y-1 text-sm"><span className="font-medium">하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10회 · 게임을 시작할 때 1회 차감됩니다.</span></label>
                 <label className="block space-y-1 text-sm"><span className="font-medium">팩맨 입장을 위한 하루 최소 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있습니다.</span></label>
@@ -458,7 +458,7 @@ export function ParentDashboard({
         {isAddingCoupon && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsAddingCoupon(false) }}>
             <div role="dialog" aria-modal="true" aria-labelledby="new-coupon-title" className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-background p-5 shadow-xl">
-              <div className="flex items-center justify-between gap-3"><div><h3 id="new-coupon-title" className="font-bold">새 쿠폰 만들기</h3><p className="mt-1 text-xs text-muted-foreground">자녀 쿠폰함에 등록할 보상을 입력하세요.</p></div><HapticButton onClick={() => setIsAddingCoupon(false)} className="rounded-lg px-2 py-1 text-sm text-muted-foreground">닫기</HapticButton></div>
+              <div className="flex items-center justify-between gap-3"><div><h3 id="new-coupon-title" className="font-bold">새 쿠폰 만들기</h3><p className="mt-1 text-xs text-muted-foreground">{childLabel} 쿠폰함에 등록할 보상을 입력하세요.</p></div><HapticButton onClick={() => setIsAddingCoupon(false)} className="rounded-lg px-2 py-1 text-sm text-muted-foreground">닫기</HapticButton></div>
               <label className="block space-y-1 text-sm"><span className="font-medium">쿠폰 이름</span><input autoFocus value={couponTitle} onChange={(event) => setCouponTitle(event.target.value)} maxLength={80} placeholder="예: 아이스크림 먹기" className="w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
               <label className="block space-y-1 text-sm"><span className="font-medium">설명 또는 사용 조건 (선택)</span><textarea value={couponDescription} onChange={(event) => setCouponDescription(event.target.value)} maxLength={1000} rows={3} placeholder="쿠폰을 어떻게 사용할 수 있는지 적어주세요." className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2.5" /></label>
               <div className="grid grid-cols-2 gap-3">
@@ -549,7 +549,7 @@ export function ParentDashboard({
         <HapticSummary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</HapticSummary>
         <div className="mt-4 space-y-3">
           <p className="text-sm text-muted-foreground">다른 {guardianLabel}를 초대하면 각자 자기 계정과 기기에서 같은 가족의 {childLabel}와 학습 데이터를 관리할 수 있습니다.</p>
-          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 {guardianLabel}</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
+          <div className="rounded-xl bg-muted p-3 text-sm"><p className="font-semibold">가족 대표 계정</p><p className="text-muted-foreground">가족 생성자 · 대표 권한 보유</p></div>
           {members.map((member) => (
             <div key={member.userId} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <div className="min-w-0 flex-1"><p className="break-all text-sm font-semibold">{member.email}</p><p className="text-xs text-muted-foreground">공동 관리자</p></div>
@@ -560,7 +560,7 @@ export function ParentDashboard({
             <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 공동관리자의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><HapticButton disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "공동관리자 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">공동관리자 초대 링크 만들기</HapticButton></div>
             {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><HapticButton onClick={copyInviteLink} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">{inviteCopyFeedback === "success" ? "✓ 복사 완료!" : "초대 링크 복사"}</HapticButton>{inviteCopyFeedback === "success" ? <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600">초대 링크가 클립보드에 복사되었습니다.</p> : inviteCopyFeedback === "error" ? <p role="alert" className="text-sm font-medium text-red-600">복사하지 못했어요. 링크를 길게 눌러 직접 복사해 주세요.</p> : null}<p className="text-xs text-muted-foreground">초대받은 공동관리자에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</HapticButton></div>)}
-          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 공동관리자 초대와 관리자 해제는 가족 대표 {guardianLabel}만 할 수 있습니다.</p>}
+          </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 공동관리자 초대와 관리자 해제는 가족 대표 계정만 할 수 있습니다.</p>}
         </div>
       </details>
 

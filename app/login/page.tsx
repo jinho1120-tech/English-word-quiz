@@ -9,11 +9,14 @@ import { AuthForm } from "@/components/auth-form"
 
 type InviteStatus = "valid" | "expired" | "revoked" | "accepted" | "invalid"
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ invite?: string; invite_error?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ invite?: string; invite_error?: string; next?: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() })
   const params = await searchParams
   const token = params.invite
-  if (!token && session) redirect("/")
+  const safeNext = params.next && params.next.startsWith("/") && !params.next.startsWith("//") && !params.next.includes("\\")
+    ? params.next
+    : "/"
+  if (!token && session) redirect(safeNext)
 
   let inviteEmail: string | undefined
   let inviteStatus: InviteStatus = "invalid"
@@ -91,7 +94,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </>
       ) : (
         <>
-          <AuthForm />
+          <AuthForm callbackURL={safeNext} />
           <p className="text-center text-xs text-muted-foreground">가족 관리자 계정으로 가입한 뒤 아이 프로필을 만들고 우리 가족만의 학습 공간을 시작할 수 있어요.</p>
         </>
       )}

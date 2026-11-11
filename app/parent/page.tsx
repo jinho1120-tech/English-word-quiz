@@ -24,7 +24,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
   return (
     <main className="mx-auto min-h-dvh w-full max-w-xl space-y-6 px-4 py-8">
       <header className="flex items-center justify-between">
-        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">{dashboard.familyTerms.guardian} 관리 화면</h1><p className="text-sm text-muted-foreground">{session.user.name}님 가족 공간</p></div>
+        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">{dashboard.familyTerms.guardian} 관리 화면</h1><p className="text-sm text-muted-foreground">{dashboard.familyTerms.guardian} 계정으로 접속 중</p></div>
         <div className="flex items-center gap-2"><ChildProfileSettings profileKey="family" /><LogoutButton /></div>
       </header>
       {params.invited === "success" ? <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">가족 공동관리자 초대가 성공적으로 수락되었습니다.</p> : params.invited === "already_member" ? <p role="status" className="rounded-xl border border-border bg-muted p-3 text-sm font-semibold">이미 이 가족의 공동관리자로 참여하고 있습니다.</p> : null}
