@@ -513,7 +513,7 @@ function normalizeEmail(email: string): string { return email.trim().toLowerCase
 export async function createParentInvitation(emailInput: string) {
   const { family, userId, role, email: currentEmail } = await requireParentFamily()
   if (role !== "owner") throw new Error("가족 대표 계정만 다른 공동관리자를 초대할 수 있습니다.")
-  if (typeof emailInput !== "string") throw new Error("초대할 부모의 이메일을 입력해 주세요.")
+  if (typeof emailInput !== "string") throw new Error("초대할 공동관리자의 이메일을 입력해 주세요.")
   const email = normalizeEmail(emailInput)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) throw new Error("이메일 주소를 확인해 주세요.")
   if (email === normalizeEmail(currentEmail || "")) throw new Error("본인 이메일은 초대할 수 없습니다.")
