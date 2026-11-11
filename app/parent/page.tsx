@@ -25,7 +25,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
   return (
     <main className="mx-auto min-h-dvh w-full max-w-xl space-y-6 px-4 py-8">
       <header className="flex items-center justify-between">
-        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">{dashboard.familyTerms.guardian} 관리 화면</h1><p className="text-sm text-muted-foreground">{dashboard.familyTerms.guardian} 계정으로 접속 중</p></div>
+        <div><p className="text-sm text-muted-foreground">영단어 마스터 매니저</p><h1 className="text-2xl font-black">{dashboard.familyTerms.guardian} 관리 화면</h1><p className="text-sm text-muted-foreground">{session.user.name?.trim() || dashboard.familyTerms.guardian} 계정으로 접속 중</p></div>
         <div className="flex items-center gap-2"><ChildProfileSettings profileKey="family" /><LogoutButton /></div>
       </header>
       <PwaInstallGuide />
