@@ -510,7 +510,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
     progressScoreRef.current = 0
     livesRef.current = 3
     lastFrameRef.current = 0
-    lastSpawnRef.current = 0
+    lastSpawnRef.current = performance.now()
     setScore(0)
     setLives(3)
     setTyped("")
@@ -575,7 +575,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             })}
           </div>
           <p className="shrink-0 text-[8px] leading-tight text-sky-200">쉬움은 유령이 천천히 오고, 어려움은 더 빠르게 등장해요.</p>
-          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="shrink-0 rounded-lg bg-amber-400 px-5 py-1.5 text-xs font-black leading-tight text-amber-950 shadow-lg">게임 시작!</HapticButton>
+          <HapticButton onClick={() => { lastSpawnRef.current = performance.now(); setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="shrink-0 rounded-lg bg-amber-400 px-5 py-1.5 text-xs font-black leading-tight text-amber-950 shadow-lg">게임 시작!</HapticButton>
         </div>}
         {gameOver && <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-1 overflow-hidden bg-slate-950/90 px-2 py-1.5 text-center text-white backdrop-blur-sm"><p className="text-2xl leading-none">👻</p><p className="text-lg font-black leading-tight">게임 종료!</p><div className="flex shrink-0 items-center gap-3 text-xs"><p className="text-slate-200">최종 점수 <strong>{score}점</strong></p><p className="font-bold">놓친 단어 {missedWords.length}개</p></div><HapticButton onClick={restart} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-1.5 text-xs font-black leading-tight text-amber-950"><RotateCcw className="size-3.5" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
