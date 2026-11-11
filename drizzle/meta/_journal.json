@@ -113,6 +113,13 @@
       "when": 1794320000006,
       "tag": "0015_child_game_visibility_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794320000007,
+      "tag": "0016_arcade_game_permission",
+      "breakpoints": true
     }
   ]
 }

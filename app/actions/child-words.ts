@@ -652,9 +652,10 @@ export async function getChildPacmanStatus() {
     .limit(1)
   const playsUsed = usage?.playsUsed ?? 0
   const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  const gamesEnabled = eligibility.settings?.pacmanEnabled ?? false
   return {
-    showPacman: profile?.showPacman ?? true, showWordDefense: profile?.showWordDefense ?? true,
-    enabled: eligibility.settings?.pacmanEnabled ?? false,
+    showPacman: gamesEnabled && (profile?.showPacman ?? true), showWordDefense: gamesEnabled && (profile?.showWordDefense ?? true),
+    enabled: gamesEnabled,
     dailyPlayLimit, unlimitedPlays: dailyPlayLimit === 0, playsUsed,
     remainingPlays: dailyPlayLimit === 0 ? Number.MAX_SAFE_INTEGER : Math.max(0, dailyPlayLimit - playsUsed),
     dailyQuestionCount: eligibility.dailyQuestionCount,
@@ -669,10 +670,10 @@ export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pa
   const child = await requireChild()
   if (game !== "pacman" && game !== "word_defense") throw new Error("게임 종류가 올바르지 않습니다.")
   const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  const eligibility = await getPacmanEligibility(child.childProfileId)
+  if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 게임 이용을 허용하지 않았어요.")
   if (game === "pacman" && !profile?.showPacman) throw new Error("부모님이 팩맨 게임을 숨겼어요.")
   if (game === "word_defense" && !profile?.showWordDefense) throw new Error("부모님이 영어 타자 디펜스 게임을 숨겼어요.")
-  const eligibility = await getPacmanEligibility(child.childProfileId)
-  if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
   if (!eligibility.eligible) {
     if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 팩맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
     throw new Error("이전부터 남아 있는 오답까지 모두 해결한 뒤 팩맨을 할 수 있어요.")

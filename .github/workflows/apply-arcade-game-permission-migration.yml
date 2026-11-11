@@ -1,0 +1,123 @@
+name: Apply arcade game permission migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-arcade-game-permission-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated PostgreSQL migration dependencies
+        run: npm install --prefix "$RUNNER_TEMP/db-migrate" --no-save --no-package-lock pg@8 drizzle-orm@0.45.2
+      - name: Validate exact production database and migration state
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Client } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          (async () => {
+            if (!process.env.DATABASE_URL) throw new Error("Missing ENGLISH_WORD_QUIZ_DATABASE_URL.");
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            try {
+              const identity = await client.query("select current_database() as db, current_user as role");
+              console.log("DATABASE_IDENTITY:", JSON.stringify(identity.rows[0]));
+              if (identity.rows[0].db !== "neondb" || identity.rows[0].role !== "neondb_owner") {
+                throw new Error("Safety stop: database identity differs from the reviewed production target.");
+              }
+              const required = await client.query(`
+                select
+                  to_regclass('public.family_arcade_settings') as arcade_settings,
+                  to_regclass('public.child_profiles') as child_profiles,
+                  to_regclass('drizzle.__drizzle_migrations') as migration_history
+              `);
+              console.log("REQUIRED_TABLES:", JSON.stringify(required.rows[0]));
+              if (!required.rows[0].arcade_settings || !required.rows[0].child_profiles || !required.rows[0].migration_history) {
+                throw new Error("Safety stop: expected application tables or migration history are missing.");
+              }
+              const history = await client.query('select count(*)::int as count, max(created_at)::text as latest from "drizzle"."__drizzle_migrations"');
+              console.log("MIGRATION_HISTORY_BEFORE:", JSON.stringify(history.rows[0]));
+              if (history.rows[0].count !== 16 || history.rows[0].latest !== "1794320000006") {
+                throw new Error("Safety stop: expected exactly migrations 0000–0015; no changes were made.");
+              }
+              const priorConstraint = await client.query(`
+                select 1 from pg_constraint
+                where conrelid = 'public.family_arcade_settings'::regclass
+                  and conname = 'family_arcade_settings_daily_limit_check'
+              `);
+              if (priorConstraint.rowCount !== 1) throw new Error("Safety stop: expected daily game limit constraint is missing.");
+            } finally {
+              await client.end();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Apply Drizzle migration 0016
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Pool } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          const { drizzle } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/drizzle-orm/node-postgres`);
+          const { migrate } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/drizzle-orm/node-postgres/migrator`);
+          (async () => {
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            try {
+              await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
+              console.log("ARCADE_GAME_PERMISSION_MIGRATION: applied.");
+            } finally {
+              await pool.end();
+            }
+          })().catch(error => { console.error("MIGRATION_FAILED:", error.message); process.exit(1); });
+          NODE
+      - name: Verify unlimited limit and disabled-game visibility
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Client } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          (async () => {
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            try {
+              const history = await client.query('select count(*)::int as count, max(created_at)::text as latest from "drizzle"."__drizzle_migrations"');
+              const constraint = await client.query(`
+                select pg_get_constraintdef(oid) as definition
+                from pg_constraint
+                where conrelid = 'public.family_arcade_settings'::regclass
+                  and conname = 'family_arcade_settings_daily_limit_check'
+              `);
+              const disabledProfiles = await client.query(`
+                select count(*)::int as count
+                from child_profiles child
+                inner join family_arcade_settings arcade on arcade.family_id = child.family_id
+                where arcade.pacman_enabled = false
+                  and (child.show_pacman = true or child.show_word_defense = true)
+              `);
+              console.log("MIGRATION_HISTORY_AFTER:", JSON.stringify(history.rows[0]));
+              console.log("DAILY_LIMIT_CONSTRAINT:", JSON.stringify(constraint.rows[0] ?? null));
+              console.log("VISIBLE_GAMES_WHILE_DISABLED:", JSON.stringify(disabledProfiles.rows[0]));
+              if (history.rows[0].count !== 17 || history.rows[0].latest !== "1794320000007") {
+                throw new Error("Migration history verification failed.");
+              }
+              if (!constraint.rows[0]?.definition || !constraint.rows[0].definition.includes("0") || !constraint.rows[0].definition.includes("10")) {
+                throw new Error("Daily game limit constraint verification failed.");
+              }
+              if (disabledProfiles.rows[0].count !== 0) throw new Error("Disabled families still have visible child games.");
+              console.log("ARCADE_GAME_PERMISSION_MIGRATION: applied and verified.");
+            } finally {
+              await client.end();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
