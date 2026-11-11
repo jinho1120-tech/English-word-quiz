@@ -654,7 +654,7 @@ export async function getChildPacmanStatus() {
   const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
   return {
     showPacman: profile?.showPacman ?? true, showWordDefense: profile?.showWordDefense ?? true,
-    enabled: (eligibility.settings?.pacmanEnabled ?? false) && (profile?.showPacman ?? true),
+    enabled: eligibility.settings?.pacmanEnabled ?? false,
     dailyPlayLimit, playsUsed,
     remainingPlays: Math.max(0, dailyPlayLimit - playsUsed),
     dailyQuestionCount: eligibility.dailyQuestionCount,
