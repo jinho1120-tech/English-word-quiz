@@ -1,0 +1,116 @@
+name: Apply pending Neon database migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-production-db-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated migration dependencies
+        run: npm install --prefix "$RUNNER_TEMP/db-migrate" --no-save --no-package-lock pg@8 drizzle-orm@0.45.2
+      - name: Validate exact database and migration state
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Client } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          const client = new Client({ connectionString: process.env.DATABASE_URL });
+          (async () => {
+            if (!process.env.DATABASE_URL) throw new Error("Missing ENGLISH_WORD_QUIZ_DATABASE_URL.");
+            await client.connect();
+            try {
+              const identity = await client.query("select current_database() as db, current_user as role");
+              console.log("DATABASE_IDENTITY:", JSON.stringify(identity.rows[0]));
+              if (identity.rows[0].db !== "neondb" || identity.rows[0].role !== "neondb_owner") {
+                throw new Error("Safety stop: database identity differs from the reviewed diagnostic target.");
+              }
+              const historyTable = await client.query("select to_regclass('drizzle.__drizzle_migrations') as name");
+              if (!historyTable.rows[0].name) throw new Error("Safety stop: Drizzle migration history is missing.");
+              const history = await client.query('select count(*)::int as count, max(created_at)::text as latest from "drizzle"."__drizzle_migrations"');
+              console.log("MIGRATION_HISTORY_BEFORE:", JSON.stringify(history.rows[0]));
+              if (history.rows[0].count !== 14 || history.rows[0].latest !== "1794320000004") {
+                throw new Error("Safety stop: expected exactly migrations 0000–0013; no changes were made.");
+              }
+              const prerequisites = await client.query(`
+                select
+                  to_regclass('public.child_profiles') as child_profiles,
+                  to_regclass('public.child_subjects') as child_subjects,
+                  exists(select 1 from information_schema.columns where table_schema='public' and table_name='child_subjects' and column_name='calendar_color') as has_calendar_color
+              `);
+              console.log("MIGRATION_PREREQUISITES:", JSON.stringify(prerequisites.rows[0]));
+              if (!prerequisites.rows[0].child_profiles || !prerequisites.rows[0].child_subjects || !prerequisites.rows[0].has_calendar_color) {
+                throw new Error("Safety stop: prerequisite tables/column are missing.");
+              }
+              const partial = await client.query(`
+                select
+                  exists(select 1 from information_schema.columns where table_schema='public' and table_name='child_profiles' and column_name='show_pacman') as has_pacman,
+                  exists(select 1 from information_schema.columns where table_schema='public' and table_name='child_profiles' and column_name='show_word_defense') as has_word_defense,
+                  to_regclass('public.child_game_plays') as game_table
+              `);
+              if (partial.rows[0].has_pacman || partial.rows[0].has_word_defense || partial.rows[0].game_table) {
+                throw new Error("Safety stop: partial application detected; manual review required.");
+              }
+            } finally {
+              await client.end();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Apply pending migrations 0014 and 0015
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Pool } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          const { drizzle } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/drizzle-orm/node-postgres`);
+          const { migrate } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/drizzle-orm/node-postgres/migrator`);
+          (async () => {
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            try {
+              await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
+              console.log("Pending migrations applied.");
+            } finally {
+              await pool.end();
+            }
+          })().catch(error => { console.error("MIGRATION_FAILED:", error.message); process.exit(1); });
+          NODE
+      - name: Verify migrated schema and history
+        env:
+          DATABASE_URL: ${{ secrets.ENGLISH_WORD_QUIZ_DATABASE_URL }}
+        run: |
+          node <<'NODE'
+          const { Client } = require(`${process.env.RUNNER_TEMP}/db-migrate/node_modules/pg`);
+          const client = new Client({ connectionString: process.env.DATABASE_URL });
+          (async () => {
+            await client.connect();
+            try {
+              const history = await client.query('select count(*)::int as count, max(created_at)::text as latest from "drizzle"."__drizzle_migrations"');
+              const columns = await client.query(`
+                select column_name from information_schema.columns
+                where table_schema='public' and table_name='child_profiles'
+                  and column_name in ('show_pacman','show_word_defense')
+                order by column_name
+              `);
+              const table = await client.query("select to_regclass('public.child_game_plays') as name");
+              console.log("MIGRATION_HISTORY_AFTER:", JSON.stringify(history.rows[0]));
+              console.log("GAME_VISIBILITY_COLUMNS_AFTER:", JSON.stringify(columns.rows.map(row => row.column_name)));
+              console.log("CHILD_GAME_PLAYS_TABLE_AFTER:", JSON.stringify(table.rows[0].name));
+              if (history.rows[0].count !== 16 || history.rows[0].latest !== "1794320000006") throw new Error("Migration history verification failed.");
+              if (columns.rowCount !== 2 || !table.rows[0].name) throw new Error("Required game visibility schema verification failed.");
+            } finally {
+              await client.end();
+            }
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
