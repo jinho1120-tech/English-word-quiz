@@ -2,8 +2,6 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
 
-// Make only edge-connected near-white padding transparent. White details inside
-// the illustration (faces, clouds, snow) remain untouched.
 const iconFiles = [
   "parent-icon-1024.png",
   "parent-icon-512.png",
@@ -15,72 +13,60 @@ const iconFiles = [
   "child-icon-180.png",
 ]
 
-function isEdgeWhite(data, offset) {
-  const alpha = data[offset + 3]
-  const red = data[offset]
-  const green = data[offset + 1]
-  const blue = data[offset + 2]
-  return alpha > 0 && red >= 238 && green >= 238 && blue >= 238 &&
-    Math.max(red, green, blue) - Math.min(red, green, blue) <= 18
-}
-
-function clearConnectedWhiteBorder(data, width, height) {
-  const total = width * height
-  const visited = new Uint8Array(total)
-  const queue = new Uint32Array(total)
-  let cleared = 0
-
-  // The source artwork has white corner padding from its old rounded frame.
-  // Limit flood fill to corner zones so white snow/cloud details elsewhere stay.
-  const marginX = Math.ceil(width * 0.18)
-  const marginY = Math.ceil(height * 0.18)
-  const zones = [
-    { x0: 0, x1: marginX, y0: 0, y1: marginY },
-    { x0: width - marginX, x1: width, y0: 0, y1: marginY },
-    { x0: 0, x1: marginX, y0: height - marginY, y1: height },
-    { x0: width - marginX, x1: width, y0: height - marginY, y1: height },
+// The source PNGs contain a rounded-square illustration on a white square
+// canvas. Extend the artwork's own corner background into that white padding.
+// Reflecting across the rounded boundary keeps the adjacent background colors
+// and gradients continuous; it does not create transparency or round the PNG.
+function extendCornerBackground(data, width, height) {
+  const channels = 4
+  const radius = Math.round(Math.min(width, height) * 0.172)
+  const corners = [
+    { cx: radius, cy: radius, x0: 0, x1: radius, y0: 0, y1: radius },
+    { cx: width - radius - 1, cy: radius, x0: width - radius, x1: width, y0: 0, y1: radius },
+    { cx: radius, cy: height - radius - 1, x0: 0, x1: radius, y0: height - radius, y1: height },
+    { cx: width - radius - 1, cy: height - radius - 1, x0: width - radius, x1: width, y0: height - radius, y1: height },
   ]
 
-  for (const zone of zones) {
-    let head = 0
-    let tail = 0
-    const add = (x, y) => {
-      if (x < zone.x0 || x >= zone.x1 || y < zone.y0 || y >= zone.y1) return
-      const index = y * width + x
-      if (visited[index] || !isEdgeWhite(data, index * 4)) return
-      visited[index] = 1
-      queue[tail++] = index
-    }
-
-    for (let offset = 0; offset < 16; offset += 1) {
-      const left = zone.x0
-      const right = zone.x1 - 1
-      const top = zone.y0
-      const bottom = zone.y1 - 1
-      add(Math.min(left + offset, right), top)
-      add(Math.max(right - offset, left), top)
-      add(Math.min(left + offset, right), bottom)
-      add(Math.max(right - offset, left), bottom)
-      add(left, Math.min(top + offset, bottom))
-      add(left, Math.max(bottom - offset, top))
-      add(right, Math.min(top + offset, bottom))
-      add(right, Math.max(bottom - offset, top))
-    }
-
-    while (head < tail) {
-      const index = queue[head++]
-      const x = index % width
-      const y = Math.floor(index / width)
-      data[index * 4 + 3] = 0
-      cleared += 1
-      add(x - 1, y)
-      add(x + 1, y)
-      add(x, y - 1)
-      add(x, y + 1)
-    }
+  const sample = (x, y, channel) => {
+    const x0 = Math.max(0, Math.min(width - 1, Math.floor(x)))
+    const y0 = Math.max(0, Math.min(height - 1, Math.floor(y)))
+    const x1 = Math.min(width - 1, x0 + 1)
+    const y1 = Math.min(height - 1, y0 + 1)
+    const tx = x - Math.floor(x)
+    const ty = y - Math.floor(y)
+    const a = data[(y0 * width + x0) * channels + channel]
+    const b = data[(y0 * width + x1) * channels + channel]
+    const c = data[(y1 * width + x0) * channels + channel]
+    const d = data[(y1 * width + x1) * channels + channel]
+    return Math.round((a * (1 - tx) + b * tx) * (1 - ty) +
+      (c * (1 - tx) + d * tx) * ty)
   }
 
-  return cleared
+  let filled = 0
+  for (const corner of corners) {
+    for (let y = corner.y0; y < corner.y1; y += 1) {
+      for (let x = corner.x0; x < corner.x1; x += 1) {
+        const dx = x - corner.cx
+        const dy = y - corner.cy
+        const distance = Math.hypot(dx, dy)
+        if (distance <= radius) continue
+
+        // Mirror the pixel location across the rounded-square boundary.
+        const reflectedDistance = Math.max(0, 2 * radius - distance)
+        const scale = distance === 0 ? 0 : reflectedDistance / distance
+        const sourceX = corner.cx + dx * scale
+        const sourceY = corner.cy + dy * scale
+        const offset = (y * width + x) * channels
+
+        for (let channel = 0; channel < 3; channel += 1) {
+          data[offset + channel] = sample(sourceX, sourceY, channel)
+        }
+        data[offset + 3] = 255
+        filled += 1
+      }
+    }
+  }
+  return filled
 }
 
 const iconDir = path.join(process.cwd(), "public", "icons")
@@ -91,11 +77,11 @@ for (const file of iconFiles) {
     .raw()
     .toBuffer({ resolveWithObject: true })
 
-  const cleared = clearConnectedWhiteBorder(data, info.width, info.height)
+  const filled = extendCornerBackground(data, info.width, info.height)
   const output = await sharp(data, {
     raw: { width: info.width, height: info.height, channels: 4 },
   }).png().toBuffer()
 
   await fs.writeFile(filePath, output)
-  console.log(`Prepared ${file}: ${info.width}x${info.height}, transparent edge pixels ${cleared}`)
+  console.log(`Extended corner background in ${file}: ${info.width}x${info.height}, filled ${filled} pixels`)
 }
