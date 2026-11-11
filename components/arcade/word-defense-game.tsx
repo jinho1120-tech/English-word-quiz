@@ -55,7 +55,7 @@ type WordDefenseGameProps = {
 }
 
 const WIDTH = 760
-const HEIGHT = 700
+const HEIGHT = 760
 const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
@@ -156,6 +156,45 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   const [message, setMessage] = useState("")
   const [missedWords, setMissedWords] = useState<DefenseWord[]>([])
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const canvasStageRef = useRef<HTMLDivElement | null>(null)
+  const inputPanelRef = useRef<HTMLDivElement | null>(null)
+  const [canvasHeight, setCanvasHeight] = useState(0)
+
+  useEffect(() => {
+    const updateCanvasHeight = () => {
+      const stage = canvasStageRef.current
+      const inputPanel = inputPanelRef.current
+      if (!stage || !inputPanel) return
+
+      const viewport = window.visualViewport
+      const visibleHeight = viewport?.height ?? window.innerHeight
+      const viewportTop = viewport?.offsetTop ?? 0
+      const stageTop = stage.getBoundingClientRect().top - viewportTop
+      const inputHeight = inputPanel.getBoundingClientRect().height
+      const availableHeight = visibleHeight - stageTop - inputHeight - 28
+      const naturalHeight = stage.clientWidth * HEIGHT / WIDTH
+      const nextHeight = Math.max(0, Math.min(naturalHeight, availableHeight))
+
+      setCanvasHeight((current) => Math.abs(current - nextHeight) > 1 ? nextHeight : current)
+    }
+
+    updateCanvasHeight()
+    window.addEventListener("resize", updateCanvasHeight)
+    window.addEventListener("scroll", updateCanvasHeight, { passive: true })
+    window.visualViewport?.addEventListener("resize", updateCanvasHeight)
+    window.visualViewport?.addEventListener("scroll", updateCanvasHeight)
+    const observer = new ResizeObserver(updateCanvasHeight)
+    if (canvasStageRef.current) observer.observe(canvasStageRef.current)
+    if (inputPanelRef.current) observer.observe(inputPanelRef.current)
+
+    return () => {
+      window.removeEventListener("resize", updateCanvasHeight)
+      window.removeEventListener("scroll", updateCanvasHeight)
+      window.visualViewport?.removeEventListener("resize", updateCanvasHeight)
+      window.visualViewport?.removeEventListener("scroll", updateCanvasHeight)
+      observer.disconnect()
+    }
+  }, [started, gameOver])
 
   const cleanWords = useMemo(() => uniqueWords(words), [words])
   const cleanSubjectWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
@@ -479,32 +518,8 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </HapticButton>
       </div>
 
-      <div className="space-y-2 rounded-2xl border border-border bg-card p-3">
-        <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
-        <input
-          ref={inputRef}
-          id="word-defense-input"
-          value={typed}
-          onChange={(event) => handleTyping(event.target.value)}
-          onKeyDown={(event) => { if (event.key === "Escape") setTyped("") }}
-          type="text"
-          inputMode="text"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          autoComplete="off"
-          placeholder="영어 단어 입력..."
-          disabled={gameOver || !started}
-          className="w-full rounded-xl border-2 border-sky-400 bg-background px-4 py-4 text-center text-xl font-black tracking-widest outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50"
-        />
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
-          <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
-        </div>
-      </div>
-
-      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/35] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+      <div ref={canvasStageRef} className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} style={{ height: `${canvasHeight}px` }} className="block w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
         <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
           <div className="rounded-xl border border-white/10 bg-slate-950/75 px-3 py-1.5 text-left text-white shadow-lg backdrop-blur-sm">
             <p className="text-[9px] font-bold tracking-wider text-slate-300">SCORE</p>
@@ -530,6 +545,30 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><p className="text-sm font-bold">놓친 단어 {missedWords.length}개</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
 
+      </div>
+
+      <div ref={inputPanelRef} className="space-y-2 rounded-2xl border border-border bg-card p-3">
+        <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
+        <input
+          ref={inputRef}
+          id="word-defense-input"
+          value={typed}
+          onChange={(event) => handleTyping(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Escape") setTyped("") }}
+          type="text"
+          inputMode="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          autoComplete="off"
+          placeholder="영어 단어 입력..."
+          disabled={gameOver || !started}
+          className="w-full rounded-xl border-2 border-sky-400 bg-background px-4 py-4 text-center text-xl font-black tracking-widest outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50"
+        />
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
+          <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
+        </div>
       </div>
 
       <div className="rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 dark:bg-amber-950/20">
