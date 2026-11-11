@@ -330,6 +330,10 @@ export function ParentDashboard({
     window.location.href = `sms:${isIOS ? "&" : "?"}body=${encodeURIComponent(message)}`
   }
 
+  function getChildAppUrl() {
+    return new URL("/child/login", window.location.origin).toString()
+  }
+
   function toggleChild(child: Child) {
     const action = child.isActive ? "비활성화" : "다시 활성화"
     if (!window.confirm(`${child.displayName} ${childLabel} 프로필을 ${action}할까요?${child.isActive ? "\n연결된 기기에서는 로그아웃됩니다." : "\n새 접속코드가 발급됩니다."}`)) return
