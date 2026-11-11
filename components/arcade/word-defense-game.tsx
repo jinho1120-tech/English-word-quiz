@@ -6,6 +6,8 @@ import { HapticButton } from "@/components/haptic-button"
 
 type DefenseWord = { id: number; word: string; meaning: string }
 
+type GhostMood = "mischievous" | "angry" | "surprised" | "worried" | "sleepy"
+
 type Monster = {
   id: number
   word: DefenseWord
@@ -13,6 +15,7 @@ type Monster = {
   depth: number
   speed: number
   phase: number
+  mood: GhostMood
 }
 
 type DefeatEffect = {
@@ -22,6 +25,7 @@ type DefeatEffect = {
   startDepth: number
   age: number
   phase: number
+  mood: GhostMood
 }
 
 function shuffleWords(items: DefenseWord[]) {
@@ -51,14 +55,14 @@ type WordDefenseGameProps = {
 }
 
 const WIDTH = 760
-const HEIGHT = 620
+const HEIGHT = 760
 const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'").replace(/\s+/g, "")
 }
 
-function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean) {
+function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean, mood: GhostMood) {
   const r = radius
   ctx.save()
   ctx.translate(x, y)
@@ -78,15 +82,55 @@ function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: 
   ctx.fill()
   ctx.shadowBlur = 0
   ctx.fillStyle = "#26324b"
-  ctx.beginPath()
-  ctx.ellipse(-r * 0.34, -r * 0.08, r * 0.12, r * 0.2, 0, 0, Math.PI * 2)
-  ctx.ellipse(r * 0.34, -r * 0.08, r * 0.12, r * 0.2, 0, 0, Math.PI * 2)
-  ctx.fill()
+
+  const eyeY = mood === "surprised" ? -r * 0.12 : -r * 0.08
+  if (mood === "sleepy") {
+    ctx.lineWidth = Math.max(1.8, r * 0.09)
+    ctx.strokeStyle = "#26324b"
+    ctx.beginPath()
+    ctx.moveTo(-r * 0.48, eyeY)
+    ctx.quadraticCurveTo(-r * 0.34, eyeY + r * 0.1, -r * 0.2, eyeY)
+    ctx.moveTo(r * 0.2, eyeY)
+    ctx.quadraticCurveTo(r * 0.34, eyeY + r * 0.1, r * 0.48, eyeY)
+    ctx.stroke()
+  } else {
+    const eyeHeight = mood === "surprised" ? r * 0.25 : mood === "worried" ? r * 0.14 : r * 0.2
+    ctx.beginPath()
+    ctx.ellipse(-r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
+    ctx.ellipse(r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
   ctx.strokeStyle = "#26324b"
+  ctx.fillStyle = "#26324b"
   ctx.lineWidth = Math.max(1.5, r * 0.07)
+  ctx.lineCap = "round"
   ctx.beginPath()
-  ctx.arc(0, r * 0.27, r * 0.16, 0.12, Math.PI - 0.12)
-  ctx.stroke()
+  if (mood === "angry") {
+    ctx.moveTo(-r * 0.5, -r * 0.38)
+    ctx.lineTo(-r * 0.2, -r * 0.25)
+    ctx.moveTo(r * 0.5, -r * 0.38)
+    ctx.lineTo(r * 0.2, -r * 0.25)
+    ctx.moveTo(-r * 0.18, r * 0.34)
+    ctx.lineTo(r * 0.18, r * 0.34)
+    ctx.stroke()
+  } else if (mood === "surprised") {
+    ctx.beginPath()
+    ctx.ellipse(0, r * 0.31, r * 0.13, r * 0.19, 0, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (mood === "worried") {
+    ctx.moveTo(-r * 0.18, r * 0.42)
+    ctx.quadraticCurveTo(0, r * 0.18, r * 0.18, r * 0.42)
+    ctx.stroke()
+  } else if (mood === "sleepy") {
+    ctx.moveTo(-r * 0.12, r * 0.3)
+    ctx.lineTo(r * 0.12, r * 0.3)
+    ctx.stroke()
+  } else {
+    ctx.moveTo(-r * 0.2, r * 0.2)
+    ctx.quadraticCurveTo(-r * 0.02, r * 0.48, r * 0.2, r * 0.2)
+    ctx.stroke()
+  }
   ctx.restore()
 }
 
@@ -112,6 +156,45 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   const [message, setMessage] = useState("")
   const [missedWords, setMissedWords] = useState<DefenseWord[]>([])
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const canvasStageRef = useRef<HTMLDivElement | null>(null)
+  const inputPanelRef = useRef<HTMLDivElement | null>(null)
+  const [canvasHeight, setCanvasHeight] = useState(0)
+
+  useEffect(() => {
+    const updateCanvasHeight = () => {
+      const stage = canvasStageRef.current
+      const inputPanel = inputPanelRef.current
+      if (!stage || !inputPanel) return
+
+      const viewport = window.visualViewport
+      const visibleHeight = viewport?.height ?? window.innerHeight
+      const viewportTop = viewport?.offsetTop ?? 0
+      const stageTop = stage.getBoundingClientRect().top - viewportTop
+      const inputHeight = inputPanel.getBoundingClientRect().height
+      const availableHeight = visibleHeight - stageTop - inputHeight - 28
+      const naturalHeight = stage.clientWidth * HEIGHT / WIDTH
+      const nextHeight = Math.max(0, Math.min(naturalHeight, availableHeight))
+
+      setCanvasHeight((current) => Math.abs(current - nextHeight) > 1 ? nextHeight : current)
+    }
+
+    updateCanvasHeight()
+    window.addEventListener("resize", updateCanvasHeight)
+    window.addEventListener("scroll", updateCanvasHeight, { passive: true })
+    window.visualViewport?.addEventListener("resize", updateCanvasHeight)
+    window.visualViewport?.addEventListener("scroll", updateCanvasHeight)
+    const observer = new ResizeObserver(updateCanvasHeight)
+    if (canvasStageRef.current) observer.observe(canvasStageRef.current)
+    if (inputPanelRef.current) observer.observe(inputPanelRef.current)
+
+    return () => {
+      window.removeEventListener("resize", updateCanvasHeight)
+      window.removeEventListener("scroll", updateCanvasHeight)
+      window.visualViewport?.removeEventListener("resize", updateCanvasHeight)
+      window.visualViewport?.removeEventListener("scroll", updateCanvasHeight)
+      observer.disconnect()
+    }
+  }, [started, gameOver])
 
   const cleanWords = useMemo(() => uniqueWords(words), [words])
   const cleanSubjectWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
@@ -191,6 +274,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             depth: 0,
             speed: 0.026 + Math.min(0.022, currentScore / 30000),
             phase: Math.random() * Math.PI * 2,
+            mood: (["mischievous", "angry", "surprised", "worried", "sleepy"] as GhostMood[])[Math.floor(Math.random() * 5)],
           })
         }
         lastSpawnRef.current = time
@@ -264,7 +348,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         const labelFont = 16 + perspective * 9
         const label = monster.word.meaning
         const prefixMatch = typed.length > 0 && normalizeWord(monster.word.word).startsWith(normalizeWord(typed))
-        drawGhost(ctx, x, y, radius, monster.phase, prefixMatch)
+        drawGhost(ctx, x, y, radius, monster.phase, prefixMatch, monster.mood)
         ctx.font = `bold ${labelFont}px sans-serif`
         const maxTextWidth = 250
         const lines: string[] = []
@@ -332,7 +416,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           ctx.globalAlpha = alpha
           ctx.translate(x, y)
           ctx.rotate(progress / 0.34 * Math.PI * 2)
-          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true)
+          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true, effect.mood)
           ctx.restore()
         }
         if (progress > 0.16) {
@@ -389,6 +473,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         startDepth: defeated.depth,
         age: 0,
         phase: defeated.phase,
+        mood: defeated.mood,
       })
       const points = 10 + Math.round(defeated.depth * 15)
       scoreRef.current += points
@@ -433,13 +518,36 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </HapticButton>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">SCORE</p><p className="text-xl font-black tabular-nums">{score}</p></div>
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">LIFE</p><p className="flex justify-center gap-1 pt-1">{[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}</p></div>
-        <div className="rounded-xl bg-slate-900 p-2 text-center text-white"><p className="text-[10px] text-slate-400">WORDS</p><p className="text-xl font-black tabular-nums">{score >= 250 ? cleanAllWords.length : score >= 100 ? cleanSubjectWords.length : cleanWords.length}</p></div>
+      <div ref={canvasStageRef} className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} style={{ height: `${canvasHeight}px` }} className="block w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2 sm:left-3 sm:right-3 sm:top-3">
+          <div className="rounded-xl border border-white/10 bg-slate-950/75 px-3 py-1.5 text-left text-white shadow-lg backdrop-blur-sm">
+            <p className="text-[9px] font-bold tracking-wider text-slate-300">SCORE</p>
+            <p className="text-lg font-black leading-tight tabular-nums">{score}</p>
+          </div>
+          <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-950/75 px-3 py-2 text-white shadow-lg backdrop-blur-sm" aria-label={`남은 생명 ${lives}개`}>
+            <p className="mr-1 text-[9px] font-bold tracking-wider text-slate-300">LIFE</p>
+            {[0,1,2].map((item) => <Heart key={item} className={`size-5 ${item < lives ? "fill-rose-500 text-rose-500" : "text-slate-600"}`} />)}
+          </div>
+        </div>
+        {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-start gap-2 overflow-y-auto overscroll-contain bg-slate-950/90 px-3 py-3 text-center text-white backdrop-blur-sm sm:justify-center sm:gap-3 sm:p-5">
+          <p className="shrink-0 text-3xl sm:text-4xl">👻</p>
+          <p className="shrink-0 text-xl font-black sm:text-2xl">게임 방법</p>
+          <div className="w-full max-w-xs shrink-0 space-y-1.5 rounded-2xl bg-white/10 p-3 text-left text-xs leading-relaxed sm:space-y-2 sm:p-4 sm:text-sm">
+            <p>1. 몬스터가 달고 오는 <strong>한글 뜻</strong>을 확인해요.</p>
+            <p>2. 그 뜻에 맞는 <strong>영어 단어를 입력</strong>해요.</p>
+            <p>3. 정답이면 몬스터가 영단어로 변신해 도망가요!</p>
+            <p>4. 몬스터가 방어선에 닿기 전에 물리쳐요.</p>
+          </div>
+          <p className="shrink-0 text-xs text-sky-200">점수가 오르면 더 넓은 단어장에서 출제되고 몬스터도 늘어나요.</p>
+          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="sticky bottom-0 shrink-0 rounded-xl bg-amber-400 px-6 py-3 font-black text-amber-950 shadow-lg">게임 시작!</HapticButton>
+        </div>}
+        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><p className="text-sm font-bold">놓친 단어 {missedWords.length}개</p><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
+        {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
+
       </div>
 
-      <div className="space-y-2 rounded-2xl border border-border bg-card p-3">
+      <div ref={inputPanelRef} className="space-y-2 rounded-2xl border border-border bg-card p-3">
         <label htmlFor="word-defense-input" className="block text-center text-xs font-bold text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
         <input
           ref={inputRef}
@@ -461,25 +569,6 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
           <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-1 font-bold">지우기</HapticButton>
         </div>
-      </div>
-
-      <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block aspect-[38/31] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
-        {!started && !gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm">
-          <p className="text-4xl">👻</p>
-          <p className="text-2xl font-black">게임 방법</p>
-          <div className="w-full max-w-xs space-y-2 rounded-2xl bg-white/10 p-4 text-left text-sm leading-relaxed">
-            <p>1. 몬스터가 달고 오는 <strong>한글 뜻</strong>을 확인해요.</p>
-            <p>2. 그 뜻에 맞는 <strong>영어 단어를 입력</strong>해요.</p>
-            <p>3. 정답이면 몬스터가 영단어로 변신해 도망가요!</p>
-            <p>4. 몬스터가 방어선에 닿기 전에 물리쳐요.</p>
-          </div>
-          <p className="text-xs text-sky-200">점수가 오르면 더 넓은 단어장에서 출제되고 몬스터도 늘어나요.</p>
-          <HapticButton onClick={() => { setStarted(true); requestAnimationFrame(() => inputRef.current?.focus()) }} className="rounded-xl bg-amber-400 px-6 py-3 font-black text-amber-950">게임 시작!</HapticButton>
-        </div>}
-        {gameOver && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/90 p-5 text-center text-white backdrop-blur-sm"><p className="text-4xl">👻</p><p className="text-2xl font-black">게임 종료!</p><p className="text-sm text-slate-200">최종 점수 {score}점</p><p className="text-sm font-bold">놓친 단어 {missedWords.length}개</p><div className="max-h-40 w-full max-w-xs space-y-1 overflow-y-auto rounded-xl bg-white/10 p-3 text-left text-sm">{missedWords.length ? missedWords.map((item) => <p key={normalizeWord(item.word)}><strong>{item.word}</strong><span className="ml-2 text-slate-300">{item.meaning}</span></p>) : <p className="text-slate-300">놓친 단어가 없어요!</p>}</div><HapticButton onClick={restart} className="flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-3 font-black text-amber-950"><RotateCcw className="size-4" /> 다시 도전</HapticButton></div>}
-        {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
-
       </div>
 
       <div className="rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 dark:bg-amber-950/20">
