@@ -7,8 +7,8 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "우리 가족 단어장"
   const options = {
     body: payload.body || "새로운 알림이 도착했어요.",
-    icon: "/icon",
-    badge: "/icon",
+    icon: "/icon.svg",
+    badge: "/icon.svg",
     data: { url: payload.url || "/parent" },
     tag: payload.tag || "family-word-quiz",
     renotify: true,

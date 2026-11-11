@@ -353,7 +353,6 @@ export function ChildLearning({
             }))}
             accent="var(--child-accent, #2563eb)"
             isMonsterMode={activeTab === "wrong"}
-            childMode
             childName={childName}
           />
         </section>
