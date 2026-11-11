@@ -586,24 +586,25 @@ export async function removeParentAdministrator(memberUserId: string) {
   return { success: true }
 }
 
-export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }) {
+export async function updateFamilyPacmanSettings(input: { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pacmanUnlimitedPlays: boolean; pacmanMinDailyQuestions: number; pacmanRequireNoWrongWords: boolean }) {
   const { family } = await requireParentFamily()
-  if (typeof input?.pacmanEnabled !== "boolean") throw new Error("게임 허용 설정이 올바르지 않습니다.")
-  if (!Number.isInteger(input.pacmanDailyPlayLimit) || input.pacmanDailyPlayLimit < 1 || input.pacmanDailyPlayLimit > 10) {
+  if (typeof input?.pacmanEnabled !== "boolean" || typeof input.pacmanUnlimitedPlays !== "boolean") throw new Error("게임 허용 또는 무제한 설정이 올바르지 않습니다.")
+  if (!input.pacmanUnlimitedPlays && (!Number.isInteger(input.pacmanDailyPlayLimit) || input.pacmanDailyPlayLimit < 1 || input.pacmanDailyPlayLimit > 10)) {
     throw new Error("하루 게임 횟수는 1~10판으로 설정해 주세요.")
   }
   if (!Number.isInteger(input.pacmanMinDailyQuestions) || input.pacmanMinDailyQuestions < 1 || input.pacmanMinDailyQuestions > 100) throw new Error("하루 최소 문제 수는 1~100개로 설정해 주세요.")
   if (typeof input.pacmanRequireNoWrongWords !== "boolean") throw new Error("오답 정리 조건이 올바르지 않습니다.")
+  const storedDailyPlayLimit = input.pacmanUnlimitedPlays ? 0 : input.pacmanDailyPlayLimit
   await db.insert(familyArcadeSettings).values({
     familyId: family.id,
     pacmanEnabled: input.pacmanEnabled,
-    pacmanDailyPlayLimit: input.pacmanDailyPlayLimit,
+    pacmanDailyPlayLimit: storedDailyPlayLimit,
     pacmanMinDailyQuestions: input.pacmanMinDailyQuestions,
     pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords,
     updatedAt: new Date(),
   }).onConflictDoUpdate({
     target: familyArcadeSettings.familyId,
-    set: { pacmanEnabled: input.pacmanEnabled, pacmanDailyPlayLimit: input.pacmanDailyPlayLimit, pacmanMinDailyQuestions: input.pacmanMinDailyQuestions, pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords, updatedAt: new Date() },
+    set: { pacmanEnabled: input.pacmanEnabled, pacmanDailyPlayLimit: storedDailyPlayLimit, pacmanMinDailyQuestions: input.pacmanMinDailyQuestions, pacmanRequireNoWrongWords: input.pacmanRequireNoWrongWords, updatedAt: new Date() },
   })
   revalidatePath("/parent")
   revalidatePath("/child")
