@@ -435,7 +435,10 @@ export function ParentDashboard({
               <h2 className="text-lg font-bold">쿠폰 · 보상 · 게임</h2>
               <p className="mt-1 text-xs text-muted-foreground">{childLabel}별 보상 규칙과 쿠폰, 게임 이용을 관리합니다.</p>
             </div>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
+            <div className="flex flex-wrap justify-end gap-1.5">
+               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
+               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${pacmanEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{pacmanEnabled ? "게임 보상 켜짐" : "게임 보상 꺼짐"}</span>
+             </div>
           </div>
           <label className="block space-y-1 text-sm">
             <span className="font-semibold">관리할 {childLabel}</span>
@@ -625,15 +628,16 @@ export function ParentDashboard({
             <h3 className="text-sm font-bold">등록된 {childLabel}</h3>
             {children.map((child) => (
               <div key={child.id} className="space-y-2 rounded-xl border border-border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div><p className="font-semibold">{child.displayName}</p><p className="text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p></div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {child.isActive && <>
-                      <HapticButton disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
-                      <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기</HapticButton>
-                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
-                    </>}
+                <div className="space-y-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="shrink-0 whitespace-nowrap font-semibold">{child.displayName}</p>
+                    <p className="whitespace-nowrap text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
                   </div>
+                  {child.isActive && <div className="flex flex-wrap gap-2">
+                    <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기</HapticButton>
+                    <HapticButton disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
+                    <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
+                  </div>}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <HapticButton disabled={isPending} onClick={() => toggleChild(child)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">{child.isActive ? "일시 비활성화" : "다시 활성화"}</HapticButton>
