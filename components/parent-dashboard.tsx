@@ -18,13 +18,14 @@ import {
   setChildProfileActive,
   updateFamilyRewardSettings,
   updateFamilyPacmanSettings,
+  updateChildGameVisibility,
   createCouponType,
   updateCouponType,
   deleteCouponType,
   setCouponTypeActive,
 } from "@/app/actions/family"
 
-type Child = { id: string; displayName: string; isActive: boolean; createdAt: Date }
+type Child = { id: string; displayName: string; isActive: boolean; showPacman: boolean; showWordDefense: boolean; createdAt: Date }
 type Device = { id: string; childProfileId: string; childName: string; deviceLabel: string | null; lastSeenAt: Date; createdAt: Date }
 type Member = { userId: string; email: string; role: string; createdAt: Date }
 type Invitation = { id: string; email: string; expiresAt: Date; createdAt: Date }
@@ -32,6 +33,7 @@ type ArcadeSettings = { pacmanEnabled: boolean; pacmanDailyPlayLimit: number; pa
 type CouponSettings = { childProfileId: string; couponsEnabled: boolean; rewardMinScore: number; rewardMinQuestions: number; requireNoHint: boolean; blankCouponProbability: number; maxStoredCoupons: number }
 type Coupon = { id: string; childProfileId: string | null; title: string; description: string | null; isActive: boolean; couponKind: string; drawWeight: number }
 type Reward = { id: string; childProfileId: string; childName: string; title: string; status: string; couponKind: string | null; earnedAt: Date }
+type GameUsage = { childProfileId: string; game: string; total: number }
 
 export function ParentDashboard({
   children,
@@ -40,6 +42,7 @@ export function ParentDashboard({
   invitations,
   parentRole,
   arcadeSettings,
+  gameUsage,
   coupons,
   couponSettings,
   rewards,
@@ -50,6 +53,7 @@ export function ParentDashboard({
   members: Member[]
   invitations: Invitation[]
   arcadeSettings: ArcadeSettings
+  gameUsage: GameUsage[]
   coupons: Coupon[]
   couponSettings: CouponSettings[]
   rewards: Reward[]
@@ -80,6 +84,9 @@ export function ParentDashboard({
   const [pacmanDailyPlayLimit, setPacmanDailyPlayLimit] = useState(arcadeSettings.pacmanDailyPlayLimit)
   const [pacmanMinDailyQuestions, setPacmanMinDailyQuestions] = useState(arcadeSettings.pacmanMinDailyQuestions)
   const [pacmanRequireNoWrongWords, setPacmanRequireNoWrongWords] = useState(arcadeSettings.pacmanRequireNoWrongWords)
+  const selectedGameChild = children.find((child) => child.id === selectedCouponChildId)
+  const [showPacman, setShowPacman] = useState(selectedGameChild?.showPacman ?? true)
+  const [showWordDefense, setShowWordDefense] = useState(selectedGameChild?.showWordDefense ?? true)
   const [couponTitle, setCouponTitle] = useState("")
   const [couponDescription, setCouponDescription] = useState("")
   const [couponKind, setCouponKind] = useState<"regular" | "blank">("regular")
@@ -126,6 +133,10 @@ export function ParentDashboard({
       }
     })
   }
+
+  useEffect(() => { setShowPacman(selectedGameChild?.showPacman ?? true); setShowWordDefense(selectedGameChild?.showWordDefense ?? true) }, [selectedCouponChildId, selectedGameChild?.showPacman, selectedGameChild?.showWordDefense])
+
+  function saveGameVisibility() { setError(""); startTransition(async () => { try { await updateChildGameVisibility({ childProfileId: selectedCouponChildId, showPacman, showWordDefense }); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "게임 노출 설정을 저장하지 못했습니다.") } }) }
 
   function saveArcadeSettings() {
     setError("")
@@ -380,9 +391,14 @@ export function ParentDashboard({
           {couponSection === "game" && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-bold">팩맨 게임</h3>
-                <p className="mt-1 text-xs text-muted-foreground">학습을 마친 자녀가 하루에 플레이할 수 있는 횟수와 입장 조건을 정합니다.</p>
+                <h3 className="font-bold">게임 노출 및 이용 통계</h3>
+                <p className="mt-1 text-xs text-muted-foreground">자녀 앱에 표시할 게임을 선택하고 실제 시작 횟수를 확인합니다. 숨겨도 이용 기록은 보존됩니다.</p>
               </div>
+              <HapticSwitch checked={showPacman} onCheckedChange={setShowPacman} label="팩맨 표시" description="끄면 이 자녀의 앱에서 팩맨 시작 버튼을 숨깁니다." />
+              <HapticSwitch checked={showWordDefense} onCheckedChange={setShowWordDefense} label="영단어 디펜스 표시" description="끄면 이 자녀의 앱에서 타자 디펜스 버튼을 숨깁니다." />
+              <HapticButton disabled={isPending || !selectedCouponChildId} onClick={saveGameVisibility} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold">게임 노출 설정 저장</HapticButton>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-3 text-sm"><div><p className="text-xs text-muted-foreground">팩맨 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "pacman")?.total ?? 0}회</strong></div><div><p className="text-xs text-muted-foreground">디펜스 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "word_defense")?.total ?? 0}회</strong></div></div>
+              <h3 className="font-bold">팩맨 게임 이용 조건</h3>
               <HapticSwitch checked={pacmanEnabled} onCheckedChange={setPacmanEnabled} label="팩맨 게임 허용" description="끄면 자녀 앱에서 팩맨 게임을 이용할 수 없습니다." />
               <fieldset disabled={!pacmanEnabled} className="space-y-4 disabled:opacity-45">
                 <label className="block space-y-1 text-sm"><span className="font-medium">하루 플레이 가능 횟수</span><input type="number" min={1} max={10} value={pacmanDailyPlayLimit} onChange={(event) => setPacmanDailyPlayLimit(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">1~10회 · 게임을 시작할 때 1회 차감됩니다.</span></label>
