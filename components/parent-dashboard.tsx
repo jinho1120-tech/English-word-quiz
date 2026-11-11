@@ -496,7 +496,7 @@ export function ParentDashboard({
                   <label className="block space-y-1 text-sm"><span className="font-medium">게임 입장을 위한 하루 최소 문제 수</span><input type="number" min={1} max={100} value={pacmanMinDailyQuestions} onChange={(event) => setPacmanMinDailyQuestions(Number(event.target.value))} className="w-full rounded-lg border border-border bg-background px-3 py-2" /><span className="text-xs text-muted-foreground">기본 10문제 · 1~100개 범위에서 설정할 수 있습니다.</span></label>
                   <HapticSwitch checked={pacmanRequireNoWrongWords} onCheckedChange={setPacmanRequireNoWrongWords} label="남아 있는 오답 모두 해결" description="켜면 오늘 푼 문제뿐 아니라 이전부터 남아 있는 오답까지 모두 해결해야 게임을 시작할 수 있습니다." />
                 </fieldset>
-                <HapticButton disabled={isPending || (!pacmanUnlimitedPlays && (!Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10)) || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings> className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
+                <HapticButton disabled={isPending || (!pacmanUnlimitedPlays && (!Number.isInteger(pacmanDailyPlayLimit) || pacmanDailyPlayLimit < 1 || pacmanDailyPlayLimit > 10)) || !Number.isInteger(pacmanMinDailyQuestions) || pacmanMinDailyQuestions < 1 || pacmanMinDailyQuestions > 100} onClick={saveArcadeSettings} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold disabled:opacity-50">{isPending ? "저장 중..." : "게임 설정 저장"}</HapticButton>
               </section>
 
               <section className="space-y-4 border-t border-border pt-5">
