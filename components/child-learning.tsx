@@ -370,8 +370,8 @@ export function ChildLearning({
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
-              🟡 팩맨
+            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
+              팩맨 😮
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               영어 타자 디펜스 👻
