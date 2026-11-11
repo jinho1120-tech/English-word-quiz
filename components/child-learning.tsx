@@ -371,7 +371,7 @@ export function ChildLearning({
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
-              팩맨 시작 🎮
+              🟡 팩맨
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               영어 타자 디펜스 👻

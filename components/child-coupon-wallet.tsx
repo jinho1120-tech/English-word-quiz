@@ -38,7 +38,7 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
         setWalletRewards(wallet.rewards)
         if (!stillAvailable) {
           setRequest(null)
-          setNotice(`${watchRequest.title} 쿠폰 사용이 승인되어 보관함에서 삭제됐어요.`)
+          setNotice(`${watchRequest.title} 쿠폰이 사용되었습니다.`)
           setWatchRequest(null)
         } else if (new Date(watchRequest.expiresAt).getTime() <= Date.now()) {
           setRequest(null)
@@ -60,9 +60,7 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
   }, [watchRequest])
 
   // 발급된 쿠폰이 하나도 없으면 쿠폰함 아이콘 자체를 표시하지 않습니다.
-  if (walletRewards.length === 0) {
-    return notice ? <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{notice}</p> : null
-  }
+  const hasRewards = walletRewards.length > 0
 
   function showQr(reward: Reward) {
     setError("")
@@ -80,7 +78,8 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
   }
 
   return (
-    <div className="relative">
+    <>
+    {hasRewards && <div className="relative">
       <HapticButton type="button" onClick={() => setIsOpen((value) => !value)} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm">
         🎁 쿠폰함 <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px]">{availableCount}/{maxStoredCoupons}</span>
       </HapticButton>
@@ -104,6 +103,15 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
           <HapticButton onClick={() => setRequest(null)} className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-semibold">닫기</HapticButton>
         </div>
       </div>}
-    </div>
+    </div>}
+    {notice && <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="coupon-used-title">
+      <div className="w-full max-w-sm space-y-3 rounded-2xl border border-emerald-200 bg-background p-5 text-center shadow-2xl">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">✓</div>
+        <h2 id="coupon-used-title" className="text-lg font-black">쿠폰 사용 알림</h2>
+        <p className="text-sm font-semibold">{notice}</p>
+        <HapticButton type="button" onClick={() => setNotice("")} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">확인</HapticButton>
+      </div>
+    </div>}
+    </>
   )
 }
