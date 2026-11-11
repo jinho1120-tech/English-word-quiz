@@ -238,7 +238,7 @@ export function ChildLearning({
             hapticLabel="날짜별 퀴즈 탭"
             onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <GraduationCap className={`size-5 shrink-0 ${activeTab === "daily" ? "animate-tab-pulse" : ""}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>날짜별 퀴즈</span>
           </HapticButton>
@@ -246,7 +246,7 @@ export function ChildLearning({
             hapticLabel="오답 몬스터 탭"
             onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <Ghost className={`size-5 shrink-0 ${activeTab === "wrong" ? "animate-monster-hop" : ""}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
             <span>오답 몬스터</span>
@@ -255,14 +255,14 @@ export function ChildLearning({
             hapticLabel="단어 입력 탭"
             onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+            className={`w-full h-full flex flex-col items-center justify-center gap-1 rounded-xl py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
           >
             <Pencil className={`size-5 shrink-0 ${activeTab === "manage" ? "animate-pencil-write" : ""}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>단어 입력</span>
           </HapticButton>
         </div>
         {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
-          <HapticButton type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={!filterSubjectId ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>전체</HapticButton>
-          {subjects.map((subject) => <HapticButton type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "text-white shadow-sm" : "border border-border bg-muted text-muted-foreground"}`} style={filterSubjectId === subject.id ? { backgroundColor: "var(--child-accent, #2563eb)" } : undefined}>{subject.name}</HapticButton>)}
+          <HapticButton type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "bg-primary text-primary-foreground shadow-sm" : "border border-border bg-muted text-muted-foreground"}`}>전체</HapticButton>
+          {subjects.map((subject) => <HapticButton type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "bg-primary text-primary-foreground shadow-sm" : "border border-border bg-muted text-muted-foreground"}`}>{subject.name}</HapticButton>)}
         </div>}
       </section>
 
