@@ -4,7 +4,7 @@ import { randomInt } from "node:crypto"
 import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { childPacmanDailyPlays, childProfiles, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -651,8 +651,10 @@ export async function getChildPacmanStatus() {
     .where(and(eq(childPacmanDailyPlays.childProfileId, child.childProfileId), eq(childPacmanDailyPlays.playDate, eligibility.today)))
     .limit(1)
   const playsUsed = usage?.playsUsed ?? 0
+  const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
   return {
-    enabled: eligibility.settings?.pacmanEnabled ?? false,
+    showPacman: profile?.showPacman ?? true, showWordDefense: profile?.showWordDefense ?? true,
+    enabled: (eligibility.settings?.pacmanEnabled ?? false) && (profile?.showPacman ?? true),
     dailyPlayLimit, playsUsed,
     remainingPlays: Math.max(0, dailyPlayLimit - playsUsed),
     dailyQuestionCount: eligibility.dailyQuestionCount,
@@ -663,8 +665,12 @@ export async function getChildPacmanStatus() {
   }
 }
 
-export async function startChildPacmanGame() {
+export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pacman") {
   const child = await requireChild()
+  if (game !== "pacman" && game !== "word_defense") throw new Error("게임 종류가 올바르지 않습니다.")
+  const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
+  if (game === "pacman" && !profile?.showPacman) throw new Error("부모님이 팩맨 게임을 숨겼어요.")
+  if (game === "word_defense" && !profile?.showWordDefense) throw new Error("부모님이 영어 타자 디펜스 게임을 숨겼어요.")
   const eligibility = await getPacmanEligibility(child.childProfileId)
   if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 아직 팩맨 게임을 허용하지 않았어요.")
   if (!eligibility.eligible) {
@@ -682,6 +688,7 @@ export async function startChildPacmanGame() {
   `)
   const row = result.rows[0] as { plays_used: number } | undefined
   if (!row) throw new Error("오늘 사용할 수 있는 팩맨 게임 횟수를 모두 사용했어요. 내일 다시 도전해요!")
+  await db.insert(childGamePlays).values({ childProfileId: child.childProfileId, game })
   revalidatePath("/child")
   return { playsUsed: Number(row.plays_used), remainingPlays: Math.max(0, dailyPlayLimit - Number(row.plays_used)), dailyPlayLimit }
 }
