@@ -72,7 +72,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
     const message = listFilterSubjectId === "__all__"
       ? `${date}에 등록된 전체 과목 단어 ${count}개를 모두 삭제할까요?`
       : `${date}에 등록된 [${subjectName}] 단어 ${count}개를 모두 삭제할까요?`
-    if (!window.confirm(message + "\\n삭제한 단어는 복구할 수 없습니다.")) return
+    if (!window.confirm(message + "\n삭제한 단어는 복구할 수 없습니다.")) return
     run(async () => {
       const result = await deleteParentChildWordsByDate(childProfileId, date, listFilterSubjectId === "__all__" ? undefined : listFilterSubjectId)
       setEditingId(null)
