@@ -132,6 +132,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   const gameStartTimeRef = useRef<number>(Date.now());
   const lastTimeRef = useRef<number>(performance.now());
   const totalDotsCountRef = useRef(0);
+  const stageClearTriggeredRef = useRef(false);
 
   // 라운드 내 위치 초기화 (피격 시)
   const resetPositions = useCallback((targetStage: number = stageRef.current) => {
@@ -168,6 +169,8 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
 
   // 💡 다음 스테이지 시작 (도트 리필 & 보너스 점수)
   const advanceToNextStage = useCallback(() => {
+    if (stageClearTriggeredRef.current) return;
+    stageClearTriggeredRef.current = true;
     const nextStage = stageRef.current + 1;
     setIsStageClear(true);
     setScore((prev) => prev + 1000); // 스테이지 완주 보너스 1,000점
@@ -182,6 +185,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
       const nextDotCount = countDotsInMap(nextMap);
       totalDotsCountRef.current = nextDotCount;
       setDotsLeft(nextDotCount);
+      stageClearTriggeredRef.current = false;
       stageRef.current = nextStage;
       setStage(nextStage);
       setIsStageClear(false);
@@ -202,6 +206,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
     setLives(3);
     setGameOver(false);
     setIsStageClear(false);
+    stageClearTriggeredRef.current = false;
     setCherryVisible(false);
     setCherryPopup(null);
     cherrySpawnedRef.current = false;
