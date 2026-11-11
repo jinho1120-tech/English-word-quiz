@@ -18,7 +18,7 @@ const subjectColors: Record<string, string> = {
   "리딩": "bg-blue-500",
   "스피킹": "bg-red-500",
   "문법": "bg-green-500",
-  "단어": "bg-amber-500",
+  "단어": "bg-gray-500",
 }
 
 function getSubjectColor(subject: string) {
