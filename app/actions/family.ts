@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, desc, eq, gt, isNull, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -242,6 +242,43 @@ export async function createChildProfile(input: { displayName: string }) {
 
   revalidatePath("/parent")
   return { ...child, accessCode }
+}
+
+
+export async function updateChildProfileName(input: { childProfileId: string; displayName: string }) {
+  const { family, currentUserName } = await requireParentFamily()
+  const childLabel = currentUserName === "아빠" || currentUserName === "엄마" ? "자녀" : "아이"
+  if (typeof input?.childProfileId !== "string" || !input.childProfileId || typeof input.displayName !== "string") {
+    throw new Error(`${childLabel} 이름 정보가 올바르지 않습니다.`)
+  }
+
+  const displayName = input.displayName.trim()
+  if (!displayName || displayName.length > 40) {
+    throw new Error("이름은 1~40자로 입력해 주세요.")
+  }
+
+  const [duplicate] = await db.select({ id: childProfiles.id })
+    .from(childProfiles)
+    .where(and(
+      eq(childProfiles.familyId, family.id),
+      eq(childProfiles.displayName, displayName),
+      ne(childProfiles.id, input.childProfileId),
+    ))
+    .limit(1)
+  if (duplicate) throw new Error(`이미 이 가족의 다른 ${childLabel}가 사용 중인 이름입니다.`)
+
+  const [updated] = await db.update(childProfiles)
+    .set({ displayName, updatedAt: new Date() })
+    .where(and(
+      eq(childProfiles.id, input.childProfileId),
+      eq(childProfiles.familyId, family.id),
+    ))
+    .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+
+  if (!updated) throw new Error(`수정할 ${childLabel} 프로필을 찾을 수 없습니다.`)
+  revalidatePath("/parent")
+  revalidatePath("/child")
+  return { success: true, displayName: updated.displayName }
 }
 
 export async function resetChildCredentials(input: { childProfileId: string; pin: string }) {
