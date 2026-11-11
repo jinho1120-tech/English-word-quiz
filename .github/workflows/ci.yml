@@ -25,6 +25,8 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Type check
         run: pnpm exec tsc --noEmit
+      - name: Check design system conventions
+        run: pnpm check:design-system
       - name: Check Drizzle migration history
         run: pnpm exec drizzle-kit check
       - name: Build

@@ -9,7 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "auth:check": "npx auth@latest check schema --config ./lib/auth.ts",
-    "auth:generate": "npx auth@latest generate --config ./lib/auth.ts --adapter drizzle --dialect postgresql --output ./lib/db/auth-schema.ts --yes"
+    "auth:generate": "npx auth@latest generate --config ./lib/auth.ts --adapter drizzle --dialect postgresql --output ./lib/db/auth-schema.ts --yes",
+    "check:design-system": "node scripts/check-design-system.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

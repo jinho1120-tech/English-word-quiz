@@ -29,6 +29,11 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
+  --color-primary-container-foreground: var(--primary-container-foreground);
+  --color-theme-outline: var(--theme-outline);
+  --color-child-accent: var(--child-accent);
+  --color-child-accent-foreground: var(--child-accent-foreground);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -55,6 +60,11 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  --primary-container: color-mix(in srgb, var(--primary) 13%, var(--background));
+  --primary-container-foreground: var(--foreground);
+  --theme-outline: color-mix(in srgb, var(--primary) 34%, var(--border));
+  --child-accent: var(--primary);
+  --child-accent-foreground: var(--primary-foreground);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);

@@ -11,6 +11,8 @@ const COLORS = [
 
 type ThemeMode = "system" | "light" | "dark"
 
+const DEFAULT_THEME_COLOR = "#14B8A6"
+
 function normalizeHex(value: string) {
   const raw = value.trim().replace(/^#/, "")
   if (/^[0-9a-fA-F]{3}$/.test(raw)) return "#" + raw.split("").map((c) => c + c).join("").toUpperCase()
@@ -18,21 +20,67 @@ function normalizeHex(value: string) {
   return null
 }
 
+function relativeLuminance(color: string) {
+  const hex = normalizeHex(color) || DEFAULT_THEME_COLOR
+  const channels = [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255)
+  const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+}
+
+function contrastRatio(first: string, second: string) {
+  const a = relativeLuminance(first)
+  const b = relativeLuminance(second)
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+}
+
+function mixHex(first: string, second: string, amount: number) {
+  const a = normalizeHex(first) || DEFAULT_THEME_COLOR
+  const b = normalizeHex(second) || "#FFFFFF"
+  const channels = [0, 2, 4].map((index) => {
+    const start = parseInt(a.slice(index, index + 2), 16)
+    const end = parseInt(b.slice(index, index + 2), 16)
+    return Math.round(start + (end - start) * amount).toString(16).padStart(2, "0")
+  })
+  return "#" + channels.join("").toUpperCase()
+}
+
+function getAccessibleAccent(color: string, isDark: boolean) {
+  const surface = isDark ? "#171717" : "#FFFFFF"
+  if (contrastRatio(color, surface) >= 4.5) return color
+  const target = isDark ? "#FFFFFF" : "#000000"
+  for (let step = 1; step <= 100; step += 1) {
+    const candidate = mixHex(color, target, step / 100)
+    if (contrastRatio(candidate, surface) >= 4.5) return candidate
+  }
+  return target
+}
+
+function getContrastingForeground(color: string) {
+  return contrastRatio(color, "#000000") >= contrastRatio(color, "#FFFFFF") ? "#000000" : "#FFFFFF"
+}
+
 function applyAppearance(color: string, mode: ThemeMode) {
   const root = document.documentElement
-  root.style.setProperty("--child-accent", color)
-  root.style.setProperty("--primary", color)
-  root.style.setProperty("--ring", color)
-  const hex = color.replace("#", "")
-  const r = parseInt(hex.slice(0, 2), 16)
-  const g = parseInt(hex.slice(2, 4), 16)
-  const b = parseInt(hex.slice(4, 6), 16)
-  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-  root.style.setProperty("--primary-foreground", luminance > 0.62 ? "#111827" : "#FFFFFF")
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+  const isDark = mode === "dark" || (mode === "system" && prefersDark)
+  const sourceColor = normalizeHex(color) || DEFAULT_THEME_COLOR
+  const accent = getAccessibleAccent(sourceColor, isDark)
+  const foreground = getContrastingForeground(accent)
+
+  // Central owner for global theme tokens shared by parent and child apps.
+  root.style.setProperty("--primary", accent)
+  root.style.setProperty("--primary-foreground", foreground)
+  root.style.setProperty("--ring", accent)
+  root.style.setProperty("--child-accent", accent)
+  root.style.setProperty("--child-accent-foreground", foreground)
+  root.dataset.themeSourceColor = sourceColor
+
   root.classList.remove("light", "dark")
   if (mode === "light") root.classList.add("light")
   if (mode === "dark") root.classList.add("dark")
   root.dataset.themeMode = mode
+
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", accent)
 }
 
 export function ChildProfileSettings({ profileKey = "family" }: { profileKey?: string }) {
@@ -43,17 +91,38 @@ export function ChildProfileSettings({ profileKey = "family" }: { profileKey?: s
   const storageKey = "english-word-master-appearance"
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}")
-      const color = normalizeHex(typeof saved.color === "string" ? saved.color : "") || "#14B8A6"
-      const mode: ThemeMode = ["system", "light", "dark"].includes(saved.mode) ? saved.mode : "system"
-      setSelected(color)
-      setHexInput(color)
-      setThemeMode(mode)
-      applyAppearance(color, mode)
-    } catch {
-      applyAppearance("#14B8A6", "system")
+    function loadSavedAppearance() {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}")
+        const color = normalizeHex(typeof saved.color === "string" ? saved.color : "") || DEFAULT_THEME_COLOR
+        const mode: ThemeMode = ["system", "light", "dark"].includes(saved.mode) ? saved.mode : "system"
+        setSelected(color)
+        setHexInput(color)
+        setThemeMode(mode)
+        applyAppearance(color, mode)
+      } catch {
+        setSelected(DEFAULT_THEME_COLOR)
+        setHexInput(DEFAULT_THEME_COLOR)
+        setThemeMode("system")
+        applyAppearance(DEFAULT_THEME_COLOR, "system")
+      }
     }
+    loadSavedAppearance()
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)")
+    function handleSystemThemeChange() {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(storageKey) || "{}")
+        if (saved.mode === "system" || !["light", "dark"].includes(saved.mode)) {
+          const color = normalizeHex(typeof saved.color === "string" ? saved.color : "") || DEFAULT_THEME_COLOR
+          applyAppearance(color, "system")
+        }
+      } catch {
+        applyAppearance(DEFAULT_THEME_COLOR, "system")
+      }
+    }
+    media.addEventListener("change", handleSystemThemeChange)
+    return () => media.removeEventListener("change", handleSystemThemeChange)
   }, [storageKey, profileKey])
 
   function save(color: string, mode = themeMode) {
@@ -89,15 +158,15 @@ export function ChildProfileSettings({ profileKey = "family" }: { profileKey?: s
               ["light", "라이트", Sun],
               ["dark", "다크", Moon],
             ] as const).map(([mode, label, Icon]) => (
-              <button key={mode} type="button" onClick={() => save(selected, mode)} className={`flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-semibold ${themeMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>
+              <button key={mode} type="button" aria-pressed={themeMode === mode} onClick={() => save(selected, mode)} className={`flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[11px] font-semibold ${themeMode === mode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>
                 <Icon className="size-4" />{label}
               </button>
             ))}
           </div>
           <p className="mb-2 text-xs font-semibold text-muted-foreground">메인 테마 색상</p>
           <div className="mb-3 grid grid-cols-5 gap-2">
-            {COLORS.map((color) => <button key={color} type="button" aria-label={color} title={color} onClick={() => save(color)} className={`flex size-9 items-center justify-center rounded-full border-2 ${selected === color ? "border-foreground" : "border-transparent"}`} style={{ backgroundColor: color }}>
-              {selected === color && <Check className="size-4 text-white drop-shadow" />}
+            {COLORS.map((color) => <button key={color} type="button" aria-label={color} aria-pressed={selected === color} title={color} onClick={() => save(color)} className={`flex size-9 items-center justify-center rounded-full border-2 ${selected === color ? "border-foreground" : "border-transparent"}`} style={{ backgroundColor: color }}>
+              {selected === color && <Check className="size-4 drop-shadow" style={{ color: getContrastingForeground(color) }} />}
             </button>)}
           </div>
           <label className="mb-1 block text-xs font-semibold text-muted-foreground">세밀한 색상 선택</label>
@@ -106,8 +175,21 @@ export function ChildProfileSettings({ profileKey = "family" }: { profileKey?: s
             <input value={hexInput} onChange={(event) => updateHex(event.target.value)} onBlur={() => setHexInput(selected)} aria-label="HEX 색상 코드" placeholder="#14B8A6" className="min-w-0 flex-1 bg-transparent font-mono text-sm outline-none" />
             <span className="text-[10px] text-muted-foreground">HEX</span>
           </div>
-          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">선택한 색상은 이 기기에 저장되어 주요 버튼과 선택 상태 등에 적용됩니다.</p>
-          <button type="button" onClick={() => setOpen(false)} className="mt-3 w-full rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground">완료</button>
+          <div className="mt-3 space-y-2 rounded-xl border border-border bg-card p-3">
+            <p className="text-[11px] font-bold text-muted-foreground">적용 미리보기</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-lg bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">주요 버튼</span>
+              <span className="rounded-lg bg-primary-container px-3 py-2 text-xs font-semibold text-primary-container-foreground">선택된 메뉴</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div className="h-full w-2/3 rounded-full bg-primary" />
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">색상은 이 브라우저의 기기에 저장됩니다. 밝거나 어두운 색은 가독성을 위해 강조색의 명도가 자동 조정될 수 있습니다.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => save(DEFAULT_THEME_COLOR, "system")} className="rounded-xl border border-border px-3 py-2.5 text-xs font-semibold text-muted-foreground">기본 테마 복원</button>
+            <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground">완료</button>
+          </div>
         </div>
       </>}
     </div>

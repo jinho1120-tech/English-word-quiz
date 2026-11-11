@@ -14,6 +14,10 @@ import { QuizResult } from "./quiz-result"
 
 const DAD_PHONE = process.env.NEXT_PUBLIC_DAD_PHONE || ""
 
+function accentTint(accent: string, opacityPercent: number) {
+  return `color-mix(in srgb, ${accent} ${opacityPercent}%, transparent)`
+}
+
 const TTS_VOICES = [
   { id: "en-US-AnaNeural", label: "👧 Ana (아동)" },
   { id: "en-US-JennyNeural", label: "👩 Jenny (여성)" },
@@ -867,7 +871,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                     "flex items-center h-full gap-1 rounded-full px-2.5 py-1.5 text-xs font-bold transition-colors border",
                     !isSlowMode && "bg-muted/50 border-transparent text-muted-foreground hover:bg-muted"
                   )}
-                  style={isSlowMode ? { backgroundColor: accent + '1A', borderColor: accent + '33', color: accent } : undefined}
+                  style={isSlowMode ? { backgroundColor: accentTint(accent, 10), borderColor: accentTint(accent, 20), color: accent } : undefined}
                 >
                   {isSlowMode ? "🐢 느리게" : "🐇 보통"}
                 </HapticButton>
@@ -899,7 +903,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
               {quizType === "speaking" ? (
                 <div className="mb-4 flex items-center justify-between text-xs font-medium text-muted-foreground">
                   <span className="flex items-center gap-1.5"><Mic className="size-4" style={{ color: accent }} /> <span className="font-bold text-foreground">스피킹 훈련</span></span>
-                  <span className="rounded-full px-4 py-1 font-black border shadow-sm" style={{ color: accent, backgroundColor: accent + '1A', borderColor: accent + '33' }}>
+                  <span className="rounded-full px-4 py-1 font-black border shadow-sm" style={{ color: accent, backgroundColor: accentTint(accent, 10), borderColor: accentTint(accent, 20) }}>
                     {index + 1} / {total}
                   </span>
                   <span className="flex items-center gap-1 font-bold text-amber-500 animate-pulse"><Sparkles className="size-4" /> 자신감 UP!</span>
@@ -1031,7 +1035,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                                 {isClickable && (
                                   <span 
                                     className="inline-flex self-center items-center justify-center rounded-full p-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: accent + '1A', color: accent }}
+                                    style={{ backgroundColor: accentTint(accent, 10), color: accent }}
                                   >
                                     <Volume2 className="size-3" />
                                   </span>
@@ -1079,7 +1083,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                           isRecording && isMicReady ? "bg-red-500 animate-pulse scale-105" : 
                           (pronResult ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:scale-105" : "hover:scale-105")
                         )}
-                        style={(!isRecording && !pronResult) ? { backgroundColor: accent } : undefined}
+                        style={(!isRecording && !pronResult) ? { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" } : undefined}
                       >
                         {isRecording && !isMicReady && <Loader2 className="size-4 animate-spin" />}
                         {isRecording && isMicReady && <Mic className="size-4 animate-bounce" />}
@@ -1097,7 +1101,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                         onClick={playFullUserAudio}
                         wrapperClassName="relative flex w-full"
                         className="w-full flex items-center justify-center gap-2 rounded-2xl py-2.5 font-bold text-sm shadow-sm transition-transform hover:opacity-80 active:scale-95 animate-in fade-in"
-                        style={{ color: accent, backgroundColor: accent + '1A' }}
+                        style={{ color: accent, backgroundColor: accentTint(accent, 10) }}
                       >
                         <Headphones className="size-4" /> 내 전체 녹음 듣기
                       </HapticButton>
@@ -1135,7 +1139,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                       {(isCoachLoading || aiCoachMsg) && (
                         <div 
                           className="w-full max-w-sm animate-in slide-in-from-top-2 fade-in duration-500 rounded-2xl p-3.5 border text-center shadow-inner mt-2"
-                          style={{ backgroundColor: accent + '0D', borderColor: accent + '33' }}
+                          style={{ backgroundColor: accentTint(accent, 5), borderColor: accentTint(accent, 20) }}
                         >
                           <p className="text-[11px] font-bold mb-1 flex items-center justify-center gap-1.5" style={{ color: accent }}>
                             <Sparkles className="size-3.5 animate-spin" /> AI 선생님의 맞춤 코칭
@@ -1208,7 +1212,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                       onClick={() => playPronunciation(current.word)} 
                       wrapperClassName="relative flex mb-3"
                       className="flex size-20 items-center justify-center rounded-full text-white shadow-lg transition-transform hover:scale-105 active:scale-95" 
-                      style={{ backgroundColor: accent }}
+                      style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
                     >
                       <Volume2 className="size-10" />
                     </HapticButton>
@@ -1236,7 +1240,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                               onClick={() => playPronunciation(getFullSentence())} 
                               wrapperClassName="relative inline-flex mt-2"
                               className="flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-black text-white shadow-md transition-transform hover:scale-105 active:scale-95" 
-                              style={{ backgroundColor: accent }}
+                              style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
                             >
                               <Volume2 className="size-5" /> 문장 듣고 따라하기
                             </HapticButton>
@@ -1263,7 +1267,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                       onClick={() => playPronunciation(current.word)} 
                       wrapperClassName="relative inline-flex"
                       className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80 shadow-sm" 
-                      style={{ backgroundColor: accent, color: "white" }}
+                      style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
                     >
                       <Volume2 className="size-4" /> 단어 듣기
                     </HapticButton>
@@ -1384,7 +1388,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childMode = fal
                     feedback === "correct" && "bg-green-500 hover:bg-green-600", 
                     feedback === "wrong" && "bg-red-500 hover:bg-red-600"
                   )} 
-                  style={(feedback === "idle" || feedback === "grading") ? { backgroundColor: accent } : undefined}
+                  style={(feedback === "idle" || feedback === "grading") ? { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" } : undefined}
                 >
                   {feedback === "idle" && <>정답 확인 <ArrowRight className="size-5" /></>}
                   {feedback === "grading" && <><Loader2 className="size-5 animate-spin" /> AI 선생님이 채점 중... 🧐</>}
