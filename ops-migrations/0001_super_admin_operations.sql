@@ -40,12 +40,15 @@ CREATE TABLE IF NOT EXISTS provider_monthly_costs (
   billing_month date NOT NULL,
   amount numeric(14, 2) NOT NULL CHECK (amount >= 0),
   currency varchar(3) NOT NULL DEFAULT 'KRW' CHECK (currency IN ('KRW', 'USD')),
+  usage_summary varchar(500),
   note varchar(500),
   updated_by_user_id text NOT NULL,
   updated_by_email varchar(320) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE provider_monthly_costs ADD COLUMN IF NOT EXISTS usage_summary varchar(500);
 
 CREATE UNIQUE INDEX IF NOT EXISTS provider_monthly_costs_provider_month_unique
   ON provider_monthly_costs (provider, billing_month);

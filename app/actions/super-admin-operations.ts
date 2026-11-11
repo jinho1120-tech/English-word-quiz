@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { pool } from "@/lib/db"
+import type { PoolClient } from "pg"
 import { requireSuperAdmin } from "@/lib/super-admin"
 
 const PROVIDERS = new Set(["gemini", "azure_speech"])
@@ -21,7 +22,7 @@ function readOptionalFamilyId(formData: FormData) {
 }
 
 function addSystemAudit(
-  client: Awaited<ReturnType<typeof pool.connect>>,
+  client: PoolClient,
   actor: { id: string; email: string },
   action: string,
   targetType: string,
@@ -121,6 +122,8 @@ export async function saveProviderMonthlyCost(formData: FormData) {
   const currencyValue = formData.get("currency")
   const currency = currencyValue === "USD" ? "USD" : currencyValue === "KRW" ? "KRW" : null
   if (!currency) throw new Error("통화를 선택해 주세요.")
+  const usageValue = formData.get("usageSummary")
+  const usageSummary = typeof usageValue === "string" ? usageValue.trim().slice(0, 500) : ""
   const noteValue = formData.get("note")
   const note = typeof noteValue === "string" ? noteValue.trim().slice(0, 500) : ""
 
@@ -129,19 +132,20 @@ export async function saveProviderMonthlyCost(formData: FormData) {
     await client.query("BEGIN")
     await client.query(
       `INSERT INTO provider_monthly_costs
-        (provider, billing_month, amount, currency, note, updated_by_user_id, updated_by_email, created_at, updated_at)
-       VALUES ($1, to_date($2 || '-01', 'YYYY-MM-DD'), $3, $4, $5, $6, $7, now(), now())
+        (provider, billing_month, amount, currency, usage_summary, note, updated_by_user_id, updated_by_email, created_at, updated_at)
+       VALUES ($1, to_date($2 || '-01', 'YYYY-MM-DD'), $3, $4, $5, $6, $7, $8, now(), now())
        ON CONFLICT (provider, billing_month)
        DO UPDATE SET amount = EXCLUDED.amount,
+                     usage_summary = EXCLUDED.usage_summary,
                      currency = EXCLUDED.currency,
                      note = EXCLUDED.note,
                      updated_by_user_id = EXCLUDED.updated_by_user_id,
                      updated_by_email = EXCLUDED.updated_by_email,
                      updated_at = now()`,
-      [provider, month, amount, currency, note || null, actor.id, actor.email],
+      [provider, month, amount, currency, usageSummary || null, note || null, actor.id, actor.email],
     )
     await addSystemAudit(client, actor, "provider_monthly_cost_saved", "provider_month", `${provider}:${month}`, {
-      provider, month, amount, currency, note,
+      provider, month, amount, currency, usageSummary, note,
     })
     await client.query("COMMIT")
   } catch (error) {
