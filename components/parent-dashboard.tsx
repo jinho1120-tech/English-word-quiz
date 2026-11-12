@@ -520,10 +520,10 @@ export function ParentDashboard({
                   <h3 className="font-bold">게임 노출 및 이용 통계</h3>
                   <p className="mt-1 text-xs text-muted-foreground">{childLabel} 앱에 표시할 게임을 선택하고 실제 시작 횟수를 확인합니다. 게임 허용을 끄면 두 게임 표시가 모두 꺼지고 설정할 수 없습니다. 이용 기록은 보존됩니다.</p>
                 </div>
-                <HapticSwitch checked={pacmanEnabled && showPacman} onCheckedChange={setShowPacman} disabled={!pacmanEnabled} label="팩맨 표시" description={`끄면 이 ${childLabel}의 앱에서 팩맨 시작 버튼을 숨깁니다.`} />
+                <HapticSwitch checked={pacmanEnabled && showPacman} onCheckedChange={setShowPacman} disabled={!pacmanEnabled} label="보카맨 표시" description={`끄면 이 ${childLabel}의 앱에서 보카맨 시작 버튼을 숨깁니다.`} />
                 <HapticSwitch checked={pacmanEnabled && showWordDefense} onCheckedChange={setShowWordDefense} disabled={!pacmanEnabled} label="영단어 디펜스 표시" description={`끄면 이 ${childLabel}의 앱에서 타자 디펜스 버튼을 숨깁니다.`} />
                 <HapticButton disabled={isPending || !selectedCouponChildId || !pacmanEnabled} onClick={saveGameVisibility} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold">게임 노출 설정 저장</HapticButton>
-                <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-3 text-sm"><div><p className="text-xs text-muted-foreground">팩맨 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "pacman")?.total ?? 0}회</strong></div><div><p className="text-xs text-muted-foreground">디펜스 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "word_defense")?.total ?? 0}회</strong></div></div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-3 text-sm"><div><p className="text-xs text-muted-foreground">보카맨 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "pacman")?.total ?? 0}회</strong></div><div><p className="text-xs text-muted-foreground">디펜스 누적</p><strong className="text-xl">{gameUsage.find((x) => x.childProfileId === selectedCouponChildId && x.game === "word_defense")?.total ?? 0}회</strong></div></div>
               </section>
             </div>
           )}

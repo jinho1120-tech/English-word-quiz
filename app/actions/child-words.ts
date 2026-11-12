@@ -672,11 +672,11 @@ export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pa
   const [profile] = await db.select({ showPacman: childProfiles.showPacman, showWordDefense: childProfiles.showWordDefense }).from(childProfiles).where(eq(childProfiles.id, child.childProfileId)).limit(1)
   const eligibility = await getPacmanEligibility(child.childProfileId)
   if (!eligibility.settings?.pacmanEnabled) throw new Error("부모님이 게임 이용을 허용하지 않았어요.")
-  if (game === "pacman" && !profile?.showPacman) throw new Error("부모님이 팩맨 게임을 숨겼어요.")
+  if (game === "pacman" && !profile?.showPacman) throw new Error("부모님이 보카맨 게임을 숨겼어요.")
   if (game === "word_defense" && !profile?.showWordDefense) throw new Error("부모님이 영어 타자 디펜스 게임을 숨겼어요.")
   if (!eligibility.eligible) {
-    if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 팩맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
-    throw new Error("이전부터 남아 있는 오답까지 모두 해결한 뒤 팩맨을 할 수 있어요.")
+    if (!eligibility.questionsMet) throw new Error(`오늘 단어 문제를 ${eligibility.minDailyQuestions}개 이상 풀어야 보카맨을 할 수 있어요. 현재 ${eligibility.dailyQuestionCount}개를 풀었어요.`)
+    throw new Error("이전부터 남아 있는 오답까지 모두 해결한 뒤 보카맨을 할 수 있어요.")
   }
   const dailyPlayLimit = eligibility.settings.pacmanDailyPlayLimit
   const result = await db.execute(sql`
@@ -688,7 +688,7 @@ export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pa
     RETURNING plays_used
   `)
   const row = result.rows[0] as { plays_used: number } | undefined
-  if (!row) throw new Error("오늘 사용할 수 있는 팩맨 게임 횟수를 모두 사용했어요. 내일 다시 도전해요!")
+  if (!row) throw new Error("오늘 사용할 수 있는 보카맨 게임 횟수를 모두 사용했어요. 내일 다시 도전해요!")
   await db.insert(childGamePlays).values({ childProfileId: child.childProfileId, game })
   revalidatePath("/child")
   return {
