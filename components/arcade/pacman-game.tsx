@@ -181,6 +181,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     mouthDir: 1,
   });
 
+  const ghostAscensionsRef = useRef<Array<{ x: number; y: number; word: string; startedAt: number }>>([]);
+
   const ghostsRef = useRef<Ghost[]>([
     { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
     { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
@@ -482,6 +484,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       defenseActiveRef.current = false;
       const defeatedGhost = ghostsRef.current.find((ghost) => ghost.id === defenseEncounter.ghostId);
       if (defeatedGhost) {
+        ghostAscensionsRef.current.push({ x: defeatedGhost.x, y: defeatedGhost.y, word: defenseEncounter.word.word.toUpperCase(), startedAt: Date.now() });
         defeatedGhost.x = 7.0;
         defeatedGhost.y = 6.0;
         defeatedGhost.dirX = 0;
@@ -852,6 +855,33 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.fillText(label, gx, labelY, labelWidth - 8);
           ctx.restore();
         }
+      });
+
+      // 정답을 맞힌 유령은 단어를 남기며 위로 승천한 뒤 소굴에서 다시 등장한다.
+      ghostAscensionsRef.current = ghostAscensionsRef.current.filter((effect) => nowMs - effect.startedAt < 1050);
+      ghostAscensionsRef.current.forEach((effect) => {
+        const progress = Math.min(1, (nowMs - effect.startedAt) / 1050);
+        const rise = 54 * (1 - Math.pow(1 - progress, 2));
+        const alpha = 1 - progress;
+        const x = effect.x * CELL_SIZE + CELL_SIZE / 2;
+        const y = effect.y * CELL_SIZE + CELL_SIZE / 2 - rise;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 11px sans-serif";
+        ctx.shadowColor = "#67e8f9";
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(effect.word, x, y);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#67e8f9";
+        for (let particle = 0; particle < 3; particle++) {
+          ctx.beginPath();
+          ctx.arc(x + Math.sin(progress * 12 + particle) * 8, y + 9 + particle * 5, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       });
 
       // READY 문구
