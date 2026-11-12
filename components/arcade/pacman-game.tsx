@@ -78,15 +78,6 @@ interface Ghost {
 
 type PacmanDefenseWord = { id: number; word: string; meaning: string };
 
-const FALLBACK_DEFENSE_WORDS: PacmanDefenseWord[] = [
-  { id: -1, word: "brave", meaning: "용감한" },
-  { id: -2, word: "protect", meaning: "보호하다" },
-  { id: -3, word: "discover", meaning: "발견하다" },
-  { id: -4, word: "journey", meaning: "여행" },
-  { id: -5, word: "careful", meaning: "조심하는" },
-  { id: -6, word: "bright", meaning: "밝은" },
-];
-
 interface PacmanGameProps {
   words?: PacmanDefenseWord[];
   extraPlaysLeft: number;
@@ -137,6 +128,36 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const [tiltStatus, setTiltStatus] = useState("센서 조작을 사용하려면 센서를 켜 주세요.");
   const [tiltDiagnostics, setTiltDiagnostics] = useState("센서 대기 중");
   const [tiltSensitivity, setTiltSensitivity] = useState(14);
+  const [isTiltSettingsOpen, setIsTiltSettingsOpen] = useState(false);
+  const [encounterViewport, setEncounterViewport] = useState({ height: 0, top: 0, keyboardOpen: false });
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("vocaman-tilt-sensitivity");
+    const parsed = saved ? Number(saved) : NaN;
+    if (Number.isFinite(parsed) && parsed >= 6 && parsed <= 28) setTiltSensitivity(parsed);
+  }, []);
+
+  useEffect(() => {
+    if (!defenseEncounter) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const viewport = window.visualViewport;
+    const updateViewport = () => {
+      const height = viewport?.height ?? window.innerHeight;
+      const top = viewport?.offsetTop ?? 0;
+      setEncounterViewport({ height, top, keyboardOpen: height < window.innerHeight - 100 });
+    };
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
+    window.addEventListener("resize", updateViewport);
+    return () => {
+      viewport?.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("scroll", updateViewport);
+      window.removeEventListener("resize", updateViewport);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [defenseEncounter]);
   const orientationRef = useRef<{ beta: number; gamma: number } | null>(null);
   const neutralOrientationRef = useRef<{ beta: number; gamma: number } | null>(null);
   const tiltPermissionRef = useRef(false);
@@ -453,8 +474,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   }, [defenseEncounter]);
 
   const handleDefenseTyping = (value: string) => {
+    if (!defenseEncounter || !defenseActiveRef.current) return;
     setDefenseTyped(value);
-    if (!defenseEncounter) return;
     const normalize = (text: string) => text.trim().toLocaleLowerCase().replace(/\s+/g, "");
     if (normalize(value) === normalize(defenseEncounter.word.word)) {
       defenseActiveRef.current = false;
@@ -667,17 +688,22 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 g.isFrightened = false;
                 g.releaseDelayMs = Date.now() - gameStartTimeRef.current + 3500;
               } else if (!defenseActiveRef.current) {
-                const pool = words.length > 0 ? words : FALLBACK_DEFENSE_WORDS;
-                const selectedWord = pool[Math.floor(Math.random() * pool.length)];
+                if (words.length > 0) {
+                const selectedWord = words[Math.floor(Math.random() * words.length)];
                 defenseActiveRef.current = true;
                 setDefenseTyped("");
                 const durationMs = Math.max(3000, 5200 - (stage - 1) * 350);
                 setDefenseRemainingMs(durationMs);
-                setDefenseEncounter({
-                  ghostColor: g.color,
-                  word: selectedWord,
-                  durationMs,
-                });
+                setDefenseEncounter({ ghostColor: g.color, word: selectedWord, durationMs });
+              } else {
+                setLives((current) => Math.max(0, current - 1));
+                if (lives <= 1) {
+                  setGameOver(true);
+                  onGameOver();
+                } else {
+                  resetPositions();
+                }
+              }
               }
             }
           });
@@ -870,17 +896,20 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             <button type="button" onClick={enableTiltControls} aria-pressed={controlMode === "tilt"} className={controlMode === "tilt" ? "rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground" : "rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground"}>기울기 센서 켜기</button>
           </div>
         </div>
-        {controlMode === "tilt" && <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="min-w-0">
-            <p role="status" className="text-sm font-semibold text-foreground">{tiltStatus}</p>
-            <p aria-live="polite" className="mt-1 text-xs text-muted-foreground">{tiltDiagnostics}</p>
-            <label className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="shrink-0">민감도</span>
-              <input type="range" min="6" max="28" step="1" value={tiltSensitivity} onChange={(event) => setTiltSensitivity(Number(event.target.value))} className="w-full accent-primary" />
-              <span className="w-8 text-right tabular-nums">{tiltSensitivity}°</span>
-            </label>
-          </div>
-          <button type="button" onClick={calibrateTilt} className="rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground">현재 자세로 재보정</button>
+        {controlMode === "tilt" && <div className="mt-3">
+          <button type="button" aria-expanded={isTiltSettingsOpen} onClick={() => setIsTiltSettingsOpen((open) => !open)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-bold text-foreground">센서 설정 {isTiltSettingsOpen ? "접기" : "⚙️"}</button>
+          {isTiltSettingsOpen && <div className="mt-2 grid gap-2 rounded-xl bg-muted/60 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="min-w-0">
+              <p role="status" className="text-sm font-semibold text-foreground">{tiltStatus}</p>
+              <p aria-live="polite" className="mt-1 text-xs text-muted-foreground">{tiltDiagnostics}</p>
+              <label className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="shrink-0">민감도</span>
+                <input type="range" min="6" max="28" step="1" value={tiltSensitivity} onChange={(event) => { const value = Number(event.target.value); setTiltSensitivity(value); window.localStorage.setItem("vocaman-tilt-sensitivity", String(value)); }} className="w-full accent-primary" />
+                <span className="w-8 text-right tabular-nums">{tiltSensitivity}°</span>
+              </label>
+            </div>
+            <button type="button" onClick={calibrateTilt} className="rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground">현재 자세로 재보정</button>
+          </div>}
         </div>}
         <p className="mt-2 text-[11px] text-muted-foreground">기울기 조작은 센서가 있는 휴대폰에서 사용할 수 있어요. PC에서는 키보드 방향키를 사용하세요.</p>
       </section>}
@@ -933,13 +962,15 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       </div>
 
       {defenseEncounter && (
-        <div className="fixed inset-0 z-[160] flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-slate-950 px-5 py-8 text-center text-white">
+        <div className="fixed inset-x-0 z-[160] flex min-h-0 flex-col items-center justify-start overflow-y-auto overscroll-contain bg-slate-950 px-4 py-2 text-center text-white" style={{ top: encounterViewport.top, height: encounterViewport.height || "100dvh" }}>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(30,64,175,0.34),transparent_58%)]" />
-          <div className="relative z-10 w-full max-w-xl">
-            <p className="text-xs font-black tracking-[0.28em] text-amber-300">PAC-MAN WORD SHIELD</p>
-            <h2 className="mt-2 text-2xl font-black sm:text-3xl">몬스터가 다가오고 있어요!</h2>
-            <p className="mt-2 text-sm text-slate-300">뜻을 보고 영어 단어를 빠르게 입력해 물리치세요.</p>
-            <div className="relative mx-auto mt-8 flex h-52 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80">
+          <div className="relative z-10 flex w-full max-w-xl flex-1 flex-col justify-between gap-2 py-1">
+            <div className="shrink-0">
+              <p className="text-[10px] font-black tracking-[0.2em] text-amber-300">VOCA-MAN WORD SHIELD</p>
+              <h2 className="mt-1 text-xl font-black sm:text-3xl">몬스터가 다가오고 있어요!</h2>
+              <p className="mt-1 text-xs text-slate-300">뜻을 보고 영어 단어를 한 번만 정확히 입력하세요.</p>
+            </div>
+            <div className={`relative mx-auto flex w-full shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 ${encounterViewport.keyboardOpen ? "h-36" : "h-44 sm:h-52"}`}>
               <div className="absolute inset-x-6 bottom-5 h-2 rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-rose-400 transition-[width] duration-75" style={{ width: (Math.max(0, defenseRemainingMs / defenseEncounter.durationMs) * 100) + "%" }} />
               </div>
@@ -956,7 +987,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               </div>
               <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
             </div>
-            <p className="mt-5 text-sm font-semibold text-amber-200">남은 시간 {(Math.max(0, defenseRemainingMs / 1000)).toFixed(1)}초</p>
+            <p className="shrink-0 text-sm font-semibold text-amber-200">남은 시간 {(Math.max(0, defenseRemainingMs / 1000)).toFixed(1)}초</p>
             <input
               ref={defenseInputRef}
               autoFocus
@@ -968,10 +999,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               spellCheck={false}
               aria-label="몬스터를 물리칠 영어 단어 입력"
               placeholder="영어 단어를 입력하세요"
-              className="mt-3 h-14 w-full rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
+              className="h-12 w-full shrink-0 rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
               style={{ borderColor: defenseEncounter.ghostColor }}
             />
-            <p className="mt-3 text-xs text-slate-400">정답이면 라이프를 지키고 보카맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+            <p className="shrink-0 text-[10px] text-slate-400">정답을 한 번 입력하면 바로 보카맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
           </div>
         </div>
       )}

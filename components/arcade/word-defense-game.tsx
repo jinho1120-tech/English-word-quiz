@@ -208,27 +208,46 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
 
   useEffect(() => {
     if (!isFullscreen) return;
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    const previousHeight = root.style.getPropertyValue("--word-defense-vh");
+    const previousTop = root.style.getPropertyValue("--word-defense-vtop");
+    const previousOverflow = document.body.style.overflow;
+    const updateViewport = () => {
+      root.style.setProperty("--word-defense-vh", `${viewport?.height ?? window.innerHeight}px`);
+      root.style.setProperty("--word-defense-vtop", `${viewport?.offsetTop ?? 0}px`);
+    };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsFullscreen(false);
         requestAnimationFrame(() => inputRef.current?.focus());
       }
     };
-    const previousOverflow = document.body.style.overflow;
+    updateViewport();
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
     return () => {
       window.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("scroll", updateViewport);
       document.body.style.overflow = previousOverflow;
+      if (previousHeight) root.style.setProperty("--word-defense-vh", previousHeight);
+      else root.style.removeProperty("--word-defense-vh");
+      if (previousTop) root.style.setProperty("--word-defense-vtop", previousTop);
+      else root.style.removeProperty("--word-defense-vtop");
     };
   }, [isFullscreen]);
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   const cleanWords = useMemo(() => uniqueWords(words), [words])
-  const cleanSubjectWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
+  const cleanTodayWords = useMemo(() => uniqueWords(subjectWords), [subjectWords])
   const cleanAllWords = useMemo(() => uniqueWords(allWords), [allWords])
   const currentTier = (value: number) => value >= 250 ? 2 : value >= 100 ? 1 : 0
-  const poolForTier = (tier: number) => tier === 2 ? cleanAllWords : tier === 1 ? cleanSubjectWords : cleanWords
+  const poolForTier = (tier: number) => tier === 2 ? cleanAllWords : tier === 1 ? (cleanTodayWords.length ? cleanTodayWords : cleanWords) : cleanWords
 
   useEffect(() => {
     monstersRef.current = []
@@ -509,7 +528,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       window.cancelAnimationFrame(frame)
       lastFrameRef.current = 0
     }
-  }, [cleanWords, cleanSubjectWords, cleanAllWords, difficulty, gameOver, paused, started, typed])
+  }, [cleanWords, cleanTodayWords, cleanAllWords, difficulty, gameOver, paused, started, typed])
 
   function handleTyping(value: string) {
     const next = value.slice(0, 100)
@@ -564,7 +583,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-1 sm:px-3">
+    <div className={isFullscreen ? "fixed inset-x-0 top-0 z-[150] flex w-screen flex-col overflow-hidden bg-slate-950 px-2 pb-[env(safe-area-inset-bottom)] pt-[max(8px,env(safe-area-inset-top))] text-white" : "mx-auto w-full max-w-6xl space-y-4 px-1 sm:px-3"} style={isFullscreen ? { height: "var(--word-defense-vh, 100dvh)", top: "var(--word-defense-vtop, 0px)" } : undefined}>
       <div className={isFullscreen ? "flex w-full shrink-0 items-center justify-between gap-2" : "flex items-center justify-between gap-2"}>
         <div>
           <p className="text-xs font-bold tracking-[0.18em] text-slate-400">WORD DEFENSE</p>
@@ -572,12 +591,13 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </div>
         <div className="flex items-center gap-2">
           {!isFullscreen && <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-sky-400/50 bg-sky-400/10 px-3 py-2 text-sm font-bold text-sky-200">크게 보기 ⛶</button>}
-          <button type="button" onClick={() => { setIsFullscreen(false); requestAnimationFrame(() => inputRef.current?.blur()); }} aria-label={isFullscreen ? "큰 화면 닫기" : "게임 닫기"} className={isFullscreen ? "flex size-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white" : "flex size-10 items-center justify-center rounded-full border border-border"}>{isFullscreen ? "×" : <X className="size-5" />}</button>
+          {isFullscreen && <button type="button" onClick={() => setIsFullscreen(false)} className="rounded-full border border-white/25 bg-white/10 px-3 py-2 text-xs font-bold text-white">축소</button>}
+          <button type="button" onClick={onClose} aria-label="게임 닫기" className={isFullscreen ? "flex size-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white" : "flex size-10 items-center justify-center rounded-full border border-border"}><X className="size-5" /></button>
         </div>
       </div>
 
-      <div className={isFullscreen ? "relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner" : "relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner"}>
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto max-h-[560px] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+      <div className={isFullscreen ? "relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner" : "relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner"}>
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className={isFullscreen ? "block h-full min-h-0 w-full flex-1" : "block h-auto max-h-[560px] w-full"} aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
         <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2">
           <div className="rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1 text-left text-white shadow-lg backdrop-blur-sm">
             <p className="text-[8px] font-bold tracking-wider text-slate-300">SCORE · {DIFFICULTY_CONFIG[difficulty].label}</p>
@@ -622,10 +642,13 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         </div>}
         {gameOver && <div className="absolute inset-0 flex min-h-0 flex-col items-center justify-center gap-1 overflow-hidden bg-slate-950/90 px-2 py-1.5 text-center text-white backdrop-blur-sm"><p className="text-2xl leading-none">👻</p><p className="text-lg font-black leading-tight">게임 종료!</p><div className="flex shrink-0 items-center gap-3 text-xs"><p className="text-slate-200">최종 점수 <strong>{score}점</strong></p><p className="font-bold">놓친 단어 {missedWords.length}개</p></div><HapticButton onClick={restart} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-4 py-1.5 text-xs font-black leading-tight text-amber-950"><RotateCcw className="size-3.5" /> 다시 도전</HapticButton></div>}
         {paused && !gameOver && <div className="absolute inset-0 flex items-center justify-center bg-slate-950/70 text-xl font-black text-white">일시정지</div>}
-
+        {isFullscreen && started && !gameOver && <div className="relative z-20 shrink-0 border-t border-sky-400/40 bg-slate-900 p-2 sm:p-3">
+          <label htmlFor="word-defense-input" className="mb-1 block text-center text-[10px] font-bold leading-tight text-sky-100">한글 뜻을 보고 영어 단어를 입력하세요</label>
+          <input ref={inputRef} id="word-defense-input" value={typed} onChange={(event) => handleTyping(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") event.preventDefault(); }} type="text" inputMode="text" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="off" placeholder="영어 단어 입력..." disabled={gameOver || !started} className="w-full rounded-xl border-2 border-sky-400 bg-slate-950 px-3 py-2.5 text-center text-xl font-black tracking-wide text-white outline-none focus:ring-4 focus:ring-sky-400/20 disabled:opacity-50" />
+        </div>}
       </div>
 
-      <div className={isFullscreen ? "w-full shrink-0 space-y-1.5 rounded-2xl border border-sky-400/50 bg-slate-900 p-2 sm:p-3" : "space-y-1.5 rounded-2xl border border-border bg-card p-2"}>
+      {!isFullscreen && <div className="space-y-1.5 rounded-2xl border border-border bg-card p-2">
         <label htmlFor="word-defense-input" className="block text-center text-[11px] font-bold leading-tight text-muted-foreground">몬스터의 한글 뜻을 보고 영어단어를 입력하세요</label>
         <input
           ref={inputRef}
@@ -647,18 +670,18 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
           <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-0.5 font-bold">지우기</HapticButton>
         </div>
-      </div>
+      </div>}
 
       <div className={isFullscreen ? "hidden" : "rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 dark:bg-amber-950/20"}>
         <div className="mb-2 flex items-center justify-between gap-2"><p className="text-xs font-black text-amber-800 dark:text-amber-200">방어선 · 놓친 단어</p><span className="text-[11px] font-bold text-muted-foreground">{missedWords.length}개</span></div>
         {missedWords.length ? <div className="flex flex-wrap gap-2">{missedWords.slice(-5).map((item) => <span key={normalizeWord(item.word)} className="rounded-lg bg-background px-2.5 py-1.5 text-xs shadow-sm"><strong>{item.word}</strong><span className="ml-1.5 text-muted-foreground">{item.meaning}</span></span>)}</div> : <p className="text-xs text-muted-foreground">놓친 단어가 여기에 쌓여요. 정답을 확인하고 다시 기억해 봐요.</p>}
       </div>
 
-      <div className={isFullscreen ? "flex shrink-0 gap-2" : "flex gap-2"}>
+      {!isFullscreen && <div className="flex gap-2">
         <HapticButton type="button" onClick={() => setPaused((value) => !value)} disabled={gameOver} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-bold">{paused ? "계속하기" : "일시정지"}</HapticButton>
         <HapticButton type="button" onClick={onClose} className="flex-1 rounded-xl bg-muted px-3 py-2.5 text-sm font-bold">나가기</HapticButton>
-      </div>
-      {!isFullscreen && <p className="text-center text-[11px] text-muted-foreground">처음엔 선택한 날짜·과목에서, 점수가 오르면 같은 과목 전체와 이 자녀의 다른 과목 단어까지 출제돼요. 몬스터가 방어선을 넘으면 정답이 복습 목록에 남아요.</p>}
+      </div>}
+      {!isFullscreen && <p className="text-center text-[11px] text-muted-foreground">처음엔 선택한 날짜·과목에서, 점수가 오르면 그날 다른 과목과 다른 날짜의 단어까지 차례로 출제돼요. 오늘 저장된 단어가 없으면 보유한 데이터베이스 단어로 시작해요.</p>}
     </div>
   )
 }

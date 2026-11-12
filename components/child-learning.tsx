@@ -79,6 +79,9 @@ export function ChildLearning({
   const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
   const [pacmanError, setPacmanError] = useState("")
   const [filterSubjectId, setFilterSubjectId] = useState("")
+  const filteredDayWords = initialWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId)
+  const pacmanWords = filteredDayWords.length > 0 ? filteredDayWords : allWords
+  const wordDefenseStartWords = filteredDayWords.length > 0 ? filteredDayWords : initialWords.length > 0 ? initialWords : allWords
   const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
   const [isPending, startTransition] = useTransition()
 
@@ -368,11 +371,12 @@ export function ChildLearning({
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
+          {allWords.length === 0 && <p className="text-xs text-muted-foreground">보카맨과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
               보카맨(Voca-Man)😀
             </HapticButton>}
-            {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               영어 타자 디펜스 👻
             </HapticButton>}
           </div>
@@ -391,7 +395,7 @@ export function ChildLearning({
               <p className="text-xs text-muted-foreground">방향키 또는 화면 버튼으로 움직여 보세요!</p>
             </div>
             <PacmanGame
-              words={initialWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              words={pacmanWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
               extraPlaysLeft={pacmanRemainingPlays}
               dailyPlayLimit={pacmanStatus.dailyPlayLimit}
               unlimitedPlays={pacmanStatus.unlimitedPlays}
@@ -407,8 +411,8 @@ export function ChildLearning({
         <div className="fixed inset-0 z-[130] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
           <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
             <WordDefenseGame
-              words={initialWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
-              subjectWords={allWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              words={wordDefenseStartWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
+              subjectWords={initialWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
               allWords={allWords.map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
               onClose={() => setIsWordDefenseOpen(false)}
             />
