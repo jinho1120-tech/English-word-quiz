@@ -67,29 +67,29 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
   }
 
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-amber-300/70 bg-amber-50 p-3 text-center">
-      <div className="mb-3 flex items-center justify-center gap-2 font-black text-amber-900">
+    <div className="mt-5 overflow-hidden rounded-2xl border border-amber-300/70 bg-amber-50 p-3 text-center dark:border-amber-700/70 dark:bg-amber-950/50">
+      <div className="mb-3 flex items-center justify-center gap-2 font-black text-amber-900 dark:text-amber-100">
         <Gift className="size-5" /> 오늘의 행운 스크래치 카드
       </div>
       <div className="relative h-36 overflow-hidden rounded-xl bg-white sm:h-40">
         <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
           {outcome === "won" ? (
             <>
-              <p className="text-xl font-black text-amber-700">🎉 축하해요!</p>
+              <p className="text-xl font-black text-amber-700 dark:text-amber-300">🎉 축하해요!</p>
               <p className="mt-2 text-base font-bold text-foreground">「{title}」 쿠폰 당첨!</p>
               {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
               <p className="mt-1 text-xs font-medium text-muted-foreground">내 쿠폰함에서 확인해 보세요.</p>
             </>
           ) : outcome === "blank" ? (
             <>
-              <p className="text-xl font-black text-slate-700">🥲 아쉬워요!</p>
+              <p className="text-xl font-black text-slate-700 dark:text-slate-200">🥲 아쉬워요!</p>
               <p className="mt-2 text-base font-bold text-foreground">「{title}」</p>
               {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
               <p className="mt-1 text-xs font-medium text-muted-foreground">다음 도전을 응원할게요!</p>
             </>
           ) : (
             <>
-              <p className="text-lg font-black text-amber-700">두근두근…</p>
+              <p className="text-lg font-black text-amber-700 dark:text-amber-300">두근두근…</p>
               <p className="mt-2 text-sm font-semibold text-muted-foreground">어떤 결과가 기다리고 있을까요?</p>
             </>
           )}
@@ -105,7 +105,7 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
           />
         )}
       </div>
-      {!outcome && <p className="mt-2 text-xs font-semibold text-amber-800">{revealing ? "결과를 확인하고 있어요…" : "카드 표면을 문질러 긁어 주세요."}</p>}
+      {!outcome && <p className="mt-2 text-xs font-semibold text-amber-800 dark:text-amber-200">{revealing ? "결과를 확인하고 있어요…" : "카드 표면을 문질러 긁어 주세요."}</p>}
     </div>
   )
 }
@@ -183,7 +183,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
         </div>
         
         {rewardChecked && couponFull ? (
-          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>
+          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-100">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>
         ) : rewardChecked && couponEligible ? (
           <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} description={rewardDescription} onReveal={onRevealCoupon} />
         ) : rewardChecked && !couponConfigured ? (
