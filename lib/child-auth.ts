@@ -52,6 +52,10 @@ function getChildAccessCodePepper(): string {
 }
 
 /** Legacy SHA-256 and peppered v2 hash for a normalized 10-character code. */
+export function hashChildAuthRateLimitKey(value: string): string {
+  return createHmac("sha256", getChildAccessCodePepper()).update(value).digest("hex").slice(0, 32)
+}
+
 export function hashChildAccessCode(normalized: string): { current: string; legacy: string } {
   const legacy = hashOpaqueToken(normalized)
   const current = "v2:" + createHmac("sha256", getChildAccessCodePepper()).update(legacy).digest("hex")
