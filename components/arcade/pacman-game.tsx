@@ -74,6 +74,7 @@ interface Ghost {
   releaseDelayMs: number;
   isInHouse: boolean;
   lastDecisionTile: string;
+  word: PacmanDefenseWord | null;
 }
 
 type PacmanDefenseWord = { id: number; word: string; meaning: string };
@@ -106,7 +107,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const [replayPending, setReplayPending] = useState(false);
   const [controlMode, setControlMode] = useState<"buttons" | "tilt">("buttons");
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [defenseEncounter, setDefenseEncounter] = useState<{ ghostColor: string; word: PacmanDefenseWord; durationMs: number } | null>(null);
+  const [defenseEncounter, setDefenseEncounter] = useState<{ ghostId: string; ghostColor: string; word: PacmanDefenseWord; durationMs: number } | null>(null);
   const [defenseTyped, setDefenseTyped] = useState("");
   const [defenseRemainingMs, setDefenseRemainingMs] = useState(0);
   const defenseActiveRef = useRef(false);
@@ -181,10 +182,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   });
 
   const ghostsRef = useRef<Ghost[]>([
-    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "" },
-    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "" },
-    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "" },
-    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "" },
+    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
   ]);
 
   const mapRef = useRef<number[][]>(INITIAL_MAP.map((r) => [...r]));
@@ -210,10 +211,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       mouthDir: 1,
     };
     ghostsRef.current = [
-      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "" },
-      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "" },
-      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "" },
-      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "" },
+      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
     ];
     gameStartTimeRef.current = Date.now();
     lastTimeRef.current = performance.now();
@@ -479,6 +480,18 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     const normalize = (text: string) => text.trim().toLocaleLowerCase().replace(/\s+/g, "");
     if (normalize(value) === normalize(defenseEncounter.word.word)) {
       defenseActiveRef.current = false;
+      const defeatedGhost = ghostsRef.current.find((ghost) => ghost.id === defenseEncounter.ghostId);
+      if (defeatedGhost) {
+        defeatedGhost.x = 7.0;
+        defeatedGhost.y = 6.0;
+        defeatedGhost.dirX = 0;
+        defeatedGhost.dirY = 0;
+        defeatedGhost.isInHouse = true;
+        defeatedGhost.isFrightened = false;
+        defeatedGhost.releaseDelayMs = Date.now() - gameStartTimeRef.current + 2200;
+        defeatedGhost.lastDecisionTile = "7,6";
+        defeatedGhost.word = null;
+      }
       setDefenseEncounter(null);
       setDefenseTyped("");
       setDefenseRemainingMs(0);
@@ -607,6 +620,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               g.x = 7.0;
               g.y = 5.0;
               g.isInHouse = false;
+              g.word = words.length ? words[Math.floor(Math.random() * words.length)] : null;
               g.dirX = 1;
               g.dirY = 0;
               g.lastDecisionTile = "7,5";
@@ -689,12 +703,13 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 g.releaseDelayMs = Date.now() - gameStartTimeRef.current + 3500;
               } else if (!defenseActiveRef.current) {
                 if (words.length > 0) {
-                const selectedWord = words[Math.floor(Math.random() * words.length)];
+                const selectedWord = g.word ?? words[Math.floor(Math.random() * words.length)];
+                g.word = selectedWord;
                 defenseActiveRef.current = true;
                 setDefenseTyped("");
                 const durationMs = Math.max(3000, 5200 - (stage - 1) * 350);
                 setDefenseRemainingMs(durationMs);
-                setDefenseEncounter({ ghostColor: g.color, word: selectedWord, durationMs });
+                setDefenseEncounter({ ghostId: g.id, ghostColor: g.color, word: selectedWord, durationMs });
               } else {
                 setLives((current) => Math.max(0, current - 1));
                 if (lives <= 1) {
@@ -817,6 +832,26 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         ctx.arc(gx - 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
         ctx.arc(gx + 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
         ctx.fill();
+        if (g.word && !g.isInHouse) {
+          const label = g.word.word.toUpperCase();
+          ctx.save();
+          ctx.font = "bold 8px sans-serif";
+          const labelWidth = Math.min(94, Math.max(34, ctx.measureText(label).width + 12));
+          const labelX = gx - labelWidth / 2;
+          const labelY = gy - 23;
+          ctx.fillStyle = "rgba(255,255,255,0.96)";
+          ctx.strokeStyle = "#facc15";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.roundRect(labelX, labelY - 7, labelWidth, 13, 5);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#172033";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(label, gx, labelY, labelWidth - 8);
+          ctx.restore();
+        }
       });
 
       // READY 문구
