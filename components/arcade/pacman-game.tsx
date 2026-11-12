@@ -471,8 +471,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   }, [defenseEncounter]);
 
   const handleDefenseTyping = (value: string) => {
+    if (!defenseEncounter || !defenseActiveRef.current) return;
     setDefenseTyped(value);
-    if (!defenseEncounter) return;
     const normalize = (text: string) => text.trim().toLocaleLowerCase().replace(/\s+/g, "");
     if (normalize(value) === normalize(defenseEncounter.word.word)) {
       defenseActiveRef.current = false;
