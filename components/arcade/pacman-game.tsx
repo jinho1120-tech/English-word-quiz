@@ -487,8 +487,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const handleDoctorTyping = (value: string) => {
     if (!doctorChallenge || !doctorChallengeActiveRef.current) return;
     const expected = doctorChallenge.words[doctorChallenge.index]?.word ?? "";
-    const normalized = value.trim().toLocaleLowerCase().replace(/\\s+/g, "");
-    const target = expected.toLocaleLowerCase().replace(/\\s+/g, "");
+    const normalized = value.trim().toLocaleLowerCase().replace(/\s+/g, "");
+    const target = expected.toLocaleLowerCase().replace(/\s+/g, "");
     if (!target.startsWith(normalized)) {
       doctorChallengeActiveRef.current = false;
       setDoctorChallenge(null);
@@ -670,7 +670,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             return;
           }
 
-          const currentGhostSpeed = g.isFrightened ? GHOST_FRIGHTENED_SPEED : ghostSpeed;
+          const currentGhostSpeed = doctorModeActiveRef.current || g.isFrightened ? GHOST_FRIGHTENED_SPEED : ghostSpeed;
           const gTileX = Math.round(g.x);
           const gTileY = Math.round(g.y);
           const gDistToCenter = Math.hypot(g.x - gTileX, g.y - gTileY);
@@ -708,7 +708,15 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             if (validDirs.length > 0) {
               let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
 
-              if (!g.isFrightened && Math.random() < 0.45) {
+              if (doctorModeActiveRef.current) {
+                // 박사 보카맨이 된 동안 유령은 보카맨에게서 가장 멀어지는 길을 선택한다.
+                validDirs.sort(
+                  (a, b) =>
+                    Math.hypot(gTileX + b.x - pac.x, gTileY + b.y - pac.y) -
+                    Math.hypot(gTileX + a.x - pac.x, gTileY + a.y - pac.y)
+                );
+                chosen = validDirs[0];
+              } else if (!g.isFrightened && Math.random() < 0.45) {
                 validDirs.sort(
                   (a, b) =>
                     Math.hypot(gTileX + a.x - pac.x, gTileY + a.y - pac.y) -
@@ -862,13 +870,18 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         if (doctorModeActiveRef.current) {
           // 박사 보카맨의 황금빛 오라와 학사모
           ctx.save();
+          const awakeningProgress = Math.min(1, (nowMs - (doctorModeUntil - Math.max(3500, 7000 - stage * 400))) / 900);
+          const auraRadius = 25 + (awakeningProgress < 1 ? (1 - awakeningProgress) * 34 : Math.sin(nowMs / 90) * 3);
           ctx.globalAlpha = 0.45 + Math.sin(nowMs / 90) * 0.12;
-          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 25);
-          aura.addColorStop(0, "rgba(250,204,21,0.65)");
+          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, auraRadius);
+          aura.addColorStop(0, "rgba(250,204,21,0.72)");
           aura.addColorStop(1, "rgba(250,204,21,0)");
           ctx.fillStyle = aura;
-          ctx.beginPath(); ctx.arc(centerX, centerY, 25, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(centerX, centerY, auraRadius, 0, Math.PI * 2); ctx.fill();
           ctx.globalAlpha = 1;
+          // 안경과 학사모로 박사 보카맨을 표현한다.
+          ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.roundRect(centerX - 8, centerY - 3, 7, 5, 2); ctx.roundRect(centerX + 1, centerY - 3, 7, 5, 2); ctx.moveTo(centerX - 1, centerY - 1); ctx.lineTo(centerX + 1, centerY - 1); ctx.stroke();
           ctx.fillStyle = "#7c3aed";
           ctx.beginPath(); ctx.moveTo(centerX - 9, centerY - 10); ctx.lineTo(centerX + 9, centerY - 10); ctx.lineTo(centerX + 5, centerY - 16); ctx.lineTo(centerX - 5, centerY - 16); ctx.closePath(); ctx.fill();
           ctx.fillStyle = "#a78bfa";
