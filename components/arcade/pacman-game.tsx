@@ -874,22 +874,24 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         if (doctorModeActiveRef.current) {
           // 옆모습 보카맨에 진행 방향에 맞춰 안경과 학사모를 그린다.
           ctx.save();
-          const facing = pac.dirX < 0 ? -1 : pac.dirX > 0 ? 1 : pac.dirY < 0 ? 1 : -1;
+          const facingX = pac.dirX !== 0 ? pac.dirX : 0;
+          const facingY = pac.dirY !== 0 ? pac.dirY : 0;
+          const idleFacingX = facingX === 0 && facingY === 0 ? 1 : facingX;
           const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 28 + Math.sin(nowMs / 90) * 3);
           aura.addColorStop(0, "rgba(250,204,21,0.62)");
           aura.addColorStop(1, "rgba(250,204,21,0)");
           ctx.fillStyle = aura;
           ctx.beginPath(); ctx.arc(centerX, centerY, 32, 0, Math.PI * 2); ctx.fill();
 
-          // 입이 벌어지는 방향과 같은 쪽에 안경을 배치해 옆얼굴처럼 보이게 한다.
-          const glassesX = centerX + facing * 5;
-          const glassesY = centerY - 3;
+          // 안경을 실제 이동 방향 쪽으로 옮겨 위·아래·좌·우 입 방향과 일치시킨다.
+          const glassesX = centerX + idleFacingX * 5;
+          const glassesY = centerY + facingY * 5 - 3;
           ctx.strokeStyle = "#172033";
           ctx.lineWidth = 1.6;
           ctx.beginPath();
           ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
-          ctx.moveTo(glassesX + facing * 4, glassesY);
-          ctx.lineTo(glassesX + facing * 7, glassesY);
+          ctx.moveTo(glassesX + idleFacingX * 4, glassesY + facingY * 2);
+          ctx.lineTo(glassesX + idleFacingX * 7, glassesY + facingY * 3);
           ctx.stroke();
 
           // 학사모는 머리 위에 얹고 술은 진행 방향 뒤쪽으로 늘어뜨린다.
