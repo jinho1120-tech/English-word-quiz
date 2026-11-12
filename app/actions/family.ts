@@ -481,6 +481,7 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
     },
   )
   if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
+  if (!result.value.ok) await maybePurgeChildAuthRateLimits()
   return result.value
 }
 
