@@ -103,6 +103,6 @@ export async function refundRateLimit(reservation?: RateLimitReservation): Promi
 export async function maybePurgeChildAuthRateLimits(): Promise<void> {
   if (Math.random() >= 0.01) return
   await pool.query(
-    "DELETE FROM rate_limits WHERE user_id LIKE 'ip:%' AND window_started_at < NOW() - INTERVAL '2 days'",
+    "DELETE FROM rate_limits WHERE (user_id LIKE 'ip:%' OR user_id = 'global') AND window_started_at < NOW() - INTERVAL '2 days'",
   )
 }
