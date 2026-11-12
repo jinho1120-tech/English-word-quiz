@@ -82,11 +82,6 @@ async function requireParentFamily() {
   return { userId: session.user.id, family, role, email: session.user.email, guardianType }
 }
 
-function validatePin(pin: string) {
-  if (!/^\d{4,8}$/.test(pin)) throw new Error("PIN은 숫자 4~8자리로 입력해 주세요.")
-}
-
-
 export async function getFamilyDisplayTerms() {
   const { guardianType } = await requireParentFamily()
   return guardianType === "parent"
@@ -427,31 +422,31 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
   const limits = await reserveChildAuthLimits(client.key, client.unknown, "child-login")
   if (!limits.allowed) return { ok: false, reason: "rate_limited", retryAfterSeconds: limits.retryAfterSeconds }
 
-  if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
-    await recordChildLoginFailure()
-    return { ok: false, reason: "invalid" }
-  }
-  const normalized = normalizeChildAccessCode(input.accessCode)
-  if (!/^[A-F0-9]{10}$/.test(normalized)) {
-    await recordChildLoginFailure()
-    return { ok: false, reason: "invalid" }
-  }
-
-  const { current, legacy } = hashChildAccessCode(normalized)
-  const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
-  const [child] = await db.select({
-    id: childProfiles.id,
-    isActive: childProfiles.isActive,
-  }).from(childProfiles)
-    .where(inArray(childProfiles.accessCodeHash, candidates))
-    .limit(1)
-
-  if (!child || !child.isActive) {
-    await recordChildLoginFailure()
-    return { ok: false, reason: "invalid" }
-  }
-
   try {
+    if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
+      await recordChildLoginFailure()
+      return { ok: false, reason: "invalid" }
+    }
+    const normalized = normalizeChildAccessCode(input.accessCode)
+    if (!/^[A-F0-9]{10}$/.test(normalized)) {
+      await recordChildLoginFailure()
+      return { ok: false, reason: "invalid" }
+    }
+
+    const { current, legacy } = hashChildAccessCode(normalized)
+    const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
+    const [child] = await db.select({
+      id: childProfiles.id,
+      isActive: childProfiles.isActive,
+    }).from(childProfiles)
+      .where(inArray(childProfiles.accessCodeHash, candidates))
+      .limit(1)
+
+    if (!child || !child.isActive) {
+      await recordChildLoginFailure()
+      return { ok: false, reason: "invalid" }
+    }
+
     await createChildDeviceSession(child.id, input.deviceLabel)
     await releaseChildAuthLimits(limits.reservations)
     return { ok: true }
@@ -466,38 +461,45 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
   const limits = await reserveChildAuthLimits(client.key, client.unknown, "child-enroll")
   if (!limits.allowed) return { ok: false, reason: "rate_limited", retryAfterSeconds: limits.retryAfterSeconds }
 
-  if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
-    return { ok: false, reason: "expired" }
-  }
-  const tokenHash = hashOpaqueToken(input.token)
-  const now = new Date()
-  const [enrollment] = await db.select({
-    id: childDeviceEnrollments.id,
-    childProfileId: childDeviceEnrollments.childProfileId,
-  }).from(childDeviceEnrollments)
-    .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
-    .where(and(
-      eq(childDeviceEnrollments.tokenHash, tokenHash),
-      isNull(childDeviceEnrollments.consumedAt),
-      gt(childDeviceEnrollments.expiresAt, now),
-      eq(childProfiles.isActive, true),
-    ))
-    .limit(1)
-
-  if (!enrollment) return { ok: false, reason: "expired" }
-
-  const [consumed] = await db.update(childDeviceEnrollments)
-    .set({ consumedAt: now })
-    .where(and(
-      eq(childDeviceEnrollments.id, enrollment.id),
-      isNull(childDeviceEnrollments.consumedAt),
-      gt(childDeviceEnrollments.expiresAt, now),
-    ))
-    .returning({ id: childDeviceEnrollments.id })
-
-  if (!consumed) return { ok: false, reason: "expired" }
-
   try {
+    if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
+      await maybePurgeChildAuthRateLimits()
+      return { ok: false, reason: "expired" }
+    }
+    const tokenHash = hashOpaqueToken(input.token)
+    const now = new Date()
+    const [enrollment] = await db.select({
+      id: childDeviceEnrollments.id,
+      childProfileId: childDeviceEnrollments.childProfileId,
+    }).from(childDeviceEnrollments)
+      .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
+      .where(and(
+        eq(childDeviceEnrollments.tokenHash, tokenHash),
+        isNull(childDeviceEnrollments.consumedAt),
+        gt(childDeviceEnrollments.expiresAt, now),
+        eq(childProfiles.isActive, true),
+      ))
+      .limit(1)
+
+    if (!enrollment) {
+      await maybePurgeChildAuthRateLimits()
+      return { ok: false, reason: "expired" }
+    }
+
+    const [consumed] = await db.update(childDeviceEnrollments)
+      .set({ consumedAt: now })
+      .where(and(
+        eq(childDeviceEnrollments.id, enrollment.id),
+        isNull(childDeviceEnrollments.consumedAt),
+        gt(childDeviceEnrollments.expiresAt, now),
+      ))
+      .returning({ id: childDeviceEnrollments.id })
+
+    if (!consumed) {
+      await maybePurgeChildAuthRateLimits()
+      return { ok: false, reason: "expired" }
+    }
+
     await createChildDeviceSession(enrollment.childProfileId, input.deviceLabel)
     await releaseChildAuthLimits(limits.reservations)
     return { ok: true }
