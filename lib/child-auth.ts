@@ -1,6 +1,6 @@
 import "server-only"
 
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto"
+import { createHash, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
 import { and, eq, isNull } from "drizzle-orm"
 import { db } from "@/lib/db"
@@ -34,6 +34,39 @@ export async function verifyChildPin(pin: string, encodedHash: string): Promise<
   const expected = Buffer.from(expectedHex, "hex")
   const actual = await scryptAsync(pin, Buffer.from(saltHex, "hex"), expected.length)
   return actual.length === expected.length && timingSafeEqual(actual, expected)
+}
+
+let warnedAboutDevelopmentPepper = false
+
+function getChildAccessCodePepper(): string {
+  const value = process.env.CHILD_ACCESS_CODE_PEPPER
+  if (value && value.length >= 32) return value
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CHILD_ACCESS_CODE_PEPPER 환경변수가 필요합니다.")
+  }
+  if (!warnedAboutDevelopmentPepper) {
+    console.warn("[child-auth] CHILD_ACCESS_CODE_PEPPER가 없어 개발 전용 pepper를 사용합니다.")
+    warnedAboutDevelopmentPepper = true
+  }
+  return "dev-only-pepper-dev-only-pepper-00"
+}
+
+/** Legacy SHA-256 and peppered v2 hash for a normalized 10-character code. */
+export function hashChildAccessCode(normalized: string): { current: string; legacy: string } {
+  const legacy = hashOpaqueToken(normalized)
+  const current = "v2:" + createHmac("sha256", getChildAccessCodePepper()).update(legacy).digest("hex")
+  return { current, legacy }
+}
+
+export function upgradeLegacyChildAccessCodeHash(legacyHash: string): string {
+  if (!/^[a-f0-9]{64}$/i.test(legacyHash)) throw new Error("Legacy access-code hash is malformed.")
+  return "v2:" + createHmac("sha256", getChildAccessCodePepper()).update(legacyHash).digest("hex")
+}
+
+/** Generate the user-facing code and its server-only storage hash together. */
+export function issueChildAccessCode(): { code: string; hash: string } {
+  const code = generateChildAccessCode()
+  return { code, hash: hashChildAccessCode(normalizeChildAccessCode(code)).current }
 }
 
 export function generateChildAccessCode(): string {
