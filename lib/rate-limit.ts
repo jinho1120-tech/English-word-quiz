@@ -79,10 +79,6 @@ export async function runWithFailureRateLimit<T>(
     )
     const shortCount = Number(short.rows[0]?.count ?? 0)
     const shortRetry = Number(short.rows[0]?.retry_after ?? shortWindowSeconds)
-    if (shortCount >= shortLimit) {
-      await client.query("COMMIT")
-      return { limited: true, retryAfterSeconds: shortRetry }
-    }
 
     const daily = await client.query<{ count: number; retry_after: number | null }>(
       `SELECT COUNT(*)::int AS count,
@@ -95,9 +91,13 @@ export async function runWithFailureRateLimit<T>(
     )
     const dailyCount = Number(daily.rows[0]?.count ?? 0)
     const dailyRetry = Number(daily.rows[0]?.retry_after ?? dailyWindowSeconds)
-    if (dailyCount >= dailyLimit) {
+    if (shortCount >= shortLimit || dailyCount >= dailyLimit) {
+      const retryAfterSeconds = Math.max(
+        shortCount >= shortLimit ? shortRetry : 0,
+        dailyCount >= dailyLimit ? dailyRetry : 0,
+      )
       await client.query("COMMIT")
-      return { limited: true, retryAfterSeconds: dailyRetry }
+      return { limited: true, retryAfterSeconds }
     }
 
     const outcome = await operation()
