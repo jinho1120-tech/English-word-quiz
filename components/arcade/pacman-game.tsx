@@ -925,7 +925,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       ghostsRef.current.forEach((g) => {
         const gx = g.x * CELL_SIZE + CELL_SIZE / 2;
         const gy = g.y * CELL_SIZE + CELL_SIZE / 2;
-        ctx.fillStyle = g.isFrightened ? "#2563eb" : g.color;
+        ctx.fillStyle = doctorModeActiveRef.current ? "#cbd5e1" : g.isFrightened ? "#2563eb" : g.color;
         ctx.beginPath();
         ctx.arc(gx, gy - 2, CELL_SIZE / 2 - 2, Math.PI, 0, false);
         ctx.lineTo(gx + CELL_SIZE / 2 - 2, gy + CELL_SIZE / 2 - 2);
