@@ -305,7 +305,7 @@ export function ChildLearning({
             <input value={item.word} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, word: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="영어 단어" />
             <input value={item.meaning} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, meaning: event.target.value } : value))} className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="단어 뜻" />
             <input value={item.example} onChange={(event) => setAiWords((items) => items.map((value, i) => i === index ? { ...value, example: event.target.value } : value))} placeholder="예문 (선택)" className="rounded-md border border-border bg-background px-2 py-1.5 text-sm" aria-label="예문" />
-            <HapticButton onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600">제외</HapticButton>
+            <HapticButton onClick={() => setAiWords((items) => items.filter((_, i) => i !== index))} className="justify-self-end text-xs text-red-600 dark:text-red-400">제외</HapticButton>
           </div>)}
           <HapticButton disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</HapticButton>
         </div>}
@@ -342,7 +342,7 @@ export function ChildLearning({
       </section>
 
       </div>}
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {activeTab !== "manage" && (
         <section className="min-w-0 space-y-2 sm:space-y-3 lg:col-start-2 lg:row-start-1">
           <WordQuiz
@@ -363,14 +363,14 @@ export function ChildLearning({
       {activeTab === "wrong" && pacmanStatus.enabled && (pacmanStatus.showPacman || pacmanStatus.showWordDefense) && (
         <section className="space-y-2 rounded-2xl border border-border bg-card p-4 lg:col-span-2">
           <div className="flex items-center gap-3">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl">🟡</div>
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-3xl dark:bg-amber-900/40">🟡</div>
             <div className="min-w-0 flex-1">
               <h3 className="font-bold">보너스 게임</h3>
               <p className="text-xs text-muted-foreground">{pacmanStatus.unlimitedPlays ? "오늘은 무제한으로 이용할 수 있어요" : `오늘 남은 게임 ${pacmanRemainingPlays} / ${pacmanStatus.dailyPlayLimit}판`}</p>
             </div>
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
-          {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
+          {pacmanError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{pacmanError}</p>}
           {allWords.length === 0 && <p className="text-xs text-muted-foreground">보카맨과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
@@ -442,7 +442,7 @@ export function ChildLearning({
                   })
                 }
               }}
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 disabled:opacity-40"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-bold text-red-600 dark:bg-red-950/40 dark:text-red-300 dark:text-red-400 disabled:opacity-40"
             >
               <Trash2 className="size-3.5" /> {managerFilterSubjectId === "__all__" ? "전체 삭제" : "과목 삭제"}
             </HapticButton>
@@ -487,7 +487,7 @@ export function ChildLearning({
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-bold">{item.word}</p><p className="text-sm text-muted-foreground">{item.meaning}</p>{item.example && <p className="mt-1 text-xs text-muted-foreground">{item.example}</p>}</div><span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs">{item.subject}</span></div>
-                <div className="flex items-center gap-2"><HapticButton type="button" aria-label="단어 수정" title="수정" disabled={isPending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></HapticButton><HapticButton type="button" aria-label="단어 삭제" title="삭제" disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"><Trash2 className="size-4" /></HapticButton>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
+                <div className="flex items-center gap-2"><HapticButton type="button" aria-label="단어 수정" title="수정" disabled={isPending} onClick={() => beginEdit(item)} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"><Pencil className="size-4" /></HapticButton><HapticButton type="button" aria-label="단어 삭제" title="삭제" disabled={isPending} onClick={() => { if (window.confirm("이 단어를 삭제할까요?")) run(() => deleteChildWord(item.id)) }} className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/50 dark:hover:text-red-300 dark:text-red-400 disabled:opacity-50"><Trash2 className="size-4" /></HapticButton>{item.wrongCount > 0 && <span className="text-xs text-muted-foreground">오답 {item.wrongCount}회</span>}</div>
               </>
             )}
           </article>
