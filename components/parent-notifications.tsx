@@ -215,7 +215,7 @@ export function ParentNotifications({ initialData }: { initialData: Notification
         {data.notifications.length === 0 ? (
           <p className="rounded-xl bg-muted/60 p-4 text-center text-sm text-muted-foreground">새로운 알림이 없습니다.</p>
         ) : data.notifications.map((item) => (
-          <div key={item.id} className={`flex items-start gap-2 rounded-xl border p-2 ${item.readAt ? "border-border bg-background" : "border-blue-200 bg-blue-50/70"}`}>
+          <div key={item.id} className={`flex items-start gap-2 rounded-xl border p-2 ${item.readAt ? "border-border bg-background" : "border-blue-300/70 bg-blue-50/70 text-slate-900 dark:border-blue-400/40 dark:bg-blue-950/50 dark:text-blue-50"}`}>
             <HapticButton onClick={() => void openNotification(item)} className="min-w-0 flex-1 p-1 text-left">
               <span className="flex items-start gap-2">
                 {!item.readAt && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" />}
