@@ -2,6 +2,7 @@ import "server-only"
 
 import { createHash, createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
+import type { PoolClient } from "pg"
 import { and, eq, isNull } from "drizzle-orm"
 import { db } from "@/lib/db"
 import { childDeviceSessions, childProfiles, families } from "@/lib/db/schema"
@@ -77,13 +78,22 @@ export function normalizeChildAccessCode(value: string): string {
   return value.replace(/[^a-f0-9]/gi, "").toUpperCase()
 }
 
-export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string): Promise<void> {
+export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string, client?: PoolClient): Promise<void> {
   const token = randomBytes(32).toString("base64url")
-  await db.insert(childDeviceSessions).values({
-    childProfileId,
-    tokenHash: hashOpaqueToken(token),
-    deviceLabel: deviceLabel?.trim().slice(0, 100) || null,
-  })
+  const tokenHash = hashOpaqueToken(token)
+  const normalizedDeviceLabel = deviceLabel?.trim().slice(0, 100) || null
+  if (client) {
+    await client.query(
+      "INSERT INTO child_device_sessions (child_profile_id, token_hash, device_label) VALUES ($1, $2, $3)",
+      [childProfileId, tokenHash, normalizedDeviceLabel],
+    )
+  } else {
+    await db.insert(childDeviceSessions).values({
+      childProfileId,
+      tokenHash,
+      deviceLabel: normalizedDeviceLabel,
+    })
+  }
 
   const cookieStore = await cookies()
   cookieStore.set(CHILD_SESSION_COOKIE, token, {
