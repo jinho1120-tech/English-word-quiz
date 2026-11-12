@@ -145,8 +145,8 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                   onClick={() => chooseDate(value)}
                   aria-pressed={active}
                   wrapperClassName="relative mx-auto flex size-10 aspect-square"
-                  className={`flex size-full aspect-square flex-col items-center justify-center rounded-full text-xs transition-colors ${active ? "font-black text-white" : "font-medium hover:bg-muted"}`}
-                  style={active ? { backgroundColor: "var(--child-accent, #14B8A6)" } : undefined}
+                  className={`flex size-full aspect-square flex-col items-center justify-center rounded-full text-xs transition-colors ${active ? "font-black" : "font-medium hover:bg-muted"}`}
+                  style={active ? { backgroundColor: "var(--child-accent, #14B8A6)", color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" } : undefined}
                 >
                   <span>{day}</span>
                   <span className="mt-0.5 flex h-2 items-center justify-center gap-0.5">
