@@ -101,6 +101,29 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   const [isStageClear, setIsStageClear] = useState(false); // 💡 스테이지 클리어 축하 배너
   const [isInvulnerable, setIsInvulnerable] = useState(false);
   const [replayPending, setReplayPending] = useState(false);
+  const [controlMode, setControlMode] = useState<"buttons" | "tilt">("buttons");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isFullscreen]);
+  const [tiltStatus, setTiltStatus] = useState("센서 조작을 사용하려면 센서를 켜 주세요.");
+  const [tiltDiagnostics, setTiltDiagnostics] = useState("센서 대기 중");
+  const [tiltSensitivity, setTiltSensitivity] = useState(14);
+  const orientationRef = useRef<{ beta: number; gamma: number } | null>(null);
+  const neutralOrientationRef = useRef<{ beta: number; gamma: number } | null>(null);
+  const tiltPermissionRef = useRef(false);
+  const lastTiltUiUpdateRef = useRef(0);
 
   // 💡 체리 보너스 과일 상태
   const [cherryVisible, setCherryVisible] = useState(false);
@@ -240,6 +263,126 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setDirection]);
+
+  const enableTiltControls = useCallback(async () => {
+    const OrientationEventConstructor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+
+    if (!OrientationEventConstructor) {
+      setTiltStatus("이 기기나 브라우저에서 방향 센서를 지원하지 않아요.");
+      setTiltDiagnostics("DeviceOrientation API 미지원");
+      return;
+    }
+
+    try {
+      // iOS는 반드시 사용자의 버튼 클릭 안에서 센서 권한을 요청해야 합니다.
+      if (typeof OrientationEventConstructor.requestPermission === "function") {
+        const permission = await OrientationEventConstructor.requestPermission();
+        if (permission !== "granted") {
+          setTiltStatus("센서 권한이 거부되었어요. 브라우저의 모션 및 방향 접근 설정을 확인해 주세요.");
+          setTiltDiagnostics("센서 권한 거부");
+          return;
+        }
+      }
+
+      tiltPermissionRef.current = true;
+      orientationRef.current = null;
+      neutralOrientationRef.current = null;
+      lastTiltUiUpdateRef.current = 0;
+      setTiltDiagnostics("권한 허용됨 · 센서 이벤트 대기 중");
+      setTiltStatus("센서 신호를 확인하고 있어요. 휴대폰을 잠시 안정적으로 잡아 주세요.");
+      setControlMode("tilt");
+    } catch (error) {
+      setTiltStatus("센서 권한을 요청하지 못했어요. 브라우저 설정에서 모션 및 방향 접근을 확인해 주세요.");
+      setTiltDiagnostics(error instanceof Error ? error.message : "센서 권한 요청 실패");
+    }
+  }, []);
+
+  const calibrateTilt = useCallback(() => {
+    if (!orientationRef.current) {
+      setTiltStatus("센서 값을 아직 받지 못했어요. 휴대폰을 움직여 주세요.");
+      return;
+    }
+    neutralOrientationRef.current = { ...orientationRef.current };
+    setTiltStatus("중립 위치를 다시 맞췄어요. 휴대폰을 기울여 이동해 보세요.");
+  }, []);
+
+  useEffect(() => {
+    if (controlMode !== "tilt" || !tiltPermissionRef.current) return;
+
+    let receivedFirstEvent = false;
+    const noSignalTimer = window.setTimeout(() => {
+      if (!receivedFirstEvent) {
+        setTiltStatus("권한은 허용됐지만 센서 데이터가 들어오지 않아요. 기기와 브라우저의 모션 센서 설정을 확인해 주세요.");
+        setTiltDiagnostics("센서 이벤트 0회 · 브라우저 또는 기기에서 이벤트 차단 가능");
+      }
+    }, 3000);
+
+    const handleOrientation = (event: DeviceOrientationEvent) => {
+      if (event.beta === null || event.gamma === null) {
+        setTiltDiagnostics("센서 이벤트는 수신했지만 beta/gamma 값이 비어 있어요.");
+        return;
+      }
+
+      receivedFirstEvent = true;
+      window.clearTimeout(noSignalTimer);
+      const current = { beta: event.beta, gamma: event.gamma };
+      orientationRef.current = current;
+
+      if (!neutralOrientationRef.current) {
+        neutralOrientationRef.current = current;
+        setTiltStatus("센서 연결 완료! 휴대폰을 기울여 이동해 보세요.");
+        setTiltDiagnostics("센서 수신 정상 · 중립 위치 자동 보정 완료");
+        return;
+      }
+
+      const betaDelta = current.beta - neutralOrientationRef.current.beta;
+      const gammaDelta = current.gamma - neutralOrientationRef.current.gamma;
+      const screenAngle = ((window.screen.orientation?.angle ?? 0) % 360 + 360) % 360;
+      let horizontalTilt = gammaDelta;
+      let verticalTilt = betaDelta;
+      if (screenAngle === 90) {
+        horizontalTilt = betaDelta;
+        verticalTilt = -gammaDelta;
+      } else if (screenAngle === 180) {
+        horizontalTilt = -gammaDelta;
+        verticalTilt = -betaDelta;
+      } else if (screenAngle === 270) {
+        horizontalTilt = -betaDelta;
+        verticalTilt = gammaDelta;
+      }
+
+      let directionLabel = "중립";
+      if (Math.max(Math.abs(horizontalTilt), Math.abs(verticalTilt)) >= tiltSensitivity) {
+        if (Math.abs(horizontalTilt) >= Math.abs(verticalTilt)) {
+          const dx = horizontalTilt > 0 ? 1 : -1;
+          setDirection(dx, 0);
+          directionLabel = dx > 0 ? "오른쪽 입력" : "왼쪽 입력";
+        } else {
+          const dy = verticalTilt > 0 ? 1 : -1;
+          setDirection(0, dy);
+          directionLabel = dy > 0 ? "아래쪽 입력" : "위쪽 입력";
+        }
+      }
+
+      const now = Date.now();
+      if (now - lastTiltUiUpdateRef.current >= 200) {
+        lastTiltUiUpdateRef.current = now;
+        setTiltDiagnostics(`센서 정상 · 좌우 ${horizontalTilt.toFixed(0)}° · 상하 ${verticalTilt.toFixed(0)}° · ${directionLabel}`);
+      }
+    };
+
+    window.addEventListener("deviceorientation", handleOrientation, true);
+    return () => {
+      window.clearTimeout(noSignalTimer);
+      window.removeEventListener("deviceorientation", handleOrientation, true);
+    };
+  }, [controlMode, setDirection, tiltSensitivity]);
+
+  useEffect(() => () => {
+    tiltPermissionRef.current = false;
+  }, []);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -627,10 +770,13 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   }
 
   return (
-    <div className="w-full flex flex-col items-center select-none relative">
-      <div className="mb-2 flex w-full justify-end"><HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton></div>
+    <div className={isFullscreen ? "fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col items-center overflow-y-auto bg-slate-950 px-2 pb-3 pt-[max(12px,env(safe-area-inset-top))] text-white" : "relative mx-auto flex w-full max-w-4xl flex-col items-center px-1 select-none sm:px-3"}>
+      <div className={isFullscreen ? "mb-2 flex w-full max-w-5xl items-center justify-between" : "mb-2 flex w-full justify-end"}>
+        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">PAC-MAN · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
+        {isFullscreen ? <button type="button" aria-label="큰 화면 닫기" onClick={() => setIsFullscreen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white shadow-lg">×</button> : <HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton>}
+      </div>
       {/* 점수 & 스테이지 & 목숨 표시 바 */}
-      <div className="w-full flex items-center justify-between px-3 py-1.5 mb-2 rounded-2xl bg-secondary/30 border border-border">
+      <div className={isFullscreen ? "mb-2 flex w-full max-w-5xl items-center justify-between rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-white" : "mb-2 flex w-full items-center justify-between rounded-2xl border border-border bg-secondary/30 px-3 py-1.5"}>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-primary/20 text-primary">
             ST.{stage}
@@ -649,15 +795,41 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
         </div>
       </div>
 
+      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label="팩맨 조작 설정">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-black text-foreground">조작 방법</p>
+            <p className="text-xs text-muted-foreground">PC는 방향키, 휴대폰은 버튼 또는 기울이기로 조작해요.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setControlMode("buttons")} aria-pressed={controlMode === "buttons"} className={controlMode === "buttons" ? "rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground" : "rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground"}>버튼 / 방향키</button>
+            <button type="button" onClick={enableTiltControls} aria-pressed={controlMode === "tilt"} className={controlMode === "tilt" ? "rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground" : "rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground"}>기울기 센서 켜기</button>
+          </div>
+        </div>
+        {controlMode === "tilt" && <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="min-w-0">
+            <p role="status" className="text-sm font-semibold text-foreground">{tiltStatus}</p>
+            <p aria-live="polite" className="mt-1 text-xs text-muted-foreground">{tiltDiagnostics}</p>
+            <label className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="shrink-0">민감도</span>
+              <input type="range" min="6" max="28" step="1" value={tiltSensitivity} onChange={(event) => setTiltSensitivity(Number(event.target.value))} className="w-full accent-primary" />
+              <span className="w-8 text-right tabular-nums">{tiltSensitivity}°</span>
+            </label>
+          </div>
+          <button type="button" onClick={calibrateTilt} className="rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground">현재 자세로 재보정</button>
+        </div>}
+        <p className="mt-2 text-[11px] text-muted-foreground">기울기 조작은 센서가 있는 휴대폰에서 사용할 수 있어요. PC에서는 키보드 방향키를 사용하세요.</p>
+      </section>}
+
       {/* 팩맨 캔버스 미로 */}
-      <div className="relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md" style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
+      <div className={isFullscreen ? "relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 p-1.5 ring-2 ring-white/20 shadow-2xl" : "relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md"} style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
         <canvas
           ref={canvasRef}
           width={COLS * CELL_SIZE}
           height={ROWS * CELL_SIZE}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
-          className="rounded-xl block touch-none cursor-pointer"
+          className="rounded-xl block touch-none cursor-pointer mx-auto" style={isFullscreen ? { width: "min(94vw, 72dvh)", height: "auto", maxHeight: "100%" } : { width: "min(88vw, 540px)", height: "auto" }}
         />
 
         {gameOver && (
@@ -696,8 +868,8 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
         )}
       </div>
 
-      {/* 모바일 가상 십자 방향키 */}
-      <div className="w-full mt-3 flex flex-col items-center gap-1.5">
+      {/* 터치 기기용 가상 십자 방향키 */}
+      <div className={isFullscreen ? "mt-2 flex w-full flex-col items-center gap-1.5 md:hidden" : "mt-3 flex w-full flex-col items-center gap-1.5 md:hidden"}>
         <HapticButton
           hapticLabel="위로 이동"
           onClick={() => setDirection(0, -1)}
