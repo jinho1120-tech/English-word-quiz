@@ -88,7 +88,7 @@ export function SubjectManager({
         </button>
       </div>
 
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {subjects.length === 0 ? (
         <p className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">아직 등록된 과목이 없습니다. 과목을 추가해 주세요.</p>
@@ -116,7 +116,7 @@ export function SubjectManager({
                       await deleteChildSubject(childProfileId, subject.id)
                       setSubjects((current) => current.filter((item) => item.id !== subject.id))
                     })
-                  }} className="text-sm text-red-600">삭제</button>
+                  }} className="text-sm text-red-600 dark:text-red-400">삭제</button>
                 </>
               )}
             </li>

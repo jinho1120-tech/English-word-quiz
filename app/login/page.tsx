@@ -77,7 +77,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </header>
       {token && inviteStatus !== "valid" ? (
         <section className="space-y-3 rounded-2xl border border-border bg-card p-5 text-center">
-          <p role="alert" className="font-semibold text-red-600">
+          <p role="alert" className="font-semibold text-red-600 dark:text-red-400">
             {inviteStatus === "expired" ? "초대 링크의 유효기간이 지났어요." : inviteStatus === "revoked" ? "취소된 초대 링크입니다." : inviteStatus === "accepted" ? "이미 수락한 초대 링크입니다." : "유효하지 않은 초대 링크입니다."}
           </p>
           <p className="text-sm text-muted-foreground">초대한 가족 관리자에게 새 초대 링크를 요청해 주세요.</p>

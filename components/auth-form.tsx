@@ -152,8 +152,8 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError,
               className={`w-full rounded-xl border bg-background py-3 pl-3 pr-11 outline-none transition-colors focus:ring-2 focus:ring-offset-1 ${
                 mode === "signup" && password.length > 0
                   ? password.length >= 8
-                    ? "border-blue-500 focus:ring-blue-500"
-                    : "border-red-500 focus:ring-red-500"
+                    ? "border-blue-500 focus:ring-blue-500 dark:border-blue-400 dark:focus:ring-blue-400"
+                    : "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
                   : "border-input focus:ring-ring"
               }`}
               placeholder={mode === "signup" ? "8자 이상" : "비밀번호"}
@@ -169,7 +169,7 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError,
             </button>
           </span>
           {mode === "signup" && password.length > 0 && password.length < 8 && (
-            <span className="block text-xs text-red-600">비밀번호는 8자 이상이어야 합니다.</span>
+            <span className="block text-xs text-red-600 dark:text-red-400">비밀번호는 8자 이상이어야 합니다.</span>
           )}
         </label>
         {mode === "signup" && (
@@ -190,8 +190,8 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError,
                 className={"w-full rounded-xl border bg-background py-3 pl-3 pr-11 outline-none transition-colors focus:ring-2 focus:ring-offset-1 " + (
                   confirmPassword.length > 0
                     ? confirmPassword === password
-                      ? "border-blue-500 focus:ring-blue-500"
-                      : "border-red-500 focus:ring-red-500"
+                      ? "border-blue-500 focus:ring-blue-500 dark:border-blue-400 dark:focus:ring-blue-400"
+                      : "border-red-500 focus:ring-red-500 dark:border-red-400 dark:focus:ring-red-400"
                     : "border-input focus:ring-ring"
                 )}
                 placeholder="비밀번호를 한 번 더 입력해 주세요"
@@ -207,7 +207,7 @@ export function AuthForm({ inviteToken, inviteEmail, signedInEmail, inviteError,
               </button>
             </span>
             {confirmPassword.length > 0 && (
-              <span className={"block text-xs " + (confirmPassword === password ? "text-blue-600" : "text-red-600")}>
+              <span className={"block text-xs " + (confirmPassword === password ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400")}>
                 {confirmPassword === password ? "비밀번호가 일치합니다." : "비밀번호가 일치하지 않습니다."}
               </span>
             )}

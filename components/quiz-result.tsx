@@ -67,8 +67,8 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
   }
 
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-amber-300/70 bg-amber-50 p-3 text-center">
-      <div className="mb-3 flex items-center justify-center gap-2 font-black text-amber-900">
+    <div className="mt-5 overflow-hidden rounded-2xl border border-amber-300/70 bg-amber-50 p-3 text-center dark:border-amber-700/70 dark:bg-amber-950/50">
+      <div className="mb-3 flex items-center justify-center gap-2 font-black text-amber-900 dark:text-amber-100">
         <Gift className="size-5" /> 오늘의 행운 스크래치 카드
       </div>
       <div className="relative h-36 overflow-hidden rounded-xl bg-white sm:h-40">
@@ -76,21 +76,21 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
           {outcome === "won" ? (
             <>
               <p className="text-xl font-black text-amber-700">🎉 축하해요!</p>
-              <p className="mt-2 text-base font-bold text-foreground">「{title}」 쿠폰 당첨!</p>
-              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
-              <p className="mt-1 text-xs font-medium text-muted-foreground">내 쿠폰함에서 확인해 보세요.</p>
+              <p className="mt-2 text-base font-bold text-slate-900">「{title}」 쿠폰 당첨!</p>
+              {description && <p className="mt-1 text-sm font-medium text-slate-800">{description}</p>}
+              <p className="mt-1 text-xs font-medium text-slate-600">내 쿠폰함에서 확인해 보세요.</p>
             </>
           ) : outcome === "blank" ? (
             <>
               <p className="text-xl font-black text-slate-700">🥲 아쉬워요!</p>
-              <p className="mt-2 text-base font-bold text-foreground">「{title}」</p>
+              <p className="mt-2 text-base font-bold text-slate-900">「{title}」</p>
               {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
-              <p className="mt-1 text-xs font-medium text-muted-foreground">다음 도전을 응원할게요!</p>
+              <p className="mt-1 text-xs font-medium text-slate-600">다음 도전을 응원할게요!</p>
             </>
           ) : (
             <>
               <p className="text-lg font-black text-amber-700">두근두근…</p>
-              <p className="mt-2 text-sm font-semibold text-muted-foreground">어떤 결과가 기다리고 있을까요?</p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">어떤 결과가 기다리고 있을까요?</p>
             </>
           )}
         </div>
@@ -105,7 +105,7 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
           />
         )}
       </div>
-      {!outcome && <p className="mt-2 text-xs font-semibold text-amber-800">{revealing ? "결과를 확인하고 있어요…" : "카드 표면을 문질러 긁어 주세요."}</p>}
+      {!outcome && <p className="mt-2 text-xs font-semibold text-amber-800 dark:text-amber-200">{revealing ? "결과를 확인하고 있어요…" : "카드 표면을 문질러 긁어 주세요."}</p>}
     </div>
   )
 }
@@ -125,7 +125,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
     return (
       <div className="flex flex-col px-6 py-10 animate-in fade-in zoom-in-95 duration-500">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex size-16 items-center justify-center rounded-2xl text-white shadow-lg" style={{ backgroundColor: accent }}><Mic className="size-8" /></div>
+          <div className="mb-3 flex size-16 items-center justify-center rounded-2xl shadow-lg" style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}><Mic className="size-8" /></div>
           <h2 className="text-2xl font-black text-foreground">{score === 100 ? "원어민 같은 완벽한 발음!" : "말하기 훈련 완료!"}</h2>
           <p className="mt-2 text-sm font-semibold text-muted-foreground">{score === 100 ? "정말 대단해요! 완벽하게 읽어냈어요." : "자신감 있게 말하는 모습이 아주 멋져요!"}</p>
         </div>
@@ -147,8 +147,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
               hapticLabel="아쉬웠던 문장 다시 연습하기"
               onClick={onRetryWrong} 
               wrapperClassName="relative flex w-full"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold text-white shadow-md transition-opacity hover:opacity-90" 
-              style={{ backgroundColor: accent }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold shadow-md transition-opacity hover:opacity-90" 
+              style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
             >
               <RotateCcw className="size-5" /> 아쉬웠던 문장 다시 연습하기
             </HapticButton>
@@ -157,8 +157,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
             hapticLabel="처음부터 다시 연습하기"
             onClick={onRetryAll} 
             wrapperClassName="relative flex w-full"
-            className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", wrongWords.length > 0 ? "border border-border text-foreground hover:bg-muted" : "text-white shadow-md hover:opacity-90")} 
-            style={wrongWords.length > 0 ? undefined : { backgroundColor: accent }}
+            className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", wrongWords.length > 0 ? "border border-border text-foreground hover:bg-muted" : "shadow-md hover:opacity-90")} 
+            style={wrongWords.length > 0 ? undefined : { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
           >
             <RotateCcw className="size-5" /> 처음부터 다시 연습하기
           </HapticButton>
@@ -170,7 +170,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
   return (
     <div className="flex flex-col px-6 py-10 animate-in fade-in duration-500">
       <div className="mb-6 flex flex-col items-center text-center">
-        <div className="mb-3 flex size-16 items-center justify-center rounded-2xl text-white shadow-md" style={{ backgroundColor: accent }}><Trophy className="size-8" /></div>
+        <div className="mb-3 flex size-16 items-center justify-center rounded-2xl shadow-md" style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}><Trophy className="size-8" /></div>
         <h2 className="text-2xl font-black text-foreground">학습 완료!</h2>
       </div>
 
@@ -183,7 +183,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
         </div>
         
         {rewardChecked && couponFull ? (
-          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>
+          <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-100">쿠폰함이 가득 차서 더 이상 쿠폰을 받을 수 없어요. 쿠폰을 사용한 뒤 다시 도전해 주세요!</p>
         ) : rewardChecked && couponEligible ? (
           <ScratchCouponCard outcome={couponOutcome} title={rewardTitle} description={rewardDescription} onReveal={onRevealCoupon} />
         ) : rewardChecked && !couponConfigured ? (
@@ -215,8 +215,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
             hapticLabel="틀린 단어만 다시 풀기"
             onClick={onRetryWrong} 
             wrapperClassName="relative flex w-full"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold text-white shadow-md transition-opacity hover:opacity-90" 
-            style={{ backgroundColor: accent }}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold shadow-md transition-opacity hover:opacity-90" 
+            style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
           >
             <RotateCcw className="size-5" /> 틀린 단어만 다시 풀기
           </HapticButton>
@@ -225,8 +225,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           hapticLabel="처음부터 다시하기"
           onClick={onRetryAll} 
           wrapperClassName="relative flex w-full"
-          className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", (!isContextMode && wrongWords.length > 0) ? "border border-border text-foreground hover:bg-muted" : "text-white shadow-md hover:opacity-90")} 
-          style={(!isContextMode && wrongWords.length > 0) ? undefined : { backgroundColor: accent }}
+          className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", (!isContextMode && wrongWords.length > 0) ? "border border-border text-foreground hover:bg-muted" : "shadow-md hover:opacity-90")} 
+          style={(!isContextMode && wrongWords.length > 0) ? undefined : { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
         >
           <RotateCcw className="size-5" /> {isContextMode ? "새로운 AI 문제 도전하기" : "처음부터 다시하기"}
         </HapticButton>

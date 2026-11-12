@@ -153,7 +153,7 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
             <input aria-label={`${index + 1}번 단어`} value={item.word} onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, word: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
             <input aria-label={`${index + 1}번 뜻`} value={item.meaning} onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, meaning: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
             <input aria-label={`${index + 1}번 예문`} value={item.example} placeholder="예문 (선택)" onChange={(event) => setDraftWords((items) => items.map((v, i) => i === index ? { ...v, example: event.target.value } : v))} className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
-            <button type="button" onClick={() => setDraftWords((items) => items.filter((_, i) => i !== index))} className="text-xs text-red-600">이 항목 제외</button>
+            <button type="button" onClick={() => setDraftWords((items) => items.filter((_, i) => i !== index))} className="text-xs text-red-600 dark:text-red-400">이 항목 제외</button>
           </div>)}
           <div className="flex gap-2">
             <button type="button" disabled={pending} onClick={() => setDraftWords([])} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-semibold disabled:opacity-50">목록 비우기</button>
@@ -165,12 +165,12 @@ export function ParentWordManager({ childProfileId, subjects, initialWords, init
         <input value={example} onChange={(event) => setExample(event.target.value)} maxLength={2000} placeholder="예문 (선택)" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
         <button disabled={pending || !subjectId || !word.trim() || !meaning.trim()} onClick={() => run(async () => { await addParentChildWord(childProfileId, { date, subjectId, word, meaning, example }); setWord(""); setMeaning(""); setExample("") })} className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm font-bold text-background disabled:opacity-50">자녀 단어장에 추가</button>
       </section>
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-      {notice && <p role="status" className="text-sm text-emerald-700">{notice}</p>}
+      {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {notice && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">{notice}</p>}
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">등록된 단어 ({visibleWords.length})</h2>
-          <button type="button" disabled={pending || visibleWords.length === 0} onClick={deleteFilteredWords} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-40"><Trash2 className="size-3.5" />{listFilterSubjectId === "__all__" ? "전체 삭제" : "과목 삭제"}</button>
+          <button type="button" disabled={pending || visibleWords.length === 0} onClick={deleteFilteredWords} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-40 dark:bg-red-950/40 dark:text-red-300"><Trash2 className="size-3.5" />{listFilterSubjectId === "__all__" ? "전체 삭제" : "과목 삭제"}</button>
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           <button type="button" onClick={() => setListFilterSubjectId("__all__")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${listFilterSubjectId === "__all__" ? "bg-foreground text-background" : "border border-border bg-muted text-muted-foreground"}`}>전체 <span className="ml-1 rounded-full bg-background/20 px-1.5">{initialWords.length}</span></button>

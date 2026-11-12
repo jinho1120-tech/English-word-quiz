@@ -145,13 +145,13 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                   onClick={() => chooseDate(value)}
                   aria-pressed={active}
                   wrapperClassName="relative mx-auto flex size-10 aspect-square"
-                  className={`flex size-full aspect-square flex-col items-center justify-center rounded-full text-xs transition-colors ${active ? "font-black text-white" : "font-medium hover:bg-muted"}`}
-                  style={active ? { backgroundColor: "var(--child-accent, #14B8A6)" } : undefined}
+                  className={`flex size-full aspect-square flex-col items-center justify-center rounded-full text-xs transition-colors ${active ? "font-black" : "font-medium hover:bg-muted"}`}
+                  style={active ? { backgroundColor: "var(--child-accent, #14B8A6)", color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" } : undefined}
                 >
                   <span>{day}</span>
                   <span className="mt-0.5 flex h-2 items-center justify-center gap-0.5">
                     {ids.slice(0, 5).map((id) => (
-                      <i key={id} className="h-1.5 w-1.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: colors[id] ?? subjects.find((s) => s.id === id)?.color ?? "#2563EB" }} />
+                      <i key={id} className="h-1.5 w-1.5 rounded-full ring-1 ring-white/80 dark:ring-neutral-800" style={{ backgroundColor: colors[id] ?? subjects.find((s) => s.id === id)?.color ?? "#2563EB" }} />
                     ))}
                   </span>
                 </HapticButton>

@@ -80,10 +80,10 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
   return (
     <>
     {hasRewards && <div className="relative">
-      <HapticButton type="button" onClick={() => setIsOpen((value) => !value)} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm">
-        🎁 쿠폰함 <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px]">{availableCount}/{maxStoredCoupons}</span>
+      <HapticButton type="button" onClick={() => setIsOpen((value) => !value)} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200 shadow-sm">
+        🎁 쿠폰함 <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-950 dark:bg-amber-900 dark:text-amber-100">{availableCount}/{maxStoredCoupons}</span>
       </HapticButton>
-      {notice && <p role="status" className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{notice}</p>}
+      {notice && <p role="status" className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">{notice}</p>}
       {isOpen && <div className="absolute right-0 top-full z-40 mt-2 max-h-[65vh] w-[min(88vw,340px)] overflow-y-auto rounded-2xl border border-border bg-background p-3 shadow-xl">
         <div className="mb-3 flex items-center justify-between"><div><h2 className="font-bold">내 쿠폰 보관함</h2><p className="text-xs text-muted-foreground">보관 중 {availableCount}개 / 최대 {maxStoredCoupons}개</p></div><HapticButton type="button" onClick={() => setIsOpen(false)} className="rounded-lg px-2 py-1 text-xs text-muted-foreground">닫기</HapticButton></div>
         {walletRewards.length === 0 ? <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">아직 받은 쿠폰이 없어요. 퀴즈 보상을 받아 보세요!</p> : <div className="space-y-2">{walletRewards.map((reward) => (
@@ -105,8 +105,8 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
       </div>}
     </div>}
     {notice && <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="coupon-used-title">
-      <div className="w-full max-w-sm space-y-3 rounded-2xl border border-emerald-200 bg-background p-5 text-center shadow-2xl">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700">✓</div>
+      <div className="w-full max-w-sm space-y-3 rounded-2xl border border-emerald-200 bg-background p-5 text-center shadow-2xl dark:border-emerald-800">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-emerald-100 text-3xl text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">✓</div>
         <h2 id="coupon-used-title" className="text-lg font-black">쿠폰 사용 알림</h2>
         <p className="text-sm font-semibold">{notice}</p>
         <HapticButton type="button" onClick={() => setNotice("")} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">확인</HapticButton>
