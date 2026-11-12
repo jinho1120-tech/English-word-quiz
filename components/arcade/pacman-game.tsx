@@ -22,7 +22,7 @@ const INITIAL_MAP = [
   [1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
   [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (7, 8): 🍒 보너스 체리 스폰 위치
   [1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1],
-  [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 팩맨 스폰 지점
+  [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 보카맨 스폰 지점
   [1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1],
   [1, 3, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 3, 1],
   [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1],
@@ -488,7 +488,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       // 스테이지 클리어 대기 중이거나 READY 상태면 물리 연산 정지
       if (!isReady && !isStageClear && !defenseEncounter) {
         // ==========================================
-        // 1. 팩맨 부드러운 코너링 및 전진
+        // 1. 보카맨 부드러운 코너링 및 전진
         // ==========================================
         const curTileX = Math.round(pac.x);
         const curTileY = Math.round(pac.y);
@@ -684,7 +684,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         }
       }
 
-      // 팩맨 입 뻐끔 애니메이션
+      // 보카맨 입 뻐끔 애니메이션
       const isMoving = pac.dirX !== 0 || pac.dirY !== 0;
       if (isMoving && !isReady && !isStageClear) {
         pac.mouthAngle += 2.2 * dt * pac.mouthDir;
@@ -745,7 +745,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         ctx.fillText(cherryPopup, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE);
       }
 
-      // 팩맨 그리기
+      // 보카맨 그리기
       const shouldDrawPacman = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
       if (shouldDrawPacman) {
         ctx.fillStyle = "#facc15";
@@ -859,7 +859,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         </div>
       </div>
 
-      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label="팩맨 조작 설정">
+      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label="보카맨 조작 설정">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black text-foreground">조작 방법</p>
@@ -885,7 +885,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         <p className="mt-2 text-[11px] text-muted-foreground">기울기 조작은 센서가 있는 휴대폰에서 사용할 수 있어요. PC에서는 키보드 방향키를 사용하세요.</p>
       </section>}
 
-      {/* 팩맨 캔버스 미로 */}
+      {/* 보카맨 캔버스 미로 */}
       <div className={isFullscreen ? "relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 p-1.5 ring-2 ring-white/20 shadow-2xl" : "relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md"} style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
         <canvas
           ref={canvasRef}
@@ -971,7 +971,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               className="mt-3 h-14 w-full rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
               style={{ borderColor: defenseEncounter.ghostColor }}
             />
-            <p className="mt-3 text-xs text-slate-400">정답이면 라이프를 지키고 팩맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+            <p className="mt-3 text-xs text-slate-400">정답이면 라이프를 지키고 보카맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
           </div>
         </div>
       )}

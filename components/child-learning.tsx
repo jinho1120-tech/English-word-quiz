@@ -370,7 +370,7 @@ export function ChildLearning({
           {pacmanError && <p role="alert" className="text-xs text-red-600">{pacmanError}</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
-              팩맨 😮
+              보카맨(Voca-Man)😀
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || initialWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               영어 타자 디펜스 👻
@@ -387,7 +387,7 @@ export function ChildLearning({
         <div className="fixed inset-0 z-[120] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
           <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
             <div className="mb-3 text-center">
-              <h2 className="text-xl font-black">팩맨 아케이드</h2>
+              <h2 className="text-xl font-black">보카맨(Voca-Man) 아케이드</h2>
               <p className="text-xs text-muted-foreground">방향키 또는 화면 버튼으로 움직여 보세요!</p>
             </div>
             <PacmanGame
