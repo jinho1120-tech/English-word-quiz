@@ -852,27 +852,29 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       // 보카맨 그리기
       const shouldDrawPacman = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
       if (shouldDrawPacman) {
-        ctx.fillStyle = "#facc15";
-        ctx.beginPath();
         const centerX = pac.x * CELL_SIZE + CELL_SIZE / 2;
         const centerY = pac.y * CELL_SIZE + CELL_SIZE / 2;
+        const doctorVertical = doctorModeActiveRef.current && pac.dirY !== 0;
         let angleOffset = 0;
         if (pac.dirX === 1) angleOffset = 0;
         else if (pac.dirX === -1) angleOffset = Math.PI;
         else if (pac.dirY === 1) angleOffset = Math.PI / 2;
         else if (pac.dirY === -1) angleOffset = (Math.PI * 3) / 2;
 
-        ctx.arc(
-          centerX,
-          centerY,
-          CELL_SIZE / 2 - 1,
-          angleOffset + pac.mouthAngle * Math.PI,
-          angleOffset + (2 - pac.mouthAngle) * Math.PI
-        );
-        ctx.lineTo(centerX, centerY);
+        // 박사 모드의 상하 이동은 입이 없는 둥근 얼굴로, 좌우 이동은 기존 측면 입 모양으로 표현한다.
+        ctx.fillStyle = "#facc15";
+        ctx.beginPath();
+        if (doctorVertical) {
+          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1, 0, Math.PI * 2);
+        } else {
+          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1,
+            angleOffset + pac.mouthAngle * Math.PI,
+            angleOffset + (2 - pac.mouthAngle) * Math.PI);
+          ctx.lineTo(centerX, centerY);
+        }
         ctx.fill();
+
         if (doctorModeActiveRef.current) {
-          // 옆모습 보카맨에 진행 방향에 맞춰 안경과 학사모를 그린다.
           ctx.save();
           const facingX = pac.dirX !== 0 ? pac.dirX : 0;
           const facingY = pac.dirY !== 0 ? pac.dirY : 0;
@@ -883,18 +885,41 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.fillStyle = aura;
           ctx.beginPath(); ctx.arc(centerX, centerY, 32, 0, Math.PI * 2); ctx.fill();
 
-          // 안경을 실제 이동 방향 쪽으로 옮겨 위·아래·좌·우 입 방향과 일치시킨다.
-          const glassesX = centerX + idleFacingX * 5;
-          const glassesY = centerY + facingY * 5 - 3;
-          ctx.strokeStyle = "#172033";
-          ctx.lineWidth = 1.6;
-          ctx.beginPath();
-          ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
-          ctx.moveTo(glassesX + idleFacingX * 4, glassesY + facingY * 2);
-          ctx.lineTo(glassesX + idleFacingX * 7, glassesY + facingY * 3);
-          ctx.stroke();
+          // 아래 이동: 정면 얼굴 + 정면 안경. 입은 그리지 않는다.
+          if (pac.dirY > 0) {
+            ctx.fillStyle = "#713f12";
+            ctx.beginPath();
+            ctx.ellipse(centerX - 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
+            ctx.ellipse(centerX + 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#172033";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(centerX - 8, centerY - 5, 7, 7, 2);
+            ctx.roundRect(centerX + 1, centerY - 5, 7, 7, 2);
+            ctx.moveTo(centerX - 1, centerY - 2);
+            ctx.lineTo(centerX + 1, centerY - 2);
+            ctx.stroke();
+          } else if (pac.dirY < 0) {
+            // 위 이동: 뒤통수만 보여 안경·눈·입은 모두 숨긴다.
+            ctx.fillStyle = "#eab308";
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // 좌우 이동은 기존 측면 모습과 방향에 맞춘 안경을 유지한다.
+            const glassesX = centerX + idleFacingX * 5;
+            const glassesY = centerY - 3;
+            ctx.strokeStyle = "#172033";
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
+            ctx.moveTo(glassesX + idleFacingX * 4, glassesY);
+            ctx.lineTo(glassesX + idleFacingX * 7, glassesY + 1);
+            ctx.stroke();
+          }
 
-          // 학사모는 머리 위에 얹고 술은 진행 방향 뒤쪽으로 늘어뜨린다.
+          // 학사모는 모든 방향에서 유지한다.
           ctx.fillStyle = "#1e293b";
           ctx.beginPath();
           ctx.moveTo(centerX - 10, centerY - 9);
@@ -1124,10 +1149,18 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="relative my-5 flex h-40 w-40 items-center justify-center">
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
-            {doctorChallenge.index >= 3 && <div className="absolute -top-1 z-20 text-5xl drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">🎓</div>}
-            <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-              <span className="mb-1 text-6xl leading-none">😃</span>
-              {doctorChallenge.index >= 2 && <div className="absolute left-1/2 top-[42%] z-10 flex -translate-x-1/2 items-center gap-1 drop-shadow-[0_0_5px_white]"><span className="h-5 w-7 rounded-lg border-[3px] border-slate-900 bg-amber-200/30" /><span className="h-1 w-2 bg-slate-900" /><span className="h-5 w-7 rounded-lg border-[3px] border-slate-900 bg-amber-200/30" /></div>}
+            <div className="relative h-28 w-28 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
+              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="박사 보카맨 얼굴">
+                <ellipse cx="39" cy="43" rx="5" ry="9" fill="#713f12" />
+                <ellipse cx="73" cy="43" rx="5" ry="9" fill="#713f12" />
+                <path d="M31 68 Q56 91 81 68" fill="none" stroke="#713f12" strokeWidth="6" strokeLinecap="round" />
+                {doctorChallenge.index >= 2 && <g fill="none" stroke="#172033" strokeWidth="5">
+                  <rect x="13" y="39" width="38" height="29" rx="12" />
+                  <rect x="61" y="39" width="38" height="29" rx="12" />
+                  <path d="M51 52 H61" />
+                </g>}
+              </svg>
+              {doctorChallenge.index >= 3 && <div className="absolute -top-5 left-1/2 z-20 -translate-x-1/2 text-5xl drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">🎓</div>}
             </div>
           </div>
           <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
