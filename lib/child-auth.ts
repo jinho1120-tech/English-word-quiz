@@ -62,11 +62,6 @@ export function hashChildAccessCode(normalized: string): { current: string; lega
   return { current, legacy }
 }
 
-export function upgradeLegacyChildAccessCodeHash(legacyHash: string): string {
-  if (!/^[a-f0-9]{64}$/i.test(legacyHash)) throw new Error("Legacy access-code hash is malformed.")
-  return "v2:" + createHmac("sha256", getChildAccessCodePepper()).update(legacyHash).digest("hex")
-}
-
 /** Generate the user-facing code and its server-only storage hash together. */
 export function issueChildAccessCode(): { code: string; hash: string } {
   const code = generateChildAccessCode()
