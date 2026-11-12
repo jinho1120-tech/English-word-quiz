@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import type { PoolClient } from "pg"
 import { pool } from "@/lib/db"
 import { recordServiceUsageRequest } from "@/lib/service-usage"
 
@@ -92,7 +93,7 @@ export async function runWithFailureRateLimit<T>(
   shortWindowSeconds: number,
   dailyLimit: number,
   dailyWindowSeconds: number,
-  operation: () => Promise<{ success: boolean; value: T }>,
+  operation: (client: PoolClient) => Promise<{ success: boolean; value: T }>,
 ): Promise<FailureRateLimitResult<T>> {
   const client = await pool.connect()
   try {
@@ -131,7 +132,7 @@ export async function runWithFailureRateLimit<T>(
       return { limited: true, retryAfterSeconds }
     }
 
-    const outcome = await operation()
+    const outcome = await operation(client)
     if (!outcome.success) {
       const requestId = randomUUID()
       await client.query(
