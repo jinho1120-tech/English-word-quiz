@@ -528,7 +528,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       window.cancelAnimationFrame(frame)
       lastFrameRef.current = 0
     }
-  }, [cleanWords, cleanSubjectWords, cleanAllWords, difficulty, gameOver, paused, started, typed])
+  }, [cleanWords, cleanTodayWords, cleanAllWords, difficulty, gameOver, paused, started, typed])
 
   function handleTyping(value: string) {
     const next = value.slice(0, 100)
