@@ -110,6 +110,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const [defenseEncounter, setDefenseEncounter] = useState<{ ghostId: string; ghostColor: string; word: PacmanDefenseWord; durationMs: number } | null>(null);
   const [defenseTyped, setDefenseTyped] = useState("");
   const [defenseRemainingMs, setDefenseRemainingMs] = useState(0);
+  const [doctorChallenge, setDoctorChallenge] = useState<{ words: PacmanDefenseWord[]; index: number } | null>(null);
+  const [doctorModeUntil, setDoctorModeUntil] = useState(0);
+  const doctorModeActiveRef = useRef(false);
+  const doctorChallengeActiveRef = useRef(false);
   const defenseActiveRef = useRef(false);
   const defenseInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -271,6 +275,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     setGameOver(false);
     setIsStageClear(false);
     stageClearTriggeredRef.current = false;
+    doctorModeActiveRef.current = false;
+    doctorChallengeActiveRef.current = false;
+    setDoctorChallenge(null);
+    setDoctorModeUntil(0);
     setCherryVisible(false);
     setCherryPopup(null);
     cherrySpawnedRef.current = false;
@@ -476,6 +484,31 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     if (defenseEncounter) requestAnimationFrame(() => defenseInputRef.current?.focus());
   }, [defenseEncounter]);
 
+  const handleDoctorTyping = (value: string) => {
+    if (!doctorChallenge || !doctorChallengeActiveRef.current) return;
+    const expected = doctorChallenge.words[doctorChallenge.index]?.word ?? "";
+    const normalized = value.trim().toLocaleLowerCase().replace(/\\s+/g, "");
+    const target = expected.toLocaleLowerCase().replace(/\\s+/g, "");
+    if (!target.startsWith(normalized)) {
+      doctorChallengeActiveRef.current = false;
+      setDoctorChallenge(null);
+      setDefenseTyped("");
+      return;
+    }
+    if (normalized === target) {
+      if (doctorChallenge.index === 2) {
+        doctorChallengeActiveRef.current = false;
+        doctorModeActiveRef.current = true;
+        setDoctorModeUntil(Date.now() + Math.max(3500, 7000 - stage * 400));
+        setScore((current) => current + 300);
+        setDoctorChallenge(null);
+      } else {
+        setDoctorChallenge({ ...doctorChallenge, index: doctorChallenge.index + 1 });
+        setDefenseTyped("");
+      }
+    }
+  };
+
   const handleDefenseTyping = (value: string) => {
     if (!defenseEncounter || !defenseActiveRef.current) return;
     setDefenseTyped(value);
@@ -591,12 +624,18 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               return next;
             });
 
-            if (cell === 3) {
+            if (cell === 3 && words.length > 0 && !doctorModeActiveRef.current && !doctorChallengeActiveRef.current) {
+              const shuffled = [...words].sort(() => Math.random() - 0.5);
+              const challengeWords = Array.from({ length: 3 }, (_, index) => shuffled[index % shuffled.length]);
+              doctorChallengeActiveRef.current = true;
+              setDoctorChallenge({ words: challengeWords, index: 0 });
+            } else if (cell === 3) {
+              // 박사 도전 중이거나 단어 데이터가 없으면 기존 파워 펠릿 효과를 유지한다.
               ghostsRef.current.forEach((g) => (g.isFrightened = true));
               if (frightenedTimerRef.current) clearTimeout(frightenedTimerRef.current);
               frightenedTimerRef.current = setTimeout(() => {
                 ghostsRef.current.forEach((g) => (g.isFrightened = false));
-              }, Math.max(3500, 7000 - stage * 400)); // 스테이지가 오를수록 공포 시간 단축
+              }, Math.max(3500, 7000 - stage * 400));
             }
           }
         }
@@ -697,7 +736,13 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ghostsRef.current.forEach((g) => {
             const distance = Math.hypot(pac.x - g.x, pac.y - g.y);
             if (distance < 0.72) {
-              if (g.isFrightened) {
+              if (doctorModeActiveRef.current) {
+                g.x = 7.0; g.y = 6.0; g.dirX = 0; g.dirY = 0;
+                g.isInHouse = true; g.isFrightened = false;
+                g.releaseDelayMs = Date.now() - gameStartTimeRef.current + 2200;
+                g.lastDecisionTile = "7,6";
+                g.word = null;
+              } else if (g.isFrightened) {
                 setScore((s) => s + 200);
                 g.x = 7.0;
                 g.y = 6.0;
@@ -789,6 +834,9 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         ctx.fillText(cherryPopup, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE);
       }
 
+      // 박사 모드 제한 시간 종료
+      if (doctorModeActiveRef.current && nowMs >= doctorModeUntil) doctorModeActiveRef.current = false;
+
       // 보카맨 그리기
       const shouldDrawPacman = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
       if (shouldDrawPacman) {
@@ -811,6 +859,24 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         );
         ctx.lineTo(centerX, centerY);
         ctx.fill();
+        if (doctorModeActiveRef.current) {
+          // 박사 보카맨의 황금빛 오라와 학사모
+          ctx.save();
+          ctx.globalAlpha = 0.45 + Math.sin(nowMs / 90) * 0.12;
+          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 25);
+          aura.addColorStop(0, "rgba(250,204,21,0.65)");
+          aura.addColorStop(1, "rgba(250,204,21,0)");
+          ctx.fillStyle = aura;
+          ctx.beginPath(); ctx.arc(centerX, centerY, 25, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "#7c3aed";
+          ctx.beginPath(); ctx.moveTo(centerX - 9, centerY - 10); ctx.lineTo(centerX + 9, centerY - 10); ctx.lineTo(centerX + 5, centerY - 16); ctx.lineTo(centerX - 5, centerY - 16); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#a78bfa";
+          ctx.beginPath(); ctx.moveTo(centerX - 12, centerY - 16); ctx.lineTo(centerX, centerY - 21); ctx.lineTo(centerX + 12, centerY - 16); ctx.lineTo(centerX, centerY - 12); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(centerX + 9, centerY - 16); ctx.lineTo(centerX + 13, centerY - 9); ctx.stroke();
+          ctx.restore();
+        }
       }
 
       // 유령 그리기
@@ -1025,6 +1091,22 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           </div>
         )}
       </div>
+
+      {doctorChallenge && (
+        <div className="fixed inset-0 z-[170] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/95 px-5 py-6 text-center text-white">
+          <div className="mb-4 text-5xl">🎓</div>
+          <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR VOCA-MAN CHALLENGE</p>
+          <h2 className="mt-2 text-2xl font-black">박사 보카맨에 도전!</h2>
+          <p className="mt-2 text-sm text-slate-300">시간제한 없이 영어 단어 3개를 연속으로 맞혀 보세요.</p>
+          <div className="my-5 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
+          <div className="w-full max-w-md rounded-3xl border border-amber-300/40 bg-slate-900 p-6 shadow-[0_0_50px_rgba(250,204,21,0.15)]">
+            <p className="text-xs font-bold text-amber-200">다음 영어 단어의 뜻</p>
+            <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
+            <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+          </div>
+          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
+        </div>
+      )}
 
       {defenseEncounter && (
         <div className="fixed inset-x-0 z-[160] flex min-h-0 flex-col items-center justify-start overflow-y-auto overscroll-contain bg-slate-950 px-4 py-2 text-center text-white" style={{ top: encounterViewport.top, height: encounterViewport.height || "100dvh" }}>
