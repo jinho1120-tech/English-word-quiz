@@ -914,8 +914,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.strokeStyle = "#facc15";
           ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.moveTo(centerX - facing * 10, centerY - 14);
-          ctx.lineTo(centerX - facing * 13, centerY - 7);
+          ctx.moveTo(centerX - idleFacingX * 10, centerY - 14);
+          ctx.lineTo(centerX - idleFacingX * 13, centerY - 7);
           ctx.stroke();
           ctx.restore();
         }
