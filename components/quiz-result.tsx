@@ -125,7 +125,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
     return (
       <div className="flex flex-col px-6 py-10 animate-in fade-in zoom-in-95 duration-500">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex size-16 items-center justify-center rounded-2xl text-white shadow-lg" style={{ backgroundColor: accent }}><Mic className="size-8" /></div>
+          <div className="mb-3 flex size-16 items-center justify-center rounded-2xl shadow-lg" style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}><Mic className="size-8" /></div>
           <h2 className="text-2xl font-black text-foreground">{score === 100 ? "원어민 같은 완벽한 발음!" : "말하기 훈련 완료!"}</h2>
           <p className="mt-2 text-sm font-semibold text-muted-foreground">{score === 100 ? "정말 대단해요! 완벽하게 읽어냈어요." : "자신감 있게 말하는 모습이 아주 멋져요!"}</p>
         </div>
@@ -147,8 +147,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
               hapticLabel="아쉬웠던 문장 다시 연습하기"
               onClick={onRetryWrong} 
               wrapperClassName="relative flex w-full"
-              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold text-white shadow-md transition-opacity hover:opacity-90" 
-              style={{ backgroundColor: accent }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold shadow-md transition-opacity hover:opacity-90" 
+              style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
             >
               <RotateCcw className="size-5" /> 아쉬웠던 문장 다시 연습하기
             </HapticButton>
@@ -157,8 +157,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
             hapticLabel="처음부터 다시 연습하기"
             onClick={onRetryAll} 
             wrapperClassName="relative flex w-full"
-            className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", wrongWords.length > 0 ? "border border-border text-foreground hover:bg-muted" : "text-white shadow-md hover:opacity-90")} 
-            style={wrongWords.length > 0 ? undefined : { backgroundColor: accent }}
+            className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", wrongWords.length > 0 ? "border border-border text-foreground hover:bg-muted" : "shadow-md hover:opacity-90")} 
+            style={wrongWords.length > 0 ? undefined : { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
           >
             <RotateCcw className="size-5" /> 처음부터 다시 연습하기
           </HapticButton>
@@ -170,7 +170,7 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
   return (
     <div className="flex flex-col px-6 py-10 animate-in fade-in duration-500">
       <div className="mb-6 flex flex-col items-center text-center">
-        <div className="mb-3 flex size-16 items-center justify-center rounded-2xl text-white shadow-md" style={{ backgroundColor: accent }}><Trophy className="size-8" /></div>
+        <div className="mb-3 flex size-16 items-center justify-center rounded-2xl shadow-md" style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}><Trophy className="size-8" /></div>
         <h2 className="text-2xl font-black text-foreground">학습 완료!</h2>
       </div>
 
@@ -215,8 +215,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
             hapticLabel="틀린 단어만 다시 풀기"
             onClick={onRetryWrong} 
             wrapperClassName="relative flex w-full"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold text-white shadow-md transition-opacity hover:opacity-90" 
-            style={{ backgroundColor: accent }}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold shadow-md transition-opacity hover:opacity-90" 
+            style={{ backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
           >
             <RotateCcw className="size-5" /> 틀린 단어만 다시 풀기
           </HapticButton>
@@ -225,8 +225,8 @@ export function QuizResult({ score, correctCount, total, bestStreak, wrongWords,
           hapticLabel="처음부터 다시하기"
           onClick={onRetryAll} 
           wrapperClassName="relative flex w-full"
-          className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", (!isContextMode && wrongWords.length > 0) ? "border border-border text-foreground hover:bg-muted" : "text-white shadow-md hover:opacity-90")} 
-          style={(!isContextMode && wrongWords.length > 0) ? undefined : { backgroundColor: accent }}
+          className={cn("flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors", (!isContextMode && wrongWords.length > 0) ? "border border-border text-foreground hover:bg-muted" : "shadow-md hover:opacity-90")} 
+          style={(!isContextMode && wrongWords.length > 0) ? undefined : { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" }}
         >
           <RotateCcw className="size-5" /> {isContextMode ? "새로운 AI 문제 도전하기" : "처음부터 다시하기"}
         </HapticButton>
