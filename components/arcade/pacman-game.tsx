@@ -556,7 +556,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       const currentTheme = STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 
       // 스테이지 클리어 대기 중이거나 READY 상태면 물리 연산 정지
-      if (!isReady && !isStageClear && !defenseEncounter) {
+      if (!isReady && !isStageClear && !defenseEncounter && !doctorChallenge) {
         // ==========================================
         // 1. 보카맨 부드러운 코너링 및 전진
         // ==========================================
@@ -978,7 +978,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [gameOver, isReady, isStageClear, isInvulnerable, lives, stage, advanceToNextStage, cherryVisible, cherryPopup, onGameOver, resetPositions, defenseEncounter, words]);
+  }, [gameOver, isReady, isStageClear, isInvulnerable, lives, stage, advanceToNextStage, cherryVisible, cherryPopup, onGameOver, resetPositions, defenseEncounter, doctorChallenge, doctorModeUntil, words]);
 
   async function handleReplay() {
     if (replayPending) return;
