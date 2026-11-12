@@ -392,7 +392,7 @@ async function recordChildLoginFailure(): Promise<void> {
 export async function loginChildWithAccessCode(input: { accessCode?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
   const multiplier = client.unknown ? 10 : 1
-  const result = await runWithFailureRateLimit(
+  const result = await runWithFailureRateLimit<ChildAuthResult>(
     client.key,
     "child-login",
     10 * multiplier,
@@ -433,7 +433,7 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
 export async function completeChildQrEnrollment(input: { token?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
   const multiplier = client.unknown ? 10 : 1
-  const result = await runWithFailureRateLimit(
+  const result = await runWithFailureRateLimit<ChildAuthResult>(
     client.key,
     "child-enroll",
     30 * multiplier,
