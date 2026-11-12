@@ -4,6 +4,7 @@ const ITEMS = [
   { href: "/super-admin/overview", label: "운영 현황" },
   { href: "/super-admin", label: "가족 관리" },
   { href: "/super-admin/usage", label: "사용량·비용" },
+  { href: "/super-admin/game-usage", label: "게임 이용 통계" },
   { href: "/super-admin/limits", label: "사용 한도" },
   { href: "/super-admin/audit", label: "활동 기록" },
 ]
