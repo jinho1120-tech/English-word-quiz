@@ -139,6 +139,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
 
   useEffect(() => {
     if (!defenseEncounter) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const viewport = window.visualViewport;
     const updateViewport = () => {
       const height = viewport?.height ?? window.innerHeight;
@@ -153,6 +155,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       viewport?.removeEventListener("resize", updateViewport);
       viewport?.removeEventListener("scroll", updateViewport);
       window.removeEventListener("resize", updateViewport);
+      document.body.style.overflow = previousOverflow;
     };
   }, [defenseEncounter]);
   const orientationRef = useRef<{ beta: number; gamma: number } | null>(null);
