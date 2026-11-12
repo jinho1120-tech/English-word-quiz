@@ -670,17 +670,17 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           <span>정답을 맞히면 유령이 영단어로 변해 도망가요!</span>
           <HapticButton type="button" onClick={() => setTyped("")} className="shrink-0 rounded-lg px-2 py-0.5 font-bold">지우기</HapticButton>
         </div>
-      </div>
+      </div>}
 
       <div className={isFullscreen ? "hidden" : "rounded-xl border border-amber-300/40 bg-amber-50/70 p-3 dark:bg-amber-950/20"}>
         <div className="mb-2 flex items-center justify-between gap-2"><p className="text-xs font-black text-amber-800 dark:text-amber-200">방어선 · 놓친 단어</p><span className="text-[11px] font-bold text-muted-foreground">{missedWords.length}개</span></div>
         {missedWords.length ? <div className="flex flex-wrap gap-2">{missedWords.slice(-5).map((item) => <span key={normalizeWord(item.word)} className="rounded-lg bg-background px-2.5 py-1.5 text-xs shadow-sm"><strong>{item.word}</strong><span className="ml-1.5 text-muted-foreground">{item.meaning}</span></span>)}</div> : <p className="text-xs text-muted-foreground">놓친 단어가 여기에 쌓여요. 정답을 확인하고 다시 기억해 봐요.</p>}
-      </div>}
+      </div>
 
       {!isFullscreen && <div className="flex gap-2">
         <HapticButton type="button" onClick={() => setPaused((value) => !value)} disabled={gameOver} className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-bold">{paused ? "계속하기" : "일시정지"}</HapticButton>
         <HapticButton type="button" onClick={onClose} className="flex-1 rounded-xl bg-muted px-3 py-2.5 text-sm font-bold">나가기</HapticButton>
-      </div>
+      </div>}
       {!isFullscreen && <p className="text-center text-[11px] text-muted-foreground">처음엔 선택한 날짜·과목에서, 점수가 오르면 그날 다른 과목과 다른 날짜의 단어까지 차례로 출제돼요. 오늘 저장된 단어가 없으면 보유한 데이터베이스 단어로 시작해요.</p>}
     </div>
   )
