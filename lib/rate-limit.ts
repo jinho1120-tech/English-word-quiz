@@ -40,6 +40,37 @@ export async function maybePurgeChildAuthRateLimits(): Promise<void> {
 }
 
 
+/** A bounded counter used for the global child-login failure signal. */
+export async function consumeRateLimit(
+  key: string,
+  action: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<{ allowed: boolean; count: number; retryAfterSeconds: number }> {
+  const result = await pool.query<{ request_count: number; retry_after: number }>(
+    `INSERT INTO rate_limits (user_id, action, window_started_at, request_count)
+     VALUES ($1, $2, NOW(), 1)
+     ON CONFLICT (user_id, action) DO UPDATE SET
+       window_started_at = CASE
+         WHEN rate_limits.window_started_at <= NOW() - ($3 * INTERVAL '1 second')
+         THEN NOW() ELSE rate_limits.window_started_at END,
+       request_count = CASE
+         WHEN rate_limits.window_started_at <= NOW() - ($3 * INTERVAL '1 second')
+         THEN 1 ELSE rate_limits.request_count + 1 END
+     RETURNING request_count,
+       GREATEST(1, CEIL(EXTRACT(EPOCH FROM (
+         window_started_at + ($3 * INTERVAL '1 second') - NOW()
+       ))))::int AS retry_after`,
+    [key, action, windowSeconds],
+  )
+  const count = Number(result.rows[0]?.request_count ?? limit + 1)
+  return {
+    allowed: count <= limit,
+    count,
+    retryAfterSeconds: Number(result.rows[0]?.retry_after ?? windowSeconds),
+  }
+}
+
 export type FailureRateLimitResult<T> =
   | { limited: true; retryAfterSeconds: number }
   | { limited: false; value: T }
