@@ -14,9 +14,17 @@ export function ChildLoginForm() {
     setError("")
     startTransition(async () => {
       try {
-        await loginChildWithAccessCode({ accessCode, deviceLabel: "자녀 기기" })
-        router.replace("/child")
-        router.refresh()
+        const result = await loginChildWithAccessCode({ accessCode, deviceLabel: "자녀 기기" })
+        if (result.ok) {
+          router.replace("/child")
+          router.refresh()
+          return
+        }
+        if (result.reason === "rate_limited") {
+          setError(`시도 횟수가 많아요. ${Math.ceil(result.retryAfterSeconds / 60)}분 뒤에 다시 시도해 주세요.`)
+        } else {
+          setError("접속 코드가 올바르지 않아요. 부모님께 코드를 다시 확인해 달라고 해 주세요.")
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "기기를 연결하지 못했습니다.")
       }
