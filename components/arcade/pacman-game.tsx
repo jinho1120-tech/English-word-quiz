@@ -1041,7 +1041,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   return (
     <div className={isFullscreen ? "fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col items-center overflow-y-auto bg-slate-950 px-2 pb-3 pt-[max(12px,env(safe-area-inset-top))] text-white" : "relative mx-auto flex w-full max-w-4xl flex-col items-center px-1 select-none sm:px-3"}>
       <div className={isFullscreen ? "mb-2 flex w-full max-w-5xl items-center justify-between" : "mb-2 flex w-full justify-end"}>
-        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">PAC-MAN · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
+        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">VOCA-MAN · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
         {isFullscreen ? <button type="button" aria-label="큰 화면 닫기" onClick={() => setIsFullscreen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white shadow-lg">×</button> : <HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton>}
       </div>
       {/* 점수 & 스테이지 & 목숨 표시 바 */}
