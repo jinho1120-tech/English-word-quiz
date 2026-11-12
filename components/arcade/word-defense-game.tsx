@@ -522,7 +522,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
   }
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-3">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-1 sm:px-3">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs font-bold tracking-[0.18em] text-slate-400">WORD DEFENSE</p>
@@ -534,7 +534,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-inner">
-        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-[210px] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
+        <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} className="block h-auto max-h-[560px] w-full" aria-label="한글 뜻이 표시된 유령 몬스터들이 원근감 있게 다가오는 게임 화면" />
         <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-start justify-between gap-2">
           <div className="rounded-lg border border-white/10 bg-slate-950/75 px-2 py-1 text-left text-white shadow-lg backdrop-blur-sm">
             <p className="text-[8px] font-bold tracking-wider text-slate-300">SCORE · {DIFFICULTY_CONFIG[difficulty].label}</p>
