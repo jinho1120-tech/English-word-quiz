@@ -940,7 +940,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                               scoreItem = availableScores[scoreIdx]
                               
                               if (scoreItem.errorType === "Omission") {
-                                colorClass = "text-red-400 dark:text-red-500 opacity-50"
+                                colorClass = "text-red-400 dark:text-red-400 opacity-70"
                                 isOmitted = true;
                               } else {
                                 isChunkOmitted = false;
@@ -968,7 +968,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                                   {token}
                                 </span>
                                 {isOmitted && (
-                                  <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[10px] font-bold text-red-400 opacity-90 whitespace-nowrap z-10">
+                                  <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 text-[10px] font-bold text-red-400 dark:text-red-300 opacity-90 whitespace-nowrap z-10">
                                     (누락)
                                   </span>
                                 )}
@@ -976,9 +976,9 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                                   <span className="absolute top-full left-1/2 -translate-x-1/2 mt-0.5 flex gap-[1px] text-[12px] font-medium font-mono tracking-tighter opacity-90 whitespace-nowrap z-10">
                                     <span className="text-muted-foreground/40">[</span>
                                     {scoreItem.phonemes.map((p, pIdx) => {
-                                      let pColor = "text-red-500 font-black"
-                                      if (p.score >= 80) pColor = "text-green-500"
-                                      else if (p.score >= 60) pColor = "text-amber-500 font-black"
+                                      let pColor = "text-red-500 dark:text-red-400 font-black"
+                                      if (p.score >= 80) pColor = "text-green-500 dark:text-green-400"
+                                      else if (p.score >= 60) pColor = "text-amber-500 dark:text-amber-300 font-black"
                                       return <span key={pIdx} className={pColor}>{p.phoneme}</span>
                                     })}
                                     <span className="text-muted-foreground/40">]</span>
@@ -1091,19 +1091,19 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                       <div className="grid grid-cols-4 gap-1.5 w-full max-w-sm mb-3">
                         <div className="flex flex-col items-center justify-center py-2 bg-muted/80 rounded-xl border border-border/50">
                           <span className="text-[10px] text-muted-foreground font-bold mb-0.5">정확도</span>
-                          <span className="text-lg font-black text-blue-500">{Math.round(pronResult.accuracy)}</span>
+                          <span className="text-lg font-black text-blue-500 dark:text-blue-300">{Math.round(pronResult.accuracy)}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center py-2 bg-muted/80 rounded-xl border border-border/50">
                           <span className="text-[10px] text-muted-foreground font-bold mb-0.5">유창성</span>
-                          <span className="text-lg font-black text-indigo-500">{Math.round(pronResult.fluency)}</span>
+                          <span className="text-lg font-black text-indigo-500 dark:text-indigo-300">{Math.round(pronResult.fluency)}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center py-2 bg-muted/80 rounded-xl border border-border/50">
                           <span className="text-[10px] text-muted-foreground font-bold mb-0.5">완전성</span>
-                          <span className="text-lg font-black text-amber-500">{Math.round(pronResult.completeness)}</span>
+                          <span className="text-lg font-black text-amber-500 dark:text-amber-300">{Math.round(pronResult.completeness)}</span>
                         </div>
                         <div className="flex flex-col items-center justify-center py-2 bg-muted/80 rounded-xl border border-border/50">
                           <span className="text-[10px] text-muted-foreground font-bold mb-0.5">억양</span>
-                          <span className="text-lg font-black text-purple-500">{Math.round(pronResult.prosody)}</span>
+                          <span className="text-lg font-black text-purple-500 dark:text-purple-300">{Math.round(pronResult.prosody)}</span>
                         </div>
                       </div>
                       
@@ -1279,8 +1279,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                     className={cn(
                       "w-full border-b-4 bg-transparent p-3 sm:p-4 text-center text-2xl sm:text-3xl font-bold outline-none transition-colors placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground", 
                       feedback === "idle" && "border-border text-foreground", 
-                      feedback === "correct" && "border-green-500 text-green-600", 
-                      feedback === "wrong" && "animate-shake border-red-500 text-red-500"
+                      feedback === "correct" && "border-green-500 text-green-600 dark:text-green-400", 
+                      feedback === "wrong" && "animate-shake border-red-500 text-red-500 dark:text-red-400"
                     )} 
                     style={feedback === "idle" ? { caretColor: accent } : undefined} 
                   />
@@ -1307,8 +1307,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                       className={cn(
                         "w-full border-b-4 bg-transparent p-3 text-center text-xl font-bold outline-none transition-colors placeholder:text-sm placeholder:font-normal placeholder:text-muted-foreground", 
                         feedback === "idle" && "border-border text-foreground", 
-                        feedback === "correct" && "border-green-500 text-green-600", 
-                        feedback === "wrong" && "animate-shake border-red-500 text-red-500"
+                        feedback === "correct" && "border-green-500 text-green-600 dark:text-green-400", 
+                        feedback === "wrong" && "animate-shake border-red-500 text-red-500 dark:text-red-400"
                       )} 
                       style={feedback === "idle" ? { caretColor: accent } : undefined} 
                     />
@@ -1317,12 +1317,12 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
               )}
               
               <div className="mb-4 flex min-h-6 flex-col items-center justify-center">
-                {feedback === "correct" && quizType !== "speaking" && <p className="flex items-center gap-1.5 text-sm font-semibold text-green-600"><Check className="size-4" /> 정답입니다!</p>}
-                {feedback === "wrong" && quizType !== "speaking" && quizType !== "listening" && <p className="flex items-center gap-1.5 text-sm font-semibold text-red-500"><X className="size-4" /> 정답: {current.word}</p>}
+                {feedback === "correct" && quizType !== "speaking" && <p className="flex items-center gap-1.5 text-sm font-semibold text-green-600 dark:text-green-400"><Check className="size-4" /> 정답입니다!</p>}
+                {feedback === "wrong" && quizType !== "speaking" && quizType !== "listening" && <p className="flex items-center gap-1.5 text-sm font-semibold text-red-500 dark:text-red-400"><X className="size-4" /> 정답: {current.word}</p>}
                 {feedback === "idle" && hintUsed && quizType === "standard" && <p className="text-sm text-muted-foreground">첫 글자: <span className="font-bold text-foreground">{current.word[0]}</span></p>}
                 
                 {(feedback === "correct" || feedback === "wrong") && quizType === "listening" && aiCoachMsg && (
-                  <p className="mt-2 text-sm font-semibold whitespace-pre-line text-center px-4" style={{ color: feedback === "correct" ? "#16a34a" : "#ef4444" }}>
+                  <p className="mt-2 text-sm font-semibold whitespace-pre-line text-center px-4" className={feedback === "correct" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}>
                     {aiCoachMsg}
                   </p>
                 )}
@@ -1345,7 +1345,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                   wrapperClassName="relative flex w-full"
                   className={cn(
                     "w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-lg font-bold transition-colors disabled:opacity-30", 
-                    feedback === "correct" ? "bg-green-500 text-white shadow-md hover:bg-green-600" : "bg-muted text-muted-foreground"
+                    feedback === "correct" ? "bg-green-500 text-white shadow-md hover:bg-green-600 dark:bg-green-700 dark:hover:bg-green-600" : "bg-muted text-muted-foreground"
                   )}
                 >
                   {feedback === "idle" && "마이크로 문장을 80점 이상 읽어주세요"}
@@ -1363,8 +1363,8 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                   wrapperClassName="relative flex w-full"
                   className={cn(
                     "w-full flex items-center justify-center gap-2 rounded-2xl py-4 sm:py-5 text-lg sm:text-xl font-bold text-white shadow-md transition-colors disabled:opacity-60", 
-                    feedback === "correct" && "bg-green-500 hover:bg-green-600", 
-                    feedback === "wrong" && "bg-red-500 hover:bg-red-600"
+                    feedback === "correct" && "bg-green-500 hover:bg-green-600 dark:bg-green-700 dark:hover:bg-green-600", 
+                    feedback === "wrong" && "bg-red-500 hover:bg-red-600 dark:bg-red-700 dark:hover:bg-red-600"
                   )} 
                   style={(feedback === "idle" || feedback === "grading") ? { backgroundColor: accent, color: "var(--child-accent-foreground, var(--primary-foreground, #FFFFFF))" } : undefined}
                 >
