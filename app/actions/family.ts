@@ -31,7 +31,7 @@ import {
   normalizeChildAccessCode,
 } from "@/lib/child-auth"
 import { getClientRateLimitKey } from "@/lib/client-ip"
-import { consumeRateLimit, maybePurgeChildAuthRateLimits, refundRateLimit, type RateLimitReservation } from "@/lib/rate-limit"
+import { consumeRateLimit, maybePurgeChildAuthRateLimits, runWithFailureRateLimit } from "@/lib/rate-limit"
 
 async function requireParentFamily() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -381,34 +381,6 @@ type ChildAuthResult =
   | { ok: false; reason: "invalid" | "expired" }
   | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
 
-type ChildAuthLimits = { allowed: true; reservations: RateLimitReservation[] } | { allowed: false; retryAfterSeconds: number }
-
-async function reserveChildAuthLimits(
-  key: string,
-  unknownIp: boolean,
-  prefix: "child-login" | "child-enroll",
-): Promise<ChildAuthLimits> {
-  const multiplier = unknownIp ? 10 : 1
-  const short = prefix === "child-login"
-    ? { action: "child-login:15m", limit: 10 }
-    : { action: "child-enroll:15m", limit: 30 }
-  const daily = prefix === "child-login"
-    ? { action: "child-login:1d", limit: 50 }
-    : { action: "child-enroll:1d", limit: 200 }
-  const shortResult = await consumeRateLimit(key, short.action, short.limit * multiplier, 900)
-  if (!shortResult.allowed) return { allowed: false, retryAfterSeconds: shortResult.retryAfterSeconds }
-  const dailyResult = await consumeRateLimit(key, daily.action, daily.limit * multiplier, 86400)
-  if (!dailyResult.allowed) {
-    await refundRateLimit(shortResult.reservation)
-    return { allowed: false, retryAfterSeconds: Math.max(shortResult.retryAfterSeconds, dailyResult.retryAfterSeconds) }
-  }
-  return { allowed: true, reservations: [shortResult.reservation!, dailyResult.reservation!] }
-}
-
-async function releaseChildAuthLimits(reservations: RateLimitReservation[]): Promise<void> {
-  await Promise.all(reservations.map((reservation) => refundRateLimit(reservation)))
-}
-
 async function recordChildLoginFailure(): Promise<void> {
   const result = await consumeRateLimit("global", "child-login-fail:10m", Number.MAX_SAFE_INTEGER, 600)
   if (result.count === 500) {
@@ -419,94 +391,97 @@ async function recordChildLoginFailure(): Promise<void> {
 
 export async function loginChildWithAccessCode(input: { accessCode?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
-  const limits = await reserveChildAuthLimits(client.key, client.unknown, "child-login")
-  if (!limits.allowed) return { ok: false, reason: "rate_limited", retryAfterSeconds: limits.retryAfterSeconds }
+  const multiplier = client.unknown ? 10 : 1
+  const result = await runWithFailureRateLimit(
+    client.key,
+    "child-login",
+    10 * multiplier,
+    900,
+    50 * multiplier,
+    86400,
+    async () => {
+      if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
+      const normalized = normalizeChildAccessCode(input.accessCode)
+      if (!/^[A-F0-9]{10}$/.test(normalized)) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
 
-  try {
-    if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
-      await recordChildLoginFailure()
-      return { ok: false, reason: "invalid" }
-    }
-    const normalized = normalizeChildAccessCode(input.accessCode)
-    if (!/^[A-F0-9]{10}$/.test(normalized)) {
-      await recordChildLoginFailure()
-      return { ok: false, reason: "invalid" }
-    }
+      const { current, legacy } = hashChildAccessCode(normalized)
+      const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
+      const [child] = await db.select({
+        id: childProfiles.id,
+        isActive: childProfiles.isActive,
+      }).from(childProfiles)
+        .where(inArray(childProfiles.accessCodeHash, candidates))
+        .limit(1)
 
-    const { current, legacy } = hashChildAccessCode(normalized)
-    const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
-    const [child] = await db.select({
-      id: childProfiles.id,
-      isActive: childProfiles.isActive,
-    }).from(childProfiles)
-      .where(inArray(childProfiles.accessCodeHash, candidates))
-      .limit(1)
+      if (!child || !child.isActive) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
 
-    if (!child || !child.isActive) {
-      await recordChildLoginFailure()
-      return { ok: false, reason: "invalid" }
-    }
-
-    await createChildDeviceSession(child.id, input.deviceLabel)
-    await releaseChildAuthLimits(limits.reservations)
-    return { ok: true }
-  } catch (error) {
-    await releaseChildAuthLimits(limits.reservations)
-    throw error
-  }
+      await createChildDeviceSession(child.id, input.deviceLabel)
+      return { success: true, value: { ok: true } as const }
+    },
+  )
+  if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
+  if (!result.value.ok) await recordChildLoginFailure()
+  return result.value
 }
 
 export async function completeChildQrEnrollment(input: { token?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
-  const limits = await reserveChildAuthLimits(client.key, client.unknown, "child-enroll")
-  if (!limits.allowed) return { ok: false, reason: "rate_limited", retryAfterSeconds: limits.retryAfterSeconds }
+  const multiplier = client.unknown ? 10 : 1
+  const result = await runWithFailureRateLimit(
+    client.key,
+    "child-enroll",
+    30 * multiplier,
+    900,
+    200 * multiplier,
+    86400,
+    async () => {
+      if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
+      const tokenHash = hashOpaqueToken(input.token)
+      const now = new Date()
+      const [enrollment] = await db.select({
+        id: childDeviceEnrollments.id,
+        childProfileId: childDeviceEnrollments.childProfileId,
+      }).from(childDeviceEnrollments)
+        .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
+        .where(and(
+          eq(childDeviceEnrollments.tokenHash, tokenHash),
+          isNull(childDeviceEnrollments.consumedAt),
+          gt(childDeviceEnrollments.expiresAt, now),
+          eq(childProfiles.isActive, true),
+        ))
+        .limit(1)
 
-  try {
-    if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
-      await maybePurgeChildAuthRateLimits()
-      return { ok: false, reason: "expired" }
-    }
-    const tokenHash = hashOpaqueToken(input.token)
-    const now = new Date()
-    const [enrollment] = await db.select({
-      id: childDeviceEnrollments.id,
-      childProfileId: childDeviceEnrollments.childProfileId,
-    }).from(childDeviceEnrollments)
-      .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
-      .where(and(
-        eq(childDeviceEnrollments.tokenHash, tokenHash),
-        isNull(childDeviceEnrollments.consumedAt),
-        gt(childDeviceEnrollments.expiresAt, now),
-        eq(childProfiles.isActive, true),
-      ))
-      .limit(1)
+      if (!enrollment) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
 
-    if (!enrollment) {
-      await maybePurgeChildAuthRateLimits()
-      return { ok: false, reason: "expired" }
-    }
+      const [consumed] = await db.update(childDeviceEnrollments)
+        .set({ consumedAt: now })
+        .where(and(
+          eq(childDeviceEnrollments.id, enrollment.id),
+          isNull(childDeviceEnrollments.consumedAt),
+          gt(childDeviceEnrollments.expiresAt, now),
+        ))
+        .returning({ id: childDeviceEnrollments.id })
 
-    const [consumed] = await db.update(childDeviceEnrollments)
-      .set({ consumedAt: now })
-      .where(and(
-        eq(childDeviceEnrollments.id, enrollment.id),
-        isNull(childDeviceEnrollments.consumedAt),
-        gt(childDeviceEnrollments.expiresAt, now),
-      ))
-      .returning({ id: childDeviceEnrollments.id })
+      if (!consumed) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
 
-    if (!consumed) {
-      await maybePurgeChildAuthRateLimits()
-      return { ok: false, reason: "expired" }
-    }
-
-    await createChildDeviceSession(enrollment.childProfileId, input.deviceLabel)
-    await releaseChildAuthLimits(limits.reservations)
-    return { ok: true }
-  } catch (error) {
-    await releaseChildAuthLimits(limits.reservations)
-    throw error
-  }
+      await createChildDeviceSession(enrollment.childProfileId, input.deviceLabel)
+      return { success: true, value: { ok: true } as const }
+    },
+  )
+  if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
+  return result.value
 }
 
 async function requireFamilyChild(childProfileId: string) {
