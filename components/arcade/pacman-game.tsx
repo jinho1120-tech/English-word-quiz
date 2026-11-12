@@ -498,10 +498,14 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     if (normalized === target) {
       if (doctorChallenge.index === 2) {
         doctorChallengeActiveRef.current = false;
-        doctorModeActiveRef.current = true;
-        setDoctorModeUntil(Date.now() + Math.max(3500, 7000 - stage * 400));
+        setDefenseTyped("");
+        setDoctorChallenge({ ...doctorChallenge, index: 3 });
         setScore((current) => current + 300);
-        setDoctorChallenge(null);
+        window.setTimeout(() => {
+          doctorModeActiveRef.current = true;
+          setDoctorModeUntil(Date.now() + Math.max(3500, 7000 - stage * 400));
+          setDoctorChallenge(null);
+        }, 1000);
       } else {
         setDoctorChallenge({ ...doctorChallenge, index: doctorChallenge.index + 1 });
         setDefenseTyped("");
@@ -868,27 +872,51 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         ctx.lineTo(centerX, centerY);
         ctx.fill();
         if (doctorModeActiveRef.current) {
-          // 박사 보카맨의 황금빛 오라와 학사모
+          // 옆모습 보카맨에 진행 방향에 맞춰 안경과 학사모를 그린다.
           ctx.save();
-          const awakeningProgress = Math.min(1, (nowMs - (doctorModeUntil - Math.max(3500, 7000 - stage * 400))) / 900);
-          const auraRadius = 25 + (awakeningProgress < 1 ? (1 - awakeningProgress) * 34 : Math.sin(nowMs / 90) * 3);
-          ctx.globalAlpha = 0.45 + Math.sin(nowMs / 90) * 0.12;
-          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, auraRadius);
-          aura.addColorStop(0, "rgba(250,204,21,0.72)");
+          const facingX = pac.dirX !== 0 ? pac.dirX : 0;
+          const facingY = pac.dirY !== 0 ? pac.dirY : 0;
+          const idleFacingX = facingX === 0 && facingY === 0 ? 1 : facingX;
+          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 28 + Math.sin(nowMs / 90) * 3);
+          aura.addColorStop(0, "rgba(250,204,21,0.62)");
           aura.addColorStop(1, "rgba(250,204,21,0)");
           ctx.fillStyle = aura;
-          ctx.beginPath(); ctx.arc(centerX, centerY, auraRadius, 0, Math.PI * 2); ctx.fill();
-          ctx.globalAlpha = 1;
-          // 안경과 학사모로 박사 보카맨을 표현한다.
-          ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 1.8;
-          ctx.beginPath(); ctx.roundRect(centerX - 8, centerY - 3, 7, 5, 2); ctx.roundRect(centerX + 1, centerY - 3, 7, 5, 2); ctx.moveTo(centerX - 1, centerY - 1); ctx.lineTo(centerX + 1, centerY - 1); ctx.stroke();
-          const capDrop = awakeningProgress < 1 ? (1 - awakeningProgress) * 28 : 0;
-          ctx.fillStyle = "#7c3aed";
-          ctx.beginPath(); ctx.moveTo(centerX - 9, centerY - 10 - capDrop); ctx.lineTo(centerX + 9, centerY - 10 - capDrop); ctx.lineTo(centerX + 5, centerY - 16 - capDrop); ctx.lineTo(centerX - 5, centerY - 16 - capDrop); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = "#a78bfa";
-          ctx.beginPath(); ctx.moveTo(centerX - 12, centerY - 16 - capDrop); ctx.lineTo(centerX, centerY - 21 - capDrop); ctx.lineTo(centerX + 12, centerY - 16 - capDrop); ctx.lineTo(centerX, centerY - 12 - capDrop); ctx.closePath(); ctx.fill();
-          ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(centerX + 9, centerY - 16 - capDrop); ctx.lineTo(centerX + 13, centerY - 9 - capDrop); ctx.stroke();
+          ctx.beginPath(); ctx.arc(centerX, centerY, 32, 0, Math.PI * 2); ctx.fill();
+
+          // 안경을 실제 이동 방향 쪽으로 옮겨 위·아래·좌·우 입 방향과 일치시킨다.
+          const glassesX = centerX + idleFacingX * 5;
+          const glassesY = centerY + facingY * 5 - 3;
+          ctx.strokeStyle = "#172033";
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
+          ctx.moveTo(glassesX + idleFacingX * 4, glassesY + facingY * 2);
+          ctx.lineTo(glassesX + idleFacingX * 7, glassesY + facingY * 3);
+          ctx.stroke();
+
+          // 학사모는 머리 위에 얹고 술은 진행 방향 뒤쪽으로 늘어뜨린다.
+          ctx.fillStyle = "#1e293b";
+          ctx.beginPath();
+          ctx.moveTo(centerX - 10, centerY - 9);
+          ctx.lineTo(centerX + 10, centerY - 9);
+          ctx.lineTo(centerX + 4, centerY - 14);
+          ctx.lineTo(centerX - 4, centerY - 14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = "#334155";
+          ctx.beginPath();
+          ctx.moveTo(centerX - 13, centerY - 14);
+          ctx.lineTo(centerX, centerY - 20);
+          ctx.lineTo(centerX + 13, centerY - 14);
+          ctx.lineTo(centerX, centerY - 10);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = "#facc15";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(centerX - idleFacingX * 10, centerY - 14);
+          ctx.lineTo(centerX - idleFacingX * 13, centerY - 7);
+          ctx.stroke();
           ctx.restore();
         }
       }
@@ -897,7 +925,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       ghostsRef.current.forEach((g) => {
         const gx = g.x * CELL_SIZE + CELL_SIZE / 2;
         const gy = g.y * CELL_SIZE + CELL_SIZE / 2;
-        ctx.fillStyle = g.isFrightened ? "#2563eb" : g.color;
+        ctx.fillStyle = doctorModeActiveRef.current ? "#cbd5e1" : g.isFrightened ? "#2563eb" : g.color;
         ctx.beginPath();
         ctx.arc(gx, gy - 2, CELL_SIZE / 2 - 2, Math.PI, 0, false);
         ctx.lineTo(gx + CELL_SIZE / 2 - 2, gy + CELL_SIZE / 2 - 2);
@@ -915,26 +943,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         ctx.arc(gx - 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
         ctx.arc(gx + 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
         ctx.fill();
-        if (g.word && !g.isInHouse) {
-          const label = g.word.word.toUpperCase();
-          ctx.save();
-          ctx.font = "bold 8px sans-serif";
-          const labelWidth = Math.min(94, Math.max(34, ctx.measureText(label).width + 12));
-          const labelX = gx - labelWidth / 2;
-          const labelY = gy - 23;
-          ctx.fillStyle = "rgba(255,255,255,0.96)";
-          ctx.strokeStyle = "#facc15";
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.roundRect(labelX, labelY - 7, labelWidth, 13, 5);
-          ctx.fill();
-          ctx.stroke();
-          ctx.fillStyle = "#172033";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(label, gx, labelY, labelWidth - 8);
-          ctx.restore();
-        }
+
       });
 
       // 정답을 맞힌 유령은 단어를 남기며 위로 승천한 뒤 소굴에서 다시 등장한다.
@@ -1112,20 +1121,22 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR VOCA-MAN CHALLENGE</p>
           <h2 className="mt-2 text-2xl font-black">박사 보카맨에 도전!</h2>
           <p className="mt-2 text-sm text-slate-300">시간제한 없이 영어 단어 3개를 연속으로 맞혀 보세요.</p>
-          <div className="relative my-5 flex h-36 w-36 items-center justify-center">
-            {doctorChallenge.index >= 1 && <div className="absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_bottom,rgba(250,204,21,0.65),transparent_68%)]" />}
+          <div className="relative my-5 flex h-40 w-40 items-center justify-center">
+            {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
-            <div className="relative h-24 w-24 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-              <div className="absolute right-5 top-7 h-2.5 w-2.5 rounded-full bg-slate-900" />
-              <div className="absolute right-1 top-10 h-0 w-0 border-y-[9px] border-y-transparent border-l-[17px] border-l-slate-950" />
-              {doctorChallenge.index >= 2 && <div className="absolute left-3 top-8 z-10 text-3xl drop-shadow-[0_0_5px_white]">🤓</div>}
+            {doctorChallenge.index >= 3 && <div className="absolute -top-1 z-20 text-5xl drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">🎓</div>}
+            <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
+              <span className="mb-1 text-6xl leading-none">😃</span>
+              {doctorChallenge.index >= 2 && <div className="absolute left-1/2 top-[42%] z-10 flex -translate-x-1/2 items-center gap-1 drop-shadow-[0_0_5px_white]"><span className="h-5 w-7 rounded-lg border-[3px] border-slate-900 bg-amber-200/30" /><span className="h-1 w-2 bg-slate-900" /><span className="h-5 w-7 rounded-lg border-[3px] border-slate-900 bg-amber-200/30" /></div>}
             </div>
           </div>
           <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
           <div className="w-full max-w-md rounded-3xl border border-amber-300/40 bg-slate-900 p-6 shadow-[0_0_50px_rgba(250,204,21,0.15)]">
-            <p className="text-xs font-bold text-amber-200">다음 영어 단어의 뜻</p>
-            <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
-            <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+            {doctorChallenge.index < 3 ? <>
+              <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
+              <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
+              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+            </> : <><p className="text-xl font-black text-amber-200">박사 보카맨 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
           <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
         </div>
