@@ -382,7 +382,7 @@ export function ParentDashboard({
 
   return (
     <div className="space-y-7">
-      {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">{error}</p>}
 
       <section className="space-y-3">
         <div>
@@ -439,8 +439,8 @@ export function ParentDashboard({
               <p className="mt-1 text-xs text-muted-foreground">{childLabel}별 보상 규칙과 쿠폰, 게임 이용을 관리합니다.</p>
             </div>
             <div className="flex flex-wrap justify-end gap-1.5">
-               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
-               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${pacmanEnabled ? "bg-emerald-500/10 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{pacmanEnabled ? "게임 보상 켜짐" : "게임 보상 꺼짐"}</span>
+               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${couponsEnabled ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>{couponsEnabled ? "쿠폰 보상 켜짐" : "쿠폰 보상 꺼짐"}</span>
+               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${pacmanEnabled ? "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>{pacmanEnabled ? "게임 보상 켜짐" : "게임 보상 꺼짐"}</span>
              </div>
           </div>
           <label className="block space-y-1 text-sm">
@@ -552,7 +552,7 @@ export function ParentDashboard({
                       <div className="flex shrink-0 items-center gap-1">
                         <HapticButton disabled={isPending || !couponsEnabled} onClick={() => beginEditCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">편집</HapticButton>
                         <HapticButton disabled={isPending || !couponsEnabled} onClick={() => toggleCoupon(coupon)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">{coupon.isActive ? "중지" : "켜기"}</HapticButton>
-                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => removeCoupon(coupon)} className="rounded-lg px-2 py-2 text-xs text-red-600">삭제</HapticButton>
+                        <HapticButton disabled={isPending || !couponsEnabled} onClick={() => removeCoupon(coupon)} className="rounded-lg px-2 py-2 text-xs text-red-600 dark:text-red-400">삭제</HapticButton>
                       </div>
                     </div>
                   ))}
@@ -617,9 +617,9 @@ export function ParentDashboard({
             {copyFeedback === "success" ? "✓ 복사 완료!" : "접속코드 복사"}
           </HapticButton>
           {copyFeedback === "success" ? (
-            <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600">접속코드가 클립보드에 복사되었습니다.</p>
+            <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">접속코드가 클립보드에 복사되었습니다.</p>
           ) : copyFeedback === "error" ? (
-            <p role="alert" className="text-sm font-medium text-red-600">복사하지 못했어요. 접속코드를 길게 눌러 직접 복사해 주세요.</p>
+            <p role="alert" className="text-sm font-medium text-red-600 dark:text-red-400">복사하지 못했어요. 접속코드를 길게 눌러 직접 복사해 주세요.</p>
           ) : null}
         </section>
       )}
@@ -652,7 +652,7 @@ export function ParentDashboard({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <HapticButton disabled={isPending} onClick={() => toggleChild(child)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">{child.isActive ? "일시 비활성화" : "다시 활성화"}</HapticButton>
-                  <HapticButton disabled={isPending} onClick={() => removeChild(child)} className="rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-600">영구 삭제</HapticButton>
+                  <HapticButton disabled={isPending} onClick={() => removeChild(child)} className="rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">영구 삭제</HapticButton>
                 </div>
               </div>
             ))}
@@ -676,12 +676,12 @@ export function ParentDashboard({
           {members.map((member) => (
             <div key={member.userId} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <div className="min-w-0 flex-1"><p className="break-all text-sm font-semibold">{member.email}</p><p className="text-xs text-muted-foreground">공동 관리자</p></div>
-              {parentRole === "owner" && <HapticButton disabled={isPending} onClick={() => { if (!window.confirm(member.email + " 관리자를 가족에서 해제할까요?")) return; startTransition(async () => { try { await removeParentAdministrator(member.userId); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "관리자 해제에 실패했습니다.") } }) }} className="rounded-lg border border-red-300 px-3 py-2 text-xs font-semibold text-red-600">해제</HapticButton>}
+              {parentRole === "owner" && <HapticButton disabled={isPending} onClick={() => { if (!window.confirm(member.email + " 관리자를 가족에서 해제할까요?")) return; startTransition(async () => { try { await removeParentAdministrator(member.userId); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "관리자 해제에 실패했습니다.") } }) }} className="rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">해제</HapticButton>}
             </div>
           ))}
           {parentRole === "owner" ? <>
             <div className="space-y-2"><input type="email" value={adminEmail} onChange={(event) => setAdminEmail(event.target.value)} placeholder="초대할 공동관리자의 이메일" className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" /><HapticButton disabled={isPending || !adminEmail.includes("@")} onClick={() => startTransition(async () => { setError(""); try { const result = await createParentInvitation(adminEmail); setInviteUrl(result.inviteUrl); setInviteEmail(result.email); setInviteCopyFeedback(""); setAdminEmail(""); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "공동관리자 초대에 실패했습니다.") } })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">공동관리자 초대 링크 만들기</HapticButton></div>
-            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><div className="grid grid-cols-2 gap-2"><HapticButton onClick={copyInviteLink} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">{inviteCopyFeedback === "success" ? "✓ 복사 완료!" : "초대 링크 복사"}</HapticButton><HapticButton onClick={sendParentInviteSms} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-4" />초대 문자 보내기</HapticButton></div>{inviteCopyFeedback === "success" ? <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600">초대 링크가 클립보드에 복사되었습니다.</p> : inviteCopyFeedback === "error" ? <p role="alert" className="text-sm font-medium text-red-600">복사하지 못했어요. 링크를 길게 눌러 직접 복사해 주세요.</p> : null}<p className="text-xs text-muted-foreground">초대받은 공동관리자에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
+            {inviteUrl && <div className="space-y-2 rounded-xl bg-muted p-3"><p className="text-sm font-semibold">초대 링크가 만들어졌어요.</p><p className="break-all text-xs text-muted-foreground">{inviteUrl}</p><div className="grid grid-cols-2 gap-2"><HapticButton onClick={copyInviteLink} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">{inviteCopyFeedback === "success" ? "✓ 복사 완료!" : "초대 링크 복사"}</HapticButton><HapticButton onClick={sendParentInviteSms} className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-4" />초대 문자 보내기</HapticButton></div>{inviteCopyFeedback === "success" ? <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">초대 링크가 클립보드에 복사되었습니다.</p> : inviteCopyFeedback === "error" ? <p role="alert" className="text-sm font-medium text-red-600 dark:text-red-400">복사하지 못했어요. 링크를 길게 눌러 직접 복사해 주세요.</p> : null}<p className="text-xs text-muted-foreground">초대받은 공동관리자에게 링크를 전달하세요. 7일 후 만료되며 초대받은 이메일로 가입 또는 로그인해야 합니다.</p></div>}
             {invitations.map((invitation) => <div key={invitation.id} className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3"><div className="min-w-0 flex-1"><p className="break-all text-sm">{invitation.email}</p><p className="text-xs text-muted-foreground">초대 대기 · {new Date(invitation.expiresAt).toLocaleDateString("ko-KR")} 만료</p></div><HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { await revokeParentInvitation(invitation.id); router.refresh() } catch (err) { setError(err instanceof Error ? err.message : "초대를 취소하지 못했습니다.") } })} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">취소</HapticButton></div>)}
           </> : <p className="text-xs text-muted-foreground">공동 관리자 권한으로 접속 중입니다. 다른 공동관리자 초대와 관리자 해제는 가족 대표 계정만 할 수 있습니다.</p>}
         </div>
@@ -693,7 +693,7 @@ export function ParentDashboard({
           {devices.length === 0 ? <p className="text-sm text-muted-foreground">등록된 기기가 없습니다.</p> : devices.map((device) => (
             <div key={device.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
               <div className="min-w-0 flex-1"><p className="font-semibold">{device.childName}</p><p className="text-xs text-muted-foreground">{device.deviceLabel || "이름 없는 기기"} · 최근 접속 {new Date(device.lastSeenAt).toLocaleString("ko-KR")}</p></div>
-              <HapticButton disabled={isPending} onClick={() => revokeDevice(device.id)} className="rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-600 disabled:opacity-50">연결 해제</HapticButton>
+              <HapticButton disabled={isPending} onClick={() => revokeDevice(device.id)} className="rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-sm font-semibold text-red-600 dark:text-red-400 disabled:opacity-50">연결 해제</HapticButton>
             </div>
           ))}
         </div>
