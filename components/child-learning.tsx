@@ -373,10 +373,10 @@ export function ChildLearning({
           {pacmanError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{pacmanError}</p>}
           {allWords.length === 0 && <p className="text-xs text-muted-foreground">보카맨과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-violet-700 dark:hover:bg-violet-600">
               보카맨(Voca-Man)😀
             </HapticButton>}
-            {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-700">
               영어 타자 디펜스 👻
             </HapticButton>}
           </div>
