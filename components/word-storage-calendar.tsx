@@ -151,7 +151,7 @@ export function WordStorageCalendar({ selectedDate, subjects, initialStorage, re
                   <span>{day}</span>
                   <span className="mt-0.5 flex h-2 items-center justify-center gap-0.5">
                     {ids.slice(0, 5).map((id) => (
-                      <i key={id} className="h-1.5 w-1.5 rounded-full ring-1 ring-white/80" style={{ backgroundColor: colors[id] ?? subjects.find((s) => s.id === id)?.color ?? "#2563EB" }} />
+                      <i key={id} className="h-1.5 w-1.5 rounded-full ring-1 ring-white/80 dark:ring-neutral-800" style={{ backgroundColor: colors[id] ?? subjects.find((s) => s.id === id)?.color ?? "#2563EB" }} />
                     ))}
                   </span>
                 </HapticButton>
