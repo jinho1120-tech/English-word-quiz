@@ -9,7 +9,7 @@ import { ChildProfileSettings } from "@/components/child-profile-settings"
 
 export const dynamic = "force-dynamic"
 
-export const metadata = { manifest: "/child/manifest.webmanifest", title: "영단어 마스터", applicationName: "영단어 마스터", appleWebApp: { capable: true, statusBarStyle: "default" as const, title: "영단어 마스터" }, icons: { apple: [{ url: "/icons/child-icon-180.png", sizes: "180x180", type: "image/png" }] } }
+export const metadata = { manifest: "/child/manifest.webmanifest", title: "영단어 마스터", applicationName: "영단어 마스터", appleWebApp: { capable: true, statusBarStyle: "default" as const, title: "영단어 마스터" }, icons: { icon: [{ url: "/icons/child-icon-192.png", sizes: "192x192", type: "image/png" }], shortcut: ["/icons/child-icon-192.png"], apple: [{ url: "/icons/child-icon-180.png", sizes: "180x180", type: "image/png" }] } }
 
 
 function todayInSeoul(): string {

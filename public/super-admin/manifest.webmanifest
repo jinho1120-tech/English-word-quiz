@@ -1,0 +1,24 @@
+{
+  "id": "/super-admin",
+  "name": "영단어 마스터 운영센터",
+  "short_name": "운영센터",
+  "description": "영단어 마스터 서비스의 슈퍼 관리자 전용 운영 도구",
+  "start_url": "/super-admin",
+  "scope": "/super-admin",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#f8fafc",
+  "theme_color": "#6d28d9",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icons/super-admin-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

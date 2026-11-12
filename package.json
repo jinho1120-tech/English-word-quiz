@@ -10,7 +10,8 @@
     "db:migrate": "drizzle-kit migrate",
     "auth:check": "npx auth@latest check schema --config ./lib/auth.ts",
     "auth:generate": "npx auth@latest generate --config ./lib/auth.ts --adapter drizzle --dialect postgresql --output ./lib/db/auth-schema.ts --yes",
-    "check:design-system": "node scripts/check-design-system.mjs"
+    "check:design-system": "node scripts/check-design-system.mjs",
+    "prebuild": "node scripts/prepare-pwa-icons.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -32,7 +33,8 @@
     "qrcode.react": "^4.2.0",
     "@better-auth/drizzle-adapter": "^1.7.18",
     "nodemailer": "^7.0.10",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
