@@ -1133,7 +1133,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
           <div className="w-full max-w-md rounded-3xl border border-amber-300/40 bg-slate-900 p-6 shadow-[0_0_50px_rgba(250,204,21,0.15)]">
             {doctorChallenge.index < 3 ? <>
-              <p className="text-xs font-bold text-amber-200">다음 영어 단어의 뜻</p>
+              <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
               <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
               <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
             </> : <><p className="text-xl font-black text-amber-200">박사 보카맨 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
