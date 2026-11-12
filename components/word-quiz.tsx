@@ -1322,7 +1322,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
                 {feedback === "idle" && hintUsed && quizType === "standard" && <p className="text-sm text-muted-foreground">첫 글자: <span className="font-bold text-foreground">{current.word[0]}</span></p>}
                 
                 {(feedback === "correct" || feedback === "wrong") && quizType === "listening" && aiCoachMsg && (
-                  <p className="mt-2 text-sm font-semibold whitespace-pre-line text-center px-4" className={feedback === "correct" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}>
+                  <p className={cn("mt-2 text-sm font-semibold whitespace-pre-line text-center px-4", feedback === "correct" ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400")}>
                     {aiCoachMsg}
                   </p>
                 )}
