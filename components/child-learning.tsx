@@ -391,6 +391,7 @@ export function ChildLearning({
               <p className="text-xs text-muted-foreground">방향키 또는 화면 버튼으로 움직여 보세요!</p>
             </div>
             <PacmanGame
+              words={initialWords.filter((item) => !filterSubjectId || item.subjectId === filterSubjectId).map((item) => ({ id: item.id, word: item.word, meaning: item.meaning }))}
               extraPlaysLeft={pacmanRemainingPlays}
               dailyPlayLimit={pacmanStatus.dailyPlayLimit}
               unlimitedPlays={pacmanStatus.unlimitedPlays}
