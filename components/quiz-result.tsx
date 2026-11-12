@@ -75,22 +75,22 @@ function ScratchCouponCard({ outcome, title, description, onReveal }: { outcome:
         <div className="absolute inset-0 flex flex-col items-center justify-center px-3">
           {outcome === "won" ? (
             <>
-              <p className="text-xl font-black text-amber-700 dark:text-amber-300">🎉 축하해요!</p>
-              <p className="mt-2 text-base font-bold text-foreground">「{title}」 쿠폰 당첨!</p>
-              {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
-              <p className="mt-1 text-xs font-medium text-muted-foreground">내 쿠폰함에서 확인해 보세요.</p>
+              <p className="text-xl font-black text-amber-700">🎉 축하해요!</p>
+              <p className="mt-2 text-base font-bold text-slate-900">「{title}」 쿠폰 당첨!</p>
+              {description && <p className="mt-1 text-sm font-medium text-slate-800">{description}</p>}
+              <p className="mt-1 text-xs font-medium text-slate-600">내 쿠폰함에서 확인해 보세요.</p>
             </>
           ) : outcome === "blank" ? (
             <>
-              <p className="text-xl font-black text-slate-700 dark:text-slate-200">🥲 아쉬워요!</p>
-              <p className="mt-2 text-base font-bold text-foreground">「{title}」</p>
+              <p className="text-xl font-black text-slate-700">🥲 아쉬워요!</p>
+              <p className="mt-2 text-base font-bold text-slate-900">「{title}」</p>
               {description && <p className="mt-1 text-sm font-medium text-foreground">{description}</p>}
-              <p className="mt-1 text-xs font-medium text-muted-foreground">다음 도전을 응원할게요!</p>
+              <p className="mt-1 text-xs font-medium text-slate-600">다음 도전을 응원할게요!</p>
             </>
           ) : (
             <>
-              <p className="text-lg font-black text-amber-700 dark:text-amber-300">두근두근…</p>
-              <p className="mt-2 text-sm font-semibold text-muted-foreground">어떤 결과가 기다리고 있을까요?</p>
+              <p className="text-lg font-black text-amber-700">두근두근…</p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">어떤 결과가 기다리고 있을까요?</p>
             </>
           )}
         </div>
