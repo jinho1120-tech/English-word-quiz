@@ -76,7 +76,19 @@ interface Ghost {
   lastDecisionTile: string;
 }
 
+type PacmanDefenseWord = { id: number; word: string; meaning: string };
+
+const FALLBACK_DEFENSE_WORDS: PacmanDefenseWord[] = [
+  { id: -1, word: "brave", meaning: "용감한" },
+  { id: -2, word: "protect", meaning: "보호하다" },
+  { id: -3, word: "discover", meaning: "발견하다" },
+  { id: -4, word: "journey", meaning: "여행" },
+  { id: -5, word: "careful", meaning: "조심하는" },
+  { id: -6, word: "bright", meaning: "밝은" },
+];
+
 interface PacmanGameProps {
+  words?: PacmanDefenseWord[];
   extraPlaysLeft: number;
   dailyPlayLimit: number;
   unlimitedPlays: boolean;
@@ -86,7 +98,7 @@ interface PacmanGameProps {
   onClose: () => void;
 }
 
-export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onGameOver, onReplay, replayError, onClose }: PacmanGameProps) {
+export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onGameOver, onReplay, replayError, onClose }: PacmanGameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [score, setScore] = useState(0);
@@ -103,6 +115,11 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   const [replayPending, setReplayPending] = useState(false);
   const [controlMode, setControlMode] = useState<"buttons" | "tilt">("buttons");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [defenseEncounter, setDefenseEncounter] = useState<{ ghostColor: string; word: PacmanDefenseWord; durationMs: number } | null>(null);
+  const [defenseTyped, setDefenseTyped] = useState("");
+  const [defenseRemainingMs, setDefenseRemainingMs] = useState(0);
+  const defenseActiveRef = useRef(false);
+  const defenseInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -255,6 +272,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+      if (defenseActiveRef.current) return;
       if (e.key === "ArrowUp") setDirection(0, -1);
       if (e.key === "ArrowDown") setDirection(0, 1);
       if (e.key === "ArrowLeft") setDirection(-1, 0);
@@ -404,6 +422,49 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
     touchStartRef.current = null;
   };
 
+  useEffect(() => {
+    if (!defenseEncounter) return;
+    const deadline = Date.now() + defenseEncounter.durationMs;
+    setDefenseRemainingMs(defenseEncounter.durationMs);
+    requestAnimationFrame(() => defenseInputRef.current?.focus());
+    const timer = window.setInterval(() => {
+      const remaining = Math.max(0, deadline - Date.now());
+      setDefenseRemainingMs(remaining);
+      if (remaining <= 0) {
+        window.clearInterval(timer);
+        defenseActiveRef.current = false;
+        setDefenseEncounter(null);
+        setDefenseTyped("");
+        if (lives <= 1) {
+          setLives(0);
+          setGameOver(true);
+          onGameOver();
+        } else {
+          setLives(lives - 1);
+          resetPositions();
+        }
+      }
+    }, 40);
+    return () => window.clearInterval(timer);
+  }, [defenseEncounter, lives, onGameOver, resetPositions]);
+
+  useEffect(() => {
+    if (defenseEncounter) requestAnimationFrame(() => defenseInputRef.current?.focus());
+  }, [defenseEncounter]);
+
+  const handleDefenseTyping = (value: string) => {
+    setDefenseTyped(value);
+    if (!defenseEncounter) return;
+    const normalize = (text: string) => text.trim().toLocaleLowerCase().replace(/\s+/g, "");
+    if (normalize(value) === normalize(defenseEncounter.word.word)) {
+      defenseActiveRef.current = false;
+      setDefenseEncounter(null);
+      setDefenseTyped("");
+      setDefenseRemainingMs(0);
+      setScore((current) => current + 100);
+    }
+  };
+
   // 메인 애니메이션 & 물리 루프
   useEffect(() => {
     if (gameOver) return;
@@ -425,7 +486,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
       const currentTheme = STAGE_THEMES[(stage - 1) % STAGE_THEMES.length];
 
       // 스테이지 클리어 대기 중이거나 READY 상태면 물리 연산 정지
-      if (!isReady && !isStageClear) {
+      if (!isReady && !isStageClear && !defenseEncounter) {
         // ==========================================
         // 1. 팩맨 부드러운 코너링 및 전진
         // ==========================================
@@ -605,15 +666,18 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
                 g.isInHouse = true;
                 g.isFrightened = false;
                 g.releaseDelayMs = Date.now() - gameStartTimeRef.current + 3500;
-              } else {
-                if (lives > 1) {
-                  setLives((l) => l - 1);
-                  resetPositions();
-                } else {
-                  setLives(0);
-                  setGameOver(true);
-                  onGameOver();
-                }
+              } else if (!defenseActiveRef.current) {
+                const pool = words.length > 0 ? words : FALLBACK_DEFENSE_WORDS;
+                const selectedWord = pool[Math.floor(Math.random() * pool.length)];
+                defenseActiveRef.current = true;
+                setDefenseTyped("");
+                const durationMs = Math.max(3000, 5200 - (stage - 1) * 350);
+                setDefenseRemainingMs(durationMs);
+                setDefenseEncounter({
+                  ghostColor: g.color,
+                  word: selectedWord,
+                  durationMs,
+                });
               }
             }
           });
@@ -757,7 +821,7 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
 
     animId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(animId);
-  }, [gameOver, isReady, isStageClear, isInvulnerable, lives, stage, advanceToNextStage, cherryVisible, cherryPopup, onGameOver, resetPositions]);
+  }, [gameOver, isReady, isStageClear, isInvulnerable, lives, stage, advanceToNextStage, cherryVisible, cherryPopup, onGameOver, resetPositions, defenseEncounter, words]);
 
   async function handleReplay() {
     if (replayPending) return;
@@ -867,6 +931,50 @@ export function PacmanGame({ extraPlaysLeft, dailyPlayLimit, unlimitedPlays, onG
           </div>
         )}
       </div>
+
+      {defenseEncounter && (
+        <div className="fixed inset-0 z-[160] flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-slate-950 px-5 py-8 text-center text-white">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(30,64,175,0.34),transparent_58%)]" />
+          <div className="relative z-10 w-full max-w-xl">
+            <p className="text-xs font-black tracking-[0.28em] text-amber-300">PAC-MAN WORD SHIELD</p>
+            <h2 className="mt-2 text-2xl font-black sm:text-3xl">몬스터가 다가오고 있어요!</h2>
+            <p className="mt-2 text-sm text-slate-300">뜻을 보고 영어 단어를 빠르게 입력해 물리치세요.</p>
+            <div className="relative mx-auto mt-8 flex h-52 w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80">
+              <div className="absolute inset-x-6 bottom-5 h-2 rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-rose-400 transition-[width] duration-75" style={{ width: (Math.max(0, defenseRemainingMs / defenseEncounter.durationMs) * 100) + "%" }} />
+              </div>
+              <div className="absolute top-5 rounded-2xl border border-white/20 bg-white px-5 py-3 text-xl font-black text-slate-900 shadow-xl sm:text-2xl">
+                {defenseEncounter.word.meaning}
+              </div>
+              <div className="absolute bottom-9 transition-all duration-75" style={{ left: (12 + (1 - defenseRemainingMs / defenseEncounter.durationMs) * 68) + "%", transform: "translateX(-50%)" }}>
+                <div className="relative h-24 w-20 rounded-t-[48%] rounded-b-[22%] shadow-[0_0_34px_rgba(255,255,255,0.2)]" style={{ backgroundColor: defenseEncounter.ghostColor }}>
+                  <div className="absolute left-[22%] top-[32%] flex w-[56%] justify-between">
+                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
+                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
+                  </div>
+                </div>
+              </div>
+              <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
+            </div>
+            <p className="mt-5 text-sm font-semibold text-amber-200">남은 시간 {(Math.max(0, defenseRemainingMs / 1000)).toFixed(1)}초</p>
+            <input
+              ref={defenseInputRef}
+              autoFocus
+              value={defenseTyped}
+              onChange={(event) => handleDefenseTyping(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Escape") event.preventDefault(); }}
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-label="몬스터를 물리칠 영어 단어 입력"
+              placeholder="영어 단어를 입력하세요"
+              className="mt-3 h-14 w-full rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
+              style={{ borderColor: defenseEncounter.ghostColor }}
+            />
+            <p className="mt-3 text-xs text-slate-400">정답이면 라이프를 지키고 팩맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+          </div>
+        </div>
+      )}
 
       {/* 터치 기기용 가상 십자 방향키 */}
       <div className={isFullscreen ? "mt-2 flex w-full flex-col items-center gap-1.5 md:hidden" : "mt-3 flex w-full flex-col items-center gap-1.5 md:hidden"}>
