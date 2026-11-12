@@ -882,12 +882,13 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           // 안경과 학사모로 박사 보카맨을 표현한다.
           ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 1.8;
           ctx.beginPath(); ctx.roundRect(centerX - 8, centerY - 3, 7, 5, 2); ctx.roundRect(centerX + 1, centerY - 3, 7, 5, 2); ctx.moveTo(centerX - 1, centerY - 1); ctx.lineTo(centerX + 1, centerY - 1); ctx.stroke();
+          const capDrop = awakeningProgress < 1 ? (1 - awakeningProgress) * 28 : 0;
           ctx.fillStyle = "#7c3aed";
-          ctx.beginPath(); ctx.moveTo(centerX - 9, centerY - 10); ctx.lineTo(centerX + 9, centerY - 10); ctx.lineTo(centerX + 5, centerY - 16); ctx.lineTo(centerX - 5, centerY - 16); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(centerX - 9, centerY - 10 - capDrop); ctx.lineTo(centerX + 9, centerY - 10 - capDrop); ctx.lineTo(centerX + 5, centerY - 16 - capDrop); ctx.lineTo(centerX - 5, centerY - 16 - capDrop); ctx.closePath(); ctx.fill();
           ctx.fillStyle = "#a78bfa";
-          ctx.beginPath(); ctx.moveTo(centerX - 12, centerY - 16); ctx.lineTo(centerX, centerY - 21); ctx.lineTo(centerX + 12, centerY - 16); ctx.lineTo(centerX, centerY - 12); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.moveTo(centerX - 12, centerY - 16 - capDrop); ctx.lineTo(centerX, centerY - 21 - capDrop); ctx.lineTo(centerX + 12, centerY - 16 - capDrop); ctx.lineTo(centerX, centerY - 12 - capDrop); ctx.closePath(); ctx.fill();
           ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(centerX + 9, centerY - 16); ctx.lineTo(centerX + 13, centerY - 9); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(centerX + 9, centerY - 16 - capDrop); ctx.lineTo(centerX + 13, centerY - 9 - capDrop); ctx.stroke();
           ctx.restore();
         }
       }
@@ -1111,7 +1112,16 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR VOCA-MAN CHALLENGE</p>
           <h2 className="mt-2 text-2xl font-black">박사 보카맨에 도전!</h2>
           <p className="mt-2 text-sm text-slate-300">시간제한 없이 영어 단어 3개를 연속으로 맞혀 보세요.</p>
-          <div className="my-5 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
+          <div className="relative my-5 flex h-36 w-36 items-center justify-center">
+            {doctorChallenge.index >= 1 && <div className="absolute inset-0 rounded-full bg-[radial-gradient(ellipse_at_bottom,rgba(250,204,21,0.65),transparent_68%)]" />}
+            {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
+            <div className="relative h-24 w-24 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
+              <div className="absolute right-5 top-7 h-2.5 w-2.5 rounded-full bg-slate-900" />
+              <div className="absolute right-1 top-10 h-0 w-0 border-y-[9px] border-y-transparent border-l-[17px] border-l-slate-950" />
+              {doctorChallenge.index >= 2 && <div className="absolute left-3 top-8 z-10 text-3xl drop-shadow-[0_0_5px_white]">🤓</div>}
+            </div>
+          </div>
+          <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
           <div className="w-full max-w-md rounded-3xl border border-amber-300/40 bg-slate-900 p-6 shadow-[0_0_50px_rgba(250,204,21,0.15)]">
             <p className="text-xs font-bold text-amber-200">다음 영어 단어의 뜻</p>
             <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
