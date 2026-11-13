@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { Client } from "pg"
 import { runUpgrade, wrap } from "./upgrade-access-code-hashes.mjs"
 
@@ -72,16 +72,22 @@ test("PostgreSQL: abnormal hash aborts before changing any valid legacy row", { 
 })
 
 test("PostgreSQL: SHARE ROW EXCLUSIVE migration lock permits reads but blocks writes", { skip: !enabled }, async () => {
-  const owner = await clientForTest()
+  const schema = `migration_lock_${randomUUID().replace(/-/g, "")}`
+  const owner = new Client({ connectionString: databaseUrl })
   const contender = new Client({ connectionString: databaseUrl })
+  const admin = new Client({ connectionString: databaseUrl })
   try {
-    await owner.query("INSERT INTO child_profiles (id, access_code_hash) VALUES ('seed', $1)", [legacy("CODE0000001")])
+    await owner.connect()
     await contender.connect()
-    await contender.query("CREATE TEMP TABLE child_profiles (id text PRIMARY KEY, access_code_hash text NOT NULL) ON COMMIT PRESERVE ROWS")
-    await contender.query("INSERT INTO child_profiles (id, access_code_hash) VALUES ('seed', $1)", [legacy("CODE0000001")])
+    await admin.connect()
+    await admin.query(`CREATE SCHEMA "${schema}"`)
+    await owner.query(`SET search_path TO "${schema}"`)
+    await contender.query(`SET search_path TO "${schema}"`)
+    await owner.query("CREATE TABLE child_profiles (id text PRIMARY KEY, access_code_hash text NOT NULL)")
+    await owner.query("INSERT INTO child_profiles (id, access_code_hash) VALUES ('seed', $1)", [legacy("CODE0000001")])
     await owner.query("BEGIN")
     await owner.query("LOCK TABLE child_profiles IN SHARE ROW EXCLUSIVE MODE")
-    const read = await owner.query("SELECT COUNT(*)::int AS count FROM child_profiles")
+    const read = await contender.query("SELECT COUNT(*)::int AS count FROM child_profiles")
     assert.equal(read.rows[0].count, 1)
     await contender.query("BEGIN")
     await contender.query("SET LOCAL lock_timeout = '150ms'")
@@ -92,7 +98,9 @@ test("PostgreSQL: SHARE ROW EXCLUSIVE migration lock permits reads but blocks wr
     await contender.query("ROLLBACK")
     await owner.query("ROLLBACK")
   } finally {
-    await contender.end().catch(() => undefined)
-    await owner.end().catch(() => undefined)
+    await contender.query("ROLLBACK").catch(() => undefined)
+    await owner.query("ROLLBACK").catch(() => undefined)
+    await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`).catch(() => undefined)
+    await Promise.all([contender.end(), owner.end(), admin.end()])
   }
 })
