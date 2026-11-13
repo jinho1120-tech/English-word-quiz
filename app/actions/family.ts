@@ -444,7 +444,7 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
   const client = await getClientRateLimitKey()
   const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
   const multiplier = client.unknown ? 10 : 1
-  const result = await runWithFailureRateLimit<ChildAuthResult>(
+  const result = await runWithFailureRateLimit<ChildAuthOperationResult>(
     client.key,
     "child-enroll",
     30 * multiplier,
