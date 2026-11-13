@@ -47,4 +47,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.P0_2_REHEARSAL_DATABASE_URL }}
           CHILD_ACCESS_CODE_PEPPER: ${{ secrets.CHILD_ACCESS_CODE_PEPPER }}
-        run: node scripts/upgrade-access-code-hashes.mjs --expect-db-host="${{ inputs.expected_db_host }}"
+          EXPECTED_DB_HOST: ${{ inputs.expected_db_host }}
+        run: node scripts/upgrade-access-code-hashes.mjs --expect-db-host="$EXPECTED_DB_HOST"
