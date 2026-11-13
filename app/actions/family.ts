@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, asc, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -24,11 +24,15 @@ import {
 } from "@/lib/db/schema"
 import {
   createChildDeviceSession,
-  generateChildAccessCode,
+  setChildDeviceSessionCookie,
+  hashChildAccessCode,
+  issueChildAccessCode,
   hashChildPin,
   hashOpaqueToken,
   normalizeChildAccessCode,
 } from "@/lib/child-auth"
+import { getClientRateLimitKey } from "@/lib/client-ip"
+import { consumeRateLimit, maybePurgeChildAuthRateLimits, runWithFailureRateLimit } from "@/lib/rate-limit"
 
 async function requireParentFamily() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -78,11 +82,6 @@ async function requireParentFamily() {
   })
   return { userId: session.user.id, family, role, email: session.user.email, guardianType }
 }
-
-function validatePin(pin: string) {
-  if (!/^\d{4,8}$/.test(pin)) throw new Error("PIN은 숫자 4~8자리로 입력해 주세요.")
-}
-
 
 export async function getFamilyDisplayTerms() {
   const { guardianType } = await requireParentFamily()
@@ -192,17 +191,27 @@ export async function createChildProfile(input: { displayName: string }) {
   if (!displayName || displayName.length > 40) throw new Error("자녀 이름은 1~40자로 입력해 주세요.")
   // Keep the legacy non-null PIN hash column populated; children no longer use a PIN.
   const internalPinHash = await hashChildPin(randomBytes(16).toString("hex"))
-  const accessCode = generateChildAccessCode()
   const [arcadeSettings] = await db.select({ enabled: familyArcadeSettings.pacmanEnabled }).from(familyArcadeSettings).where(eq(familyArcadeSettings.familyId, family.id)).limit(1)
   const defaultGameVisibility = arcadeSettings?.enabled ?? false
-  const [child] = await db.insert(childProfiles).values({
-    familyId: family.id,
-    displayName,
-    pinHash: internalPinHash,
-    accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
-    showPacman: defaultGameVisibility,
-    showWordDefense: defaultGameVisibility,
-  }).returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+  let accessCode = ""
+  let child: { id: string; displayName: string } | undefined
+  for (let attempt = 0; attempt < 3 && !child; attempt += 1) {
+    const issued = issueChildAccessCode()
+    const [inserted] = await db.insert(childProfiles).values({
+      familyId: family.id,
+      displayName,
+      pinHash: internalPinHash,
+      accessCodeHash: issued.hash,
+      showPacman: defaultGameVisibility,
+      showWordDefense: defaultGameVisibility,
+    }).onConflictDoNothing({ target: childProfiles.accessCodeHash })
+      .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+    if (inserted) {
+      child = inserted
+      accessCode = issued.code
+    }
+  }
+  if (!child) throw new Error("접속 코드 발급에 실패했습니다. 다시 시도해 주세요.")
 
   await db.insert(childSubjects).values({
     childProfileId: child.id,
@@ -276,52 +285,54 @@ export async function updateChildProfileName(input: { childProfileId: string; di
   return { success: true, displayName: updated.displayName }
 }
 
-export async function resetChildCredentials(input: { childProfileId: string; pin: string }) {
-  const { family } = await requireParentFamily()
-  if (typeof input?.childProfileId !== "string" || typeof input.pin !== "string") throw new Error("입력값이 올바르지 않습니다.")
-  validatePin(input.pin)
-  const accessCode = generateChildAccessCode()
-  const [updated] = await db.update(childProfiles).set({
-    pinHash: await hashChildPin(input.pin),
-    accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
-    updatedAt: new Date(),
-  }).where(and(
-    eq(childProfiles.id, input.childProfileId),
-    eq(childProfiles.familyId, family.id),
-  )).returning({ id: childProfiles.id, displayName: childProfiles.displayName })
-
-  if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
-  await db.update(childDeviceSessions).set({ revokedAt: new Date() })
-    .where(and(eq(childDeviceSessions.childProfileId, updated.id), isNull(childDeviceSessions.revokedAt)))
-  revalidatePath("/parent")
-  return { ...updated, accessCode }
-}
-
-
 export async function regenerateChildAccessCode(childProfileId: string) {
   const { family } = await requireParentFamily()
   if (typeof childProfileId !== "string" || !childProfileId) throw new Error("자녀 정보가 올바르지 않습니다.")
-  const accessCode = generateChildAccessCode()
-  const [updated] = await db.update(childProfiles).set({
-    accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)),
-    updatedAt: new Date(),
-  }).where(and(eq(childProfiles.id, childProfileId), eq(childProfiles.familyId, family.id), eq(childProfiles.isActive, true)))
-    .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
-  if (!updated) throw new Error("활성 상태의 자녀 프로필을 찾을 수 없습니다.")
-  revalidatePath("/parent")
-  return { ...updated, accessCode }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const issued = issueChildAccessCode()
+    try {
+      const [updated] = await db.update(childProfiles).set({
+        accessCodeHash: issued.hash,
+        updatedAt: new Date(),
+      }).where(and(eq(childProfiles.id, childProfileId), eq(childProfiles.familyId, family.id), eq(childProfiles.isActive, true)))
+        .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+      if (!updated) throw new Error("활성 상태의 자녀 프로필을 찾을 수 없습니다.")
+      revalidatePath("/parent")
+      return { ...updated, accessCode: issued.code }
+    } catch (error) {
+      const cause = error as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } }
+      const code = cause.code ?? cause.cause?.code
+      const constraint = cause.constraint ?? cause.cause?.constraint
+      if (code !== "23505" || (constraint && constraint !== "child_profiles_access_code_hash_unique") || attempt === 2) throw error
+    }
+  }
+  throw new Error("접속 코드 발급에 실패했습니다. 다시 시도해 주세요.")
 }
 
 export async function setChildProfileActive(input: { childProfileId: string; isActive: boolean }) {
   const { family } = await requireParentFamily()
   if (typeof input?.childProfileId !== "string" || typeof input.isActive !== "boolean") throw new Error("자녀 상태 정보가 올바르지 않습니다.")
-  const accessCode = input.isActive ? generateChildAccessCode() : null
-  const [updated] = await db.update(childProfiles).set({
-    isActive: input.isActive,
-    ...(accessCode ? { accessCodeHash: hashOpaqueToken(normalizeChildAccessCode(accessCode)) } : {}),
-    updatedAt: new Date(),
-  }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id)))
-    .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+  let accessCode: string | null = null
+  let updated: { id: string; displayName: string } | undefined
+  const attempts = input.isActive ? 3 : 1
+  for (let attempt = 0; attempt < attempts && !updated; attempt += 1) {
+    const issued = input.isActive ? issueChildAccessCode() : null
+    try {
+      const [result] = await db.update(childProfiles).set({
+        isActive: input.isActive,
+        ...(issued ? { accessCodeHash: issued.hash } : {}),
+        updatedAt: new Date(),
+      }).where(and(eq(childProfiles.id, input.childProfileId), eq(childProfiles.familyId, family.id)))
+        .returning({ id: childProfiles.id, displayName: childProfiles.displayName })
+      updated = result
+      accessCode = issued?.code ?? null
+    } catch (error) {
+      const cause = error as { code?: string; constraint?: string; cause?: { code?: string; constraint?: string } }
+      const code = cause.code ?? cause.cause?.code
+      const constraint = cause.constraint ?? cause.cause?.constraint
+      if (code !== "23505" || (constraint && constraint !== "child_profiles_access_code_hash_unique") || attempt === attempts - 1) throw error
+    }
+  }
   if (!updated) throw new Error("자녀 프로필을 찾을 수 없습니다.")
   if (!input.isActive) {
     await db.update(childDeviceSessions).set({ revokedAt: new Date() })
@@ -366,60 +377,125 @@ export async function createChildQrEnrollment(childProfileId: string) {
   return { url: `${baseUrl.replace(/\/$/, "")}/child/enroll?token=${encodeURIComponent(token)}`, expiresAt }
 }
 
-export async function loginChildWithAccessCode(input: { accessCode: string; deviceLabel?: string }) {
-  if (typeof input?.accessCode !== "string") throw new Error("접속 코드를 입력해 주세요.")
-  const normalized = normalizeChildAccessCode(input.accessCode)
-  if (!/^[A-F0-9]{10}$/.test(normalized)) throw new Error("접속 코드 형식을 확인해 주세요.")
+type ChildAuthResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid" | "expired" }
+  | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
 
-  const [child] = await db.select({
-    id: childProfiles.id,
-    isActive: childProfiles.isActive,
-  }).from(childProfiles)
-    .where(eq(childProfiles.accessCodeHash, hashOpaqueToken(normalized)))
-    .limit(1)
+type ChildAuthOperationResult =
+  | { ok: true; sessionToken: string }
+  | { ok: false; reason: "invalid" | "expired" }
 
-  if (!child || !child.isActive) {
-    throw new Error("접속 코드가 올바르지 않거나 만료되었습니다.")
+async function recordChildLoginFailure(): Promise<void> {
+  const result = await consumeRateLimit("global", "child-login-fail:10m", Number.MAX_SAFE_INTEGER, 600)
+  if (result.count === 500) {
+    console.error(JSON.stringify({ event: "child_login_failure_spike", count: result.count }))
   }
-
-  await createChildDeviceSession(child.id, input.deviceLabel)
-  return { success: true }
+  await maybePurgeChildAuthRateLimits()
 }
 
-export async function completeChildQrEnrollment(input: { token: string; deviceLabel?: string }) {
-  if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
-    throw new Error("QR 등록 링크가 올바르지 않습니다.")
+export async function loginChildWithAccessCode(input: { accessCode?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
+  const client = await getClientRateLimitKey()
+  const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
+  const multiplier = client.unknown ? 10 : 1
+  const result = await runWithFailureRateLimit<ChildAuthOperationResult>(
+    client.key,
+    "child-login",
+    10 * multiplier,
+    900,
+    50 * multiplier,
+    86400,
+    async (dbClient) => {
+      if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
+      const normalized = normalizeChildAccessCode(input.accessCode)
+      if (!/^[A-F0-9]{10}$/.test(normalized)) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
+
+      const { current, legacy } = hashChildAccessCode(normalized)
+      const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
+      const childResult = await dbClient.query<{ id: string; is_active: boolean }>(
+        "SELECT id, is_active FROM child_profiles WHERE access_code_hash = ANY($1::text[]) LIMIT 1",
+        [candidates],
+      )
+      const child = childResult.rows[0]
+
+      if (!child || !child.is_active) {
+        return { success: false, value: { ok: false, reason: "invalid" } as const }
+      }
+
+      const sessionToken = await createChildDeviceSession(child.id, deviceLabel, dbClient)
+      return { success: true, value: { ok: true, sessionToken } as const }
+    },
+  )
+  if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
+  if (!result.value.ok) {
+    await recordChildLoginFailure()
+    return result.value
   }
-  const tokenHash = hashOpaqueToken(input.token)
-  const now = new Date()
-  const [enrollment] = await db.select({
-    id: childDeviceEnrollments.id,
-    childProfileId: childDeviceEnrollments.childProfileId,
-  }).from(childDeviceEnrollments)
-    .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
-    .where(and(
-      eq(childDeviceEnrollments.tokenHash, tokenHash),
-      isNull(childDeviceEnrollments.consumedAt),
-      gt(childDeviceEnrollments.expiresAt, now),
-      eq(childProfiles.isActive, true),
-    ))
-    .limit(1)
+  // The transaction helper has committed successfully before the browser cookie is set.
+  await setChildDeviceSessionCookie(result.value.sessionToken)
+  return { ok: true }
+}
 
-  if (!enrollment) throw new Error("QR 등록 시간이 만료되었거나 이미 사용되었습니다.")
+export async function completeChildQrEnrollment(input: { token?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
+  const client = await getClientRateLimitKey()
+  const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
+  const multiplier = client.unknown ? 10 : 1
+  const result = await runWithFailureRateLimit<ChildAuthOperationResult>(
+    client.key,
+    "child-enroll",
+    30 * multiplier,
+    900,
+    200 * multiplier,
+    86400,
+    async (dbClient) => {
+      if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
+      const tokenHash = hashOpaqueToken(input.token)
+      const now = new Date()
+      const enrollmentResult = await dbClient.query<{ id: string; child_profile_id: string }>(
+        `SELECT e.id, e.child_profile_id
+         FROM child_device_enrollments e
+         INNER JOIN child_profiles p ON p.id = e.child_profile_id
+         WHERE e.token_hash = $1 AND e.consumed_at IS NULL
+           AND e.expires_at > NOW() AND p.is_active = TRUE
+         LIMIT 1`,
+        [tokenHash],
+      )
+      const enrollment = enrollmentResult.rows[0]
 
-  const [consumed] = await db.update(childDeviceEnrollments)
-    .set({ consumedAt: now })
-    .where(and(
-      eq(childDeviceEnrollments.id, enrollment.id),
-      isNull(childDeviceEnrollments.consumedAt),
-      gt(childDeviceEnrollments.expiresAt, now),
-    ))
-    .returning({ id: childDeviceEnrollments.id })
+      if (!enrollment) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
 
-  if (!consumed) throw new Error("이미 사용된 QR 등록 링크입니다.")
+      const consumedResult = await dbClient.query<{ id: string }>(
+        `UPDATE child_device_enrollments SET consumed_at = $2
+         WHERE id = $1 AND consumed_at IS NULL AND expires_at > NOW()
+         RETURNING id`,
+        [enrollment.id, now],
+      )
+      const consumed = consumedResult.rows[0]
 
-  await createChildDeviceSession(enrollment.childProfileId, input.deviceLabel)
-  return { success: true }
+      if (!consumed) {
+        return { success: false, value: { ok: false, reason: "expired" } as const }
+      }
+
+      const sessionToken = await createChildDeviceSession(enrollment.child_profile_id, deviceLabel, dbClient)
+      return { success: true, value: { ok: true, sessionToken } as const }
+    },
+  )
+  if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
+  if (!result.value.ok) {
+    await maybePurgeChildAuthRateLimits()
+    return result.value
+  }
+  // QR token consumption and session creation are committed before cookie issuance.
+  await setChildDeviceSessionCookie(result.value.sessionToken)
+  return { ok: true }
 }
 
 async function requireFamilyChild(childProfileId: string) {

@@ -1,0 +1,51 @@
+name: P0-2 rehearsal database dry-run
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_db_host:
+        description: "Neon p0-2-rehearsal hostname only (not the connection string)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rehearsal-dry-run:
+    if: github.ref == 'refs/heads/security/p0-2-child-access-code-hardening'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify selected branch
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/security/p0-2-child-access-code-hardening" || {
+            echo "::error::This workflow may only run against the P0-2 security branch."
+            exit 1
+          }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+      - name: Validate required secrets
+        env:
+          DATABASE_URL: ${{ secrets.P0_2_REHEARSAL_DATABASE_URL }}
+          P0_2_REHEARSAL_PEPPER: ${{ secrets.P0_2_REHEARSAL_PEPPER }}
+        run: |
+          test -n "$DATABASE_URL" || { echo "::error::Missing P0_2_REHEARSAL_DATABASE_URL secret."; exit 1; }
+          test -n "$P0_2_REHEARSAL_PEPPER" || { echo "::error::Missing P0_2_REHEARSAL_PEPPER secret."; exit 1; }
+          test "${#P0_2_REHEARSAL_PEPPER}" -ge 32 || { echo "::error::P0_2_REHEARSAL_PEPPER must be at least 32 characters."; exit 1; }
+      - name: Run read-only migration dry-run
+        env:
+          DATABASE_URL: ${{ secrets.P0_2_REHEARSAL_DATABASE_URL }}
+          CHILD_ACCESS_CODE_PEPPER: ${{ secrets.P0_2_REHEARSAL_PEPPER }}
+          EXPECTED_DB_HOST: ${{ inputs.expected_db_host }}
+        run: node scripts/upgrade-access-code-hashes.mjs --expect-db-host="$EXPECTED_DB_HOST"

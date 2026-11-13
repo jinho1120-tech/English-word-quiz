@@ -15,10 +15,16 @@ export function ChildQrEnrollment({ token }: { token: string }) {
     if (started.current) return
     started.current = true
     completeChildQrEnrollment({ token, deviceLabel: "QR 등록 기기" })
-      .then(() => setRegistered(true))
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "기기를 등록하지 못했습니다.")
+      .then((result) => {
+        if (result.ok) {
+          setRegistered(true)
+        } else if (result.reason === "rate_limited") {
+          setError(`등록 요청이 많아요. ${Math.ceil(result.retryAfterSeconds / 60)}분 뒤에 다시 시도해 주세요.`)
+        } else {
+          setError("QR 등록 링크가 만료되었거나 이미 사용되었어요. 부모님께 새 QR 코드를 요청해 주세요.")
+        }
       })
+      .catch(() => setError("기기를 등록하지 못했습니다. 잠시 후 다시 시도해 주세요."))
   }, [router, token])
 
   return (

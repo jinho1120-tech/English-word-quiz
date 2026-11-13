@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+import type { PoolClient } from "pg"
 import { pool } from "@/lib/db"
 import { recordServiceUsageRequest } from "@/lib/service-usage"
 
@@ -29,4 +31,125 @@ export async function consumeUserRateLimit(
   const allowed = Number(result.rows[0]?.request_count ?? limit + 1) <= limit
   if (allowed) await recordServiceUsageRequest(userId, action)
   return allowed
+}
+
+export async function maybePurgeChildAuthRateLimits(): Promise<void> {
+  if (Math.random() >= 0.01) return
+  await pool.query(
+    "DELETE FROM rate_limits WHERE (user_id LIKE 'ip:%' OR user_id IN ('global', 'unknown')) AND window_started_at < NOW() - INTERVAL '2 days'",
+  )
+}
+
+
+/** A bounded counter used for the global child-login failure signal. */
+export async function consumeRateLimit(
+  key: string,
+  action: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<{ allowed: boolean; count: number; retryAfterSeconds: number }> {
+  const result = await pool.query<{ request_count: number; retry_after: number }>(
+    `INSERT INTO rate_limits (user_id, action, window_started_at, request_count)
+     VALUES ($1, $2, NOW(), 1)
+     ON CONFLICT (user_id, action) DO UPDATE SET
+       window_started_at = CASE
+         WHEN rate_limits.window_started_at <= NOW() - ($3 * INTERVAL '1 second')
+         THEN NOW() ELSE rate_limits.window_started_at END,
+       request_count = CASE
+         WHEN rate_limits.window_started_at <= NOW() - ($3 * INTERVAL '1 second')
+         THEN 1 ELSE rate_limits.request_count + 1 END
+     RETURNING request_count,
+       GREATEST(1, CEIL(EXTRACT(EPOCH FROM (
+         window_started_at + ($3 * INTERVAL '1 second') - NOW()
+       ))))::int AS retry_after`,
+    [key, action, windowSeconds],
+  )
+  const count = Number(result.rows[0]?.request_count ?? limit + 1)
+  return {
+    allowed: count <= limit,
+    count,
+    retryAfterSeconds: Number(result.rows[0]?.retry_after ?? windowSeconds),
+  }
+}
+
+export type FailureRateLimitResult<T> =
+  | { limited: true; retryAfterSeconds: number }
+  | { limited: false; value: T }
+
+/**
+ * Serialize the complete authentication attempt per IP/action. Only failed
+ * attempts are written to rate_limits; successful requests never consume a
+ * slot. The transaction-scoped advisory lock stays held while the callback
+ * checks credentials and creates the device session, so concurrent successes
+ * cannot temporarily exhaust the failure budget.
+ *
+ * The callback receives and must use the same checked-out pg client so the
+ * credential lookup and session write remain inside this transaction.
+ */
+export async function runWithFailureRateLimit<T>(
+  key: string,
+  action: string,
+  shortLimit: number,
+  shortWindowSeconds: number,
+  dailyLimit: number,
+  dailyWindowSeconds: number,
+  operation: (client: PoolClient) => Promise<{ success: boolean; value: T }>,
+): Promise<FailureRateLimitResult<T>> {
+  const client = await pool.connect()
+  try {
+    await client.query("BEGIN")
+    // Bound lock contention and total time spent inside the authentication transaction.
+    await client.query("SET LOCAL lock_timeout = '5s'")
+    await client.query("SET LOCAL statement_timeout = '15s'")
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [key, action])
+
+    const short = await client.query<{ count: number; retry_after: number | null }>(
+      `SELECT COUNT(*)::int AS count,
+         GREATEST(1, CEIL(EXTRACT(EPOCH FROM (
+           MIN(window_started_at) + ($3 * INTERVAL '1 second') - NOW()
+         ))))::int AS retry_after
+       FROM rate_limits
+       WHERE user_id = $1 AND action LIKE $2 AND window_started_at > NOW() - ($3 * INTERVAL '1 second')`,
+      [key, `${action}:15m:%`, shortWindowSeconds],
+    )
+    const shortCount = Number(short.rows[0]?.count ?? 0)
+    const shortRetry = Number(short.rows[0]?.retry_after ?? shortWindowSeconds)
+
+    const daily = await client.query<{ count: number; retry_after: number | null }>(
+      `SELECT COUNT(*)::int AS count,
+         GREATEST(1, CEIL(EXTRACT(EPOCH FROM (
+           MIN(window_started_at) + ($3 * INTERVAL '1 second') - NOW()
+         ))))::int AS retry_after
+       FROM rate_limits
+       WHERE user_id = $1 AND action LIKE $2 AND window_started_at > NOW() - ($3 * INTERVAL '1 second')`,
+      [key, `${action}:1d:%`, dailyWindowSeconds],
+    )
+    const dailyCount = Number(daily.rows[0]?.count ?? 0)
+    const dailyRetry = Number(daily.rows[0]?.retry_after ?? dailyWindowSeconds)
+    if (shortCount >= shortLimit || dailyCount >= dailyLimit) {
+      const retryAfterSeconds = Math.max(
+        shortCount >= shortLimit ? shortRetry : 0,
+        dailyCount >= dailyLimit ? dailyRetry : 0,
+      )
+      await client.query("COMMIT")
+      return { limited: true, retryAfterSeconds }
+    }
+
+    const outcome = await operation(client)
+    if (!outcome.success) {
+      const requestId = randomUUID()
+      await client.query(
+        `INSERT INTO rate_limits (user_id, action, window_started_at, request_count)
+         VALUES ($1, $2, NOW(), 1), ($1, $3, NOW(), 1)`,
+        [key, `${action}:15m:${requestId}`, `${action}:1d:${requestId}`],
+      )
+    }
+    await client.query("COMMIT")
+    return { limited: false, value: outcome.value }
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined)
+    throw error
+  } finally {
+    client.release()
+  }
 }
