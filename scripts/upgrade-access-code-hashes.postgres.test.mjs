@@ -66,8 +66,9 @@ test("PostgreSQL: abnormal hash aborts before changing any valid legacy row", { 
     const report = await runUpgrade({ client, pepper, apply: true, expectCount: 1, log: silentLog })
     assert.equal(report.status, "aborted")
     const rows = (await client.query("SELECT id, access_code_hash FROM child_profiles ORDER BY id")).rows
-    assert.equal(rows[0].access_code_hash, old)
-    assert.equal(rows[1].access_code_hash, "v2:broken")
+    const byId = new Map(rows.map((row) => [row.id, row.access_code_hash]))
+    assert.equal(byId.get("valid"), old)
+    assert.equal(byId.get("bad"), "v2:broken")
   } finally { await client.end() }
 })
 
@@ -95,8 +96,6 @@ test("PostgreSQL: SHARE ROW EXCLUSIVE migration lock permits reads but blocks wr
       contender.query("INSERT INTO child_profiles (id, access_code_hash) VALUES ('blocked', $1)", [legacy("CODE0000002")]),
       (error) => error.code === "55P03",
     )
-    await contender.query("ROLLBACK")
-    await owner.query("ROLLBACK")
   } finally {
     await contender.query("ROLLBACK").catch(() => undefined)
     await owner.query("ROLLBACK").catch(() => undefined)
