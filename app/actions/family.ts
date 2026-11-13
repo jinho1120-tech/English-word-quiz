@@ -24,6 +24,7 @@ import {
 } from "@/lib/db/schema"
 import {
   createChildDeviceSession,
+  setChildDeviceSessionCookie,
   hashChildAccessCode,
   issueChildAccessCode,
   hashChildPin,
@@ -381,6 +382,10 @@ type ChildAuthResult =
   | { ok: false; reason: "invalid" | "expired" }
   | { ok: false; reason: "rate_limited"; retryAfterSeconds: number }
 
+type ChildAuthOperationResult =
+  | { ok: true; sessionToken: string }
+  | { ok: false; reason: "invalid" | "expired" }
+
 async function recordChildLoginFailure(): Promise<void> {
   const result = await consumeRateLimit("global", "child-login-fail:10m", Number.MAX_SAFE_INTEGER, 600)
   if (result.count === 500) {
@@ -393,7 +398,7 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
   const client = await getClientRateLimitKey()
   const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
   const multiplier = client.unknown ? 10 : 1
-  const result = await runWithFailureRateLimit<ChildAuthResult>(
+  const result = await runWithFailureRateLimit<ChildAuthOperationResult>(
     client.key,
     "child-login",
     10 * multiplier,
@@ -421,13 +426,18 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
         return { success: false, value: { ok: false, reason: "invalid" } as const }
       }
 
-      await createChildDeviceSession(child.id, deviceLabel, dbClient)
-      return { success: true, value: { ok: true } as const }
+      const sessionToken = await createChildDeviceSession(child.id, deviceLabel, dbClient)
+      return { success: true, value: { ok: true, sessionToken } as const }
     },
   )
   if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
-  if (!result.value.ok) await recordChildLoginFailure()
-  return result.value
+  if (!result.value.ok) {
+    await recordChildLoginFailure()
+    return result.value
+  }
+  // The transaction helper has committed successfully before the browser cookie is set.
+  await setChildDeviceSessionCookie(result.value.sessionToken)
+  return { ok: true }
 }
 
 export async function completeChildQrEnrollment(input: { token?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
@@ -474,13 +484,18 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
         return { success: false, value: { ok: false, reason: "expired" } as const }
       }
 
-      await createChildDeviceSession(enrollment.child_profile_id, deviceLabel, dbClient)
-      return { success: true, value: { ok: true } as const }
+      const sessionToken = await createChildDeviceSession(enrollment.child_profile_id, deviceLabel, dbClient)
+      return { success: true, value: { ok: true, sessionToken } as const }
     },
   )
   if (result.limited) return { ok: false, reason: "rate_limited", retryAfterSeconds: result.retryAfterSeconds }
-  if (!result.value.ok) await maybePurgeChildAuthRateLimits()
-  return result.value
+  if (!result.value.ok) {
+    await maybePurgeChildAuthRateLimits()
+    return result.value
+  }
+  // QR token consumption and session creation are committed before cookie issuance.
+  await setChildDeviceSessionCookie(result.value.sessionToken)
+  return { ok: true }
 }
 
 async function requireFamilyChild(childProfileId: string) {
