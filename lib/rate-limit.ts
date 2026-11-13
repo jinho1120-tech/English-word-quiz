@@ -98,6 +98,9 @@ export async function runWithFailureRateLimit<T>(
   const client = await pool.connect()
   try {
     await client.query("BEGIN")
+    // Bound lock contention and total time spent inside the authentication transaction.
+    await client.query("SET LOCAL lock_timeout = '5s'")
+    await client.query("SET LOCAL statement_timeout = '15s'")
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [key, action])
 
     const short = await client.query<{ count: number; retry_after: number | null }>(
