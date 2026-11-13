@@ -78,7 +78,11 @@ export function normalizeChildAccessCode(value: string): string {
   return value.replace(/[^a-f0-9]/gi, "").toUpperCase()
 }
 
-export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string, client?: PoolClient): Promise<void> {
+/**
+ * Persist a device session and return its raw token. When a transaction client
+ * is supplied, callers MUST set the cookie only after that transaction commits.
+ */
+export async function createChildDeviceSession(childProfileId: string, deviceLabel?: string, client?: PoolClient): Promise<string> {
   const token = randomBytes(32).toString("base64url")
   const tokenHash = hashOpaqueToken(token)
   const normalizedDeviceLabel = deviceLabel?.trim().slice(0, 100) || null
@@ -94,7 +98,11 @@ export async function createChildDeviceSession(childProfileId: string, deviceLab
       deviceLabel: normalizedDeviceLabel,
     })
   }
+  return token
+}
 
+/** Set the browser cookie only after the corresponding session row is committed. */
+export async function setChildDeviceSessionCookie(token: string): Promise<void> {
   const cookieStore = await cookies()
   cookieStore.set(CHILD_SESSION_COOKIE, token, {
     httpOnly: true,
