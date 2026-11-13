@@ -339,6 +339,7 @@ export function ChildLearning({
             <HapticButton disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</HapticButton>
           </div>
         )}
+        </div>
       </section>
       </div>}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
