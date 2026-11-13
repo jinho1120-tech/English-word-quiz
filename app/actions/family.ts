@@ -472,7 +472,7 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
         return { success: false, value: { ok: false, reason: "expired" } as const }
       }
 
-      await createChildDeviceSession(enrollment.childProfileId, input.deviceLabel)
+      await createChildDeviceSession(enrollment.child_profile_id, input.deviceLabel, dbClient)
       return { success: true, value: { ok: true } as const }
     },
   )
