@@ -51,7 +51,7 @@ export function parseArgs(argv) {
       case "--print-vector": args.printVector = readValue(); break
       case "--expect-count": {
         const value = readValue()
-        if (!/^\\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new UpgradeAbort("--expect-count 는 안전한 0 이상의 정수여야 합니다.", 1)
+        if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new UpgradeAbort("--expect-count 는 안전한 0 이상의 정수여야 합니다.", 1)
         args.expectCount = Number(value); break
       }
       default: throw new UpgradeAbort(`알 수 없는 옵션: ${raw}`, 1)
@@ -175,7 +175,7 @@ function usage() {
     "  (옵션 없음)                         읽기 전용 드라이런",
     "  --apply --expect-count=N            실제 변환(드라이런에서 확인한 legacy 건수)",
     "  --expect-db-host=HOST               대상 DB 호스트 확인(선택, 권장)",
-  ].join("\\n")
+  ].join("\n")
 }
 async function main() {
   let args
@@ -198,7 +198,7 @@ async function main() {
   let target
   try {
     const u = new URL(databaseUrl)
-    target = { host: u.hostname, database: u.pathname.replace(/^\\//, "") }
+    target = { host: u.hostname, database: u.pathname.replace(/^\//, "") }
   } catch { console.error("DATABASE_URL 형식이 올바르지 않습니다."); return 1 }
   console.log(`[대상] DB 호스트: ${target.host} / DB: ${target.database}`)
   console.log(`[모드] ${args.apply ? "적용(--apply)" : "드라이런(변경 없음)"} | pepper 지문: ${pepperFingerprint(pepper)}`)
