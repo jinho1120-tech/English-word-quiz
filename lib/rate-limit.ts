@@ -83,8 +83,8 @@ export type FailureRateLimitResult<T> =
  * checks credentials and creates the device session, so concurrent successes
  * cannot temporarily exhaust the failure budget.
  *
- * The callback may use the shared Drizzle pool; the pool must retain at least
- * two connections (the default pg Pool configuration does).
+ * The callback receives and must use the same checked-out pg client so the
+ * credential lookup and session write remain inside this transaction.
  */
 export async function runWithFailureRateLimit<T>(
   key: string,
