@@ -13,7 +13,7 @@ interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>
 
 export function HapticButton({
   onClick,
-  hapticLabel,
+  hapticLabel: _hapticLabel,
   wrapperClassName,
   stopPropagation = false,
   disabled,
