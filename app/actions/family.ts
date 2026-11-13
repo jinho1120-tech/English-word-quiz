@@ -399,7 +399,7 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
     900,
     50 * multiplier,
     86400,
-    async () => {
+    async (dbClient) => {
       if (typeof input?.accessCode !== "string" || input.accessCode.length > 64) {
         return { success: false, value: { ok: false, reason: "invalid" } as const }
       }
@@ -410,18 +410,17 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
 
       const { current, legacy } = hashChildAccessCode(normalized)
       const candidates = process.env.ACCEPT_LEGACY_ACCESS_CODE_HASH === "false" ? [current] : [current, legacy]
-      const [child] = await db.select({
-        id: childProfiles.id,
-        isActive: childProfiles.isActive,
-      }).from(childProfiles)
-        .where(inArray(childProfiles.accessCodeHash, candidates))
-        .limit(1)
+      const childResult = await dbClient.query<{ id: string; is_active: boolean }>(
+        "SELECT id, is_active FROM child_profiles WHERE access_code_hash = ANY($1::text[]) LIMIT 1",
+        [candidates],
+      )
+      const child = childResult.rows[0]
 
-      if (!child || !child.isActive) {
+      if (!child || !child.is_active) {
         return { success: false, value: { ok: false, reason: "invalid" } as const }
       }
 
-      await createChildDeviceSession(child.id, input.deviceLabel)
+      await createChildDeviceSession(child.id, input.deviceLabel, dbClient)
       return { success: true, value: { ok: true } as const }
     },
   )
@@ -440,37 +439,34 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
     900,
     200 * multiplier,
     86400,
-    async () => {
+    async (dbClient) => {
       if (typeof input?.token !== "string" || input.token.length < 30 || input.token.length > 200) {
         return { success: false, value: { ok: false, reason: "expired" } as const }
       }
       const tokenHash = hashOpaqueToken(input.token)
       const now = new Date()
-      const [enrollment] = await db.select({
-        id: childDeviceEnrollments.id,
-        childProfileId: childDeviceEnrollments.childProfileId,
-      }).from(childDeviceEnrollments)
-        .innerJoin(childProfiles, eq(childDeviceEnrollments.childProfileId, childProfiles.id))
-        .where(and(
-          eq(childDeviceEnrollments.tokenHash, tokenHash),
-          isNull(childDeviceEnrollments.consumedAt),
-          gt(childDeviceEnrollments.expiresAt, now),
-          eq(childProfiles.isActive, true),
-        ))
-        .limit(1)
+      const enrollmentResult = await dbClient.query<{ id: string; child_profile_id: string }>(
+        `SELECT e.id, e.child_profile_id
+         FROM child_device_enrollments e
+         INNER JOIN child_profiles p ON p.id = e.child_profile_id
+         WHERE e.token_hash = $1 AND e.consumed_at IS NULL
+           AND e.expires_at > NOW() AND p.is_active = TRUE
+         LIMIT 1`,
+        [tokenHash],
+      )
+      const enrollment = enrollmentResult.rows[0]
 
       if (!enrollment) {
         return { success: false, value: { ok: false, reason: "expired" } as const }
       }
 
-      const [consumed] = await db.update(childDeviceEnrollments)
-        .set({ consumedAt: now })
-        .where(and(
-          eq(childDeviceEnrollments.id, enrollment.id),
-          isNull(childDeviceEnrollments.consumedAt),
-          gt(childDeviceEnrollments.expiresAt, now),
-        ))
-        .returning({ id: childDeviceEnrollments.id })
+      const consumedResult = await dbClient.query<{ id: string }>(
+        `UPDATE child_device_enrollments SET consumed_at = $2
+         WHERE id = $1 AND consumed_at IS NULL AND expires_at > NOW()
+         RETURNING id`,
+        [enrollment.id, now],
+      )
+      const consumed = consumedResult.rows[0]
 
       if (!consumed) {
         return { success: false, value: { ok: false, reason: "expired" } as const }
