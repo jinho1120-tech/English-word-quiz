@@ -75,6 +75,7 @@ export function ParentDashboard({
   const [codeChildId, setCodeChildId] = useState("")
   const [codeChildName, setCodeChildName] = useState("")
   const [qrUrl, setQrUrl] = useState("")
+  const [qrChildId, setQrChildId] = useState("")
   const [qrChildName, setQrChildName] = useState("")
   const [adminEmail, setAdminEmail] = useState("")
   const [inviteUrl, setInviteUrl] = useState("")
@@ -643,7 +644,7 @@ export function ParentDashboard({
                         if (!window.confirm(`${child.displayName}의 접속코드를 새로 발급할까요?\n기존 접속코드는 즉시 사용할 수 없게 됩니다.`)) return
                         showNewCode(child.id)
                       }} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
-                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
+                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildId(child.id); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
                     </div>
                   </details>
                 )}
@@ -665,6 +666,13 @@ export function ParentDashboard({
                     <p className="text-xs text-muted-foreground">이 코드를 자녀 기기에 입력하면 됩니다. 새 코드를 발급하면 이전 코드는 사용할 수 없습니다.</p>
                   </section>
                 )}
+                {qrUrl && qrChildId === child.id && (
+                  <section className="space-y-3 rounded-xl border border-primary/30 bg-muted/40 p-3">
+                    <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-bold">{qrChildName} 기기 등록 QR</h3><HapticButton onClick={() => { setQrUrl(""); setQrChildId("") }} className="text-xs text-muted-foreground">닫기</HapticButton></div>
+                    <div className="flex justify-center rounded-xl bg-white p-4"><QRCodeSVG value={qrUrl} size={220} level="H" /></div>
+                    <p className="text-xs text-muted-foreground">{childLabel} 기기로 QR 코드를 스캔하세요. QR은 보안을 위해 5분간 유효하고 한 번만 사용할 수 있습니다. 필요하면 새 QR을 발급하세요.</p>
+                  </section>
+                )}
                 <div className="flex flex-wrap gap-2 border-t border-border pt-2">
                   <HapticButton disabled={isPending} onClick={() => toggleChild(child)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">{child.isActive ? "일시 비활성화" : "다시 활성화"}</HapticButton>
                   <HapticButton disabled={isPending} onClick={() => removeChild(child)} className="rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">영구 삭제</HapticButton>
@@ -675,13 +683,6 @@ export function ParentDashboard({
         </div>
       </details>
 
-      {qrUrl && (
-        <section className="space-y-3 rounded-2xl border border-border p-4">
-          <div className="flex items-center justify-between"><h2 className="font-bold">{qrChildName} 기기 등록 QR</h2><HapticButton onClick={() => setQrUrl("")} className="text-sm text-muted-foreground">닫기</HapticButton></div>
-          <div className="flex justify-center rounded-xl bg-white p-4"><QRCodeSVG value={qrUrl} size={220} level="H" /></div>
-          <p className="text-xs text-muted-foreground">{childLabel} 기기로 QR 코드를 스캔하세요. QR은 보안을 위해 5분간 유효하고 한 번만 사용할 수 있습니다. 필요하면 새 QR을 발급하세요.</p>
-        </section>
-      )}
 
       <details className="rounded-2xl border border-border p-4">
         <HapticSummary className="cursor-pointer list-none font-bold">＋ {guardianLabel} 공동관리자 관리</HapticSummary>
