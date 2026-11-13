@@ -13,7 +13,7 @@ interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>
 
 export function HapticButton({
   onClick,
-  hapticLabel: _hapticLabel,
+  hapticLabel,
   wrapperClassName,
   stopPropagation = false,
   disabled,
@@ -28,20 +28,32 @@ export function HapticButton({
     <span className={wrapperClassName ?? `relative inline-flex align-middle ${className?.includes("w-full") ? "w-full" : ""}`}>
       <button
         type={type}
+        aria-hidden="true"
+        tabIndex={-1}
         disabled={disabled}
         className={className}
         aria-label={ariaLabel}
         title={title}
-        onClick={(event) => {
-          if (stopPropagation) event.stopPropagation()
-          if (disabled) return
-          haptic()
-          onClick?.()
-        }}
         {...rest}
       >
         {children}
       </button>
+
+      <input
+        type="checkbox"
+        {...({ switch: "" } as Record<string, string>)}
+        checked={false}
+        disabled={disabled}
+        aria-label={hapticLabel ?? ariaLabel ?? title ?? "버튼"}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 m-0 disabled:cursor-not-allowed"
+        onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+        onMouseDown={(e) => e.preventDefault()}
+        onChange={(e) => {
+          e.currentTarget.checked = false
+          haptic()
+          onClick?.()
+        }}
+      />
     </span>
   )
 }
