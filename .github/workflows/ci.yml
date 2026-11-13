@@ -23,6 +23,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Test access-code hash migration safety
+        run: pnpm test:access-code-migration
       - name: Type check
         run: pnpm exec tsc --noEmit
       - name: Check design system conventions
