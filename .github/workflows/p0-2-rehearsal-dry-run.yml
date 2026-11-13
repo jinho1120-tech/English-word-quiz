@@ -38,14 +38,14 @@ jobs:
       - name: Validate required secrets
         env:
           DATABASE_URL: ${{ secrets.P0_2_REHEARSAL_DATABASE_URL }}
-          CHILD_ACCESS_CODE_PEPPER: ${{ secrets.CHILD_ACCESS_CODE_PEPPER }}
+          P0_2_REHEARSAL_PEPPER: ${{ secrets.P0_2_REHEARSAL_PEPPER }}
         run: |
           test -n "$DATABASE_URL" || { echo "::error::Missing P0_2_REHEARSAL_DATABASE_URL secret."; exit 1; }
-          test -n "$CHILD_ACCESS_CODE_PEPPER" || { echo "::error::Missing CHILD_ACCESS_CODE_PEPPER secret."; exit 1; }
-          test "${#CHILD_ACCESS_CODE_PEPPER}" -ge 32 || { echo "::error::CHILD_ACCESS_CODE_PEPPER must be at least 32 characters."; exit 1; }
+          test -n "$P0_2_REHEARSAL_PEPPER" || { echo "::error::Missing P0_2_REHEARSAL_PEPPER secret."; exit 1; }
+          test "${#P0_2_REHEARSAL_PEPPER}" -ge 32 || { echo "::error::P0_2_REHEARSAL_PEPPER must be at least 32 characters."; exit 1; }
       - name: Run read-only migration dry-run
         env:
           DATABASE_URL: ${{ secrets.P0_2_REHEARSAL_DATABASE_URL }}
-          CHILD_ACCESS_CODE_PEPPER: ${{ secrets.CHILD_ACCESS_CODE_PEPPER }}
+          P0_2_REHEARSAL_PEPPER: ${{ secrets.P0_2_REHEARSAL_PEPPER }}
           EXPECTED_DB_HOST: ${{ inputs.expected_db_host }}
         run: node scripts/upgrade-access-code-hashes.mjs --expect-db-host="$EXPECTED_DB_HOST"
