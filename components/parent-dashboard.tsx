@@ -72,6 +72,7 @@ export function ParentDashboard({
   const [editingChildId, setEditingChildId] = useState<string | null>(null)
   const [editingChildName, setEditingChildName] = useState("")
   const [createdCode, setCreatedCode] = useState("")
+  const [codeChildId, setCodeChildId] = useState("")
   const [codeChildName, setCodeChildName] = useState("")
   const [qrUrl, setQrUrl] = useState("")
   const [qrChildName, setQrChildName] = useState("")
@@ -230,6 +231,7 @@ export function ParentDashboard({
       try {
         const result = await createChildProfile({ displayName: name })
         setCreatedCode(result.accessCode)
+        setCodeChildId(result.id)
         setCopyFeedback("")
         setCodeChildName(result.displayName)
         setName("")
@@ -246,6 +248,7 @@ export function ParentDashboard({
       try {
         const result = await regenerateChildAccessCode(childId)
         setCreatedCode(result.accessCode)
+        setCodeChildId(result.id)
         setCopyFeedback("")
         setCodeChildName(result.displayName)
       } catch (err) {
@@ -255,11 +258,14 @@ export function ParentDashboard({
   }
 
   function sendChildInvitationSms(childId: string) {
+    const child = children.find((item) => item.id === childId)
+    if (!child || !window.confirm(`${child.displayName}의 접속코드를 새로 발급하고 초대문자를 작성할까요?\n기존 접속코드는 즉시 사용할 수 없게 됩니다.`)) return
     setError("")
     startTransition(async () => {
       try {
         const result = await regenerateChildAccessCode(childId)
         setCreatedCode(result.accessCode)
+        setCodeChildId(result.id)
         setCopyFeedback("")
         setCodeChildName(result.displayName)
         const message = `영단어 학습 앱 초대입니다.\n\n${result.displayName} 학습 앱 주소:\n${getChildAppUrl()}\n\n자녀 접속코드: ${result.accessCode}\n\n아이폰은 Safari, 안드로이드는 Chrome으로 열어주세요. 홈 화면에 추가하면 앱처럼 사용할 수 있습니다.`
@@ -344,8 +350,8 @@ export function ParentDashboard({
     startTransition(async () => {
       try {
         const result = await setChildProfileActive({ childProfileId: child.id, isActive: !child.isActive })
-        if (result.accessCode) { setCreatedCode(result.accessCode); setCopyFeedback(""); setCodeChildName(result.displayName) }
-        else { setCreatedCode(""); setCopyFeedback("") }
+        if (result.accessCode) { setCreatedCode(result.accessCode); setCodeChildId(child.id); setCopyFeedback(""); setCodeChildName(result.displayName) }
+        else { setCreatedCode(""); setCodeChildId(""); setCopyFeedback("") }
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : `${childLabel} 상태를 변경하지 못했습니다.`)
@@ -359,7 +365,7 @@ export function ParentDashboard({
     startTransition(async () => {
       try {
         await deleteChildProfile(child.id)
-        setCreatedCode("")
+        if (codeChildId === child.id) { setCreatedCode(""); setCodeChildId(""); setCopyFeedback("") }
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : `${childLabel}를 삭제하지 못했습니다.`)
@@ -605,25 +611,6 @@ export function ParentDashboard({
         )}
       </section>
 
-      {createdCode && (
-        <section className="space-y-2 rounded-2xl border border-border bg-muted/40 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="font-bold">{codeChildName} 접속코드</h3>
-            <HapticButton onClick={() => { setCreatedCode(""); setCopyFeedback("") }} className="text-sm text-muted-foreground">닫기</HapticButton>
-          </div>
-          <p className="select-all text-2xl font-black tracking-[0.2em]">{createdCode}</p>
-          <p className="text-xs text-muted-foreground">{childLabel} 기기에서 이 코드만 입력하면 됩니다. PIN은 필요하지 않습니다. 코드는 가족 관리 화면에서 언제든 새로 발급할 수 있습니다.</p>
-          <HapticButton onClick={copyCreatedCode} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">
-            {copyFeedback === "success" ? "✓ 복사 완료!" : "접속코드 복사"}
-          </HapticButton>
-          {copyFeedback === "success" ? (
-            <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">접속코드가 클립보드에 복사되었습니다.</p>
-          ) : copyFeedback === "error" ? (
-            <p role="alert" className="text-sm font-medium text-red-600 dark:text-red-400">복사하지 못했어요. 접속코드를 길게 눌러 직접 복사해 주세요.</p>
-          ) : null}
-        </section>
-      )}
-
       <details className="rounded-2xl border border-border p-4">
         <HapticSummary className="cursor-pointer list-none font-bold">＋ {childLabel} 추가 및 접속 관리</HapticSummary>
         <div className="mt-4 space-y-4">
@@ -636,21 +623,49 @@ export function ParentDashboard({
           <div className="space-y-3 border-t border-border pt-3">
             <h3 className="text-sm font-bold">등록된 {childLabel}</h3>
             {children.map((child) => (
-              <div key={child.id} className="space-y-2 rounded-xl border border-border p-3">
-                <div className="space-y-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="shrink-0 whitespace-nowrap font-semibold">{child.displayName}</p>
-                    <p className="whitespace-nowrap text-xs text-muted-foreground">{child.isActive ? "사용 중" : "비활성화됨"}</p>
+              <div key={child.id} className="space-y-3 rounded-xl border border-border p-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <p className="truncate font-semibold">{child.displayName}</p>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${child.isActive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>{child.isActive ? "사용 중" : "비활성화됨"}</span>
                   </div>
-                  {child.isActive && <div className="space-y-2">
-                    <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="w-full rounded-lg bg-primary px-2.5 py-2 text-xs font-semibold text-primary-foreground"><MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기</HapticButton>
-                    <div className="grid grid-cols-2 gap-2">
-                      <HapticButton disabled={isPending} onClick={() => showNewCode(child.id)} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
-                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
-                    </div>
-                  </div>}
+                  {child.isActive && (
+                    <HapticButton disabled={isPending} onClick={() => sendChildInvitationSms(child.id)} className="shrink-0 whitespace-nowrap rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground">
+                      <MessageSquare className="mr-1 inline size-3.5" />초대문자 보내기
+                    </HapticButton>
+                  )}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                {child.isActive && (
+                  <details className="rounded-lg bg-muted/50 px-3 py-2">
+                    <summary className="cursor-pointer list-none text-xs font-semibold text-muted-foreground">＋ 접속 관리</summary>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <HapticButton disabled={isPending} onClick={() => {
+                        if (!window.confirm(`${child.displayName}의 접속코드를 새로 발급할까요?\n기존 접속코드는 즉시 사용할 수 없게 됩니다.`)) return
+                        showNewCode(child.id)
+                      }} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-semibold">새 접속코드 발급</HapticButton>
+                      <HapticButton disabled={isPending} onClick={() => startTransition(async () => { try { const result = await createChildQrEnrollment(child.id); setQrUrl(result.url); setQrChildName(child.displayName) } catch (err) { setError(err instanceof Error ? err.message : "QR 코드를 만들지 못했습니다.") } })} className="rounded-lg border border-border bg-background px-2.5 py-2 text-xs font-semibold">QR 발급</HapticButton>
+                    </div>
+                  </details>
+                )}
+                {createdCode && codeChildId === child.id && (
+                  <section className="space-y-2 rounded-xl border border-primary/30 bg-muted/40 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-bold">{codeChildName} 접속코드가 발급됐어요</h3>
+                      <HapticButton onClick={() => { setCreatedCode(""); setCodeChildId(""); setCopyFeedback("") }} className="text-xs text-muted-foreground">닫기</HapticButton>
+                    </div>
+                    <p className="select-all text-2xl font-black tracking-[0.2em]">{createdCode}</p>
+                    <HapticButton onClick={copyCreatedCode} className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold">
+                      {copyFeedback === "success" ? "✓ 복사 완료!" : "접속코드 복사"}
+                    </HapticButton>
+                    {copyFeedback === "success" ? (
+                      <p role="status" aria-live="polite" className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">접속코드가 클립보드에 복사되었습니다.</p>
+                    ) : copyFeedback === "error" ? (
+                      <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">복사하지 못했어요. 접속코드를 길게 눌러 직접 복사해 주세요.</p>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground">이 코드를 자녀 기기에 입력하면 됩니다. 새 코드를 발급하면 이전 코드는 사용할 수 없습니다.</p>
+                  </section>
+                )}
+                <div className="flex flex-wrap gap-2 border-t border-border pt-2">
                   <HapticButton disabled={isPending} onClick={() => toggleChild(child)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold">{child.isActive ? "일시 비활성화" : "다시 활성화"}</HapticButton>
                   <HapticButton disabled={isPending} onClick={() => removeChild(child)} className="rounded-lg border border-red-300 dark:border-red-800 px-3 py-2 text-xs font-semibold text-red-600 dark:text-red-400">영구 삭제</HapticButton>
                 </div>

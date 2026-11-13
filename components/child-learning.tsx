@@ -270,9 +270,17 @@ export function ChildLearning({
       </section>
 
       {activeTab === "manage" && <div className="space-y-6 lg:col-span-2">
-      <section className="space-y-3 rounded-2xl border border-border p-4">
-        <h2 className="font-bold">AI 단어 입력</h2>
-        <p className="text-xs text-muted-foreground">단어장 사진을 올리면 AI가 영어 단어와 뜻을 추출합니다. 저장 전에 내용을 확인하고 수정할 수 있어요.</p>
+      <section className="space-y-4 rounded-2xl border border-border p-4">
+        <h2 className="font-bold">단어 추가</h2>
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold text-muted-foreground">저장할 과목</span>
+          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
+            {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
+          </select>
+        </label>
+        <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+          <h3 className="text-sm font-semibold">AI로 사진에서 단어 추출</h3>
+          <p className="text-xs text-muted-foreground">선택한 과목에 저장됩니다. 단어장 사진을 올리면 AI가 영어 단어와 뜻을 추출합니다. 저장 전에 내용을 확인하고 수정할 수 있어요.</p>
         <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async (event) => {
           const file = event.target.files?.[0]
           event.target.value = ""
@@ -309,22 +317,14 @@ export function ChildLearning({
           </div>)}
           <HapticButton disabled={isPending || !aiWords.length || aiWords.some((item) => !item.word.trim() || !item.meaning.trim())} onClick={() => run(async () => { await addChildWordsBulk({ date, subjectId, words: aiWords }); setAiWords([]) })} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">확인한 {aiWords.length}개 단어 저장</HapticButton>
         </div>}
-      </section>
-
-      <section className="space-y-4 rounded-2xl border border-border p-4">
+        </div>
+        <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-bold">단어 추가</h2>
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
             <HapticButton type="button" onClick={() => setIsBulkMode(false)} className={`rounded-lg px-3 py-2 text-xs font-bold ${!isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>하나씩 입력</HapticButton>
             <HapticButton type="button" onClick={() => setIsBulkMode(true)} className={`rounded-lg px-3 py-2 text-xs font-bold ${isBulkMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>일괄 입력</HapticButton>
           </div>
         </div>
-        <label className="block space-y-1.5">
-          <span className="text-xs font-semibold text-muted-foreground">저장할 과목</span>
-          <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
-            {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-          </select>
-        </label>
         {!isBulkMode ? (
           <div className="space-y-3">
             <input value={word} onChange={(event) => setWord(event.target.value)} maxLength={100} placeholder="영어 단어 (예: apple)" className="w-full rounded-xl border border-border bg-background px-3 py-3 text-base" />
@@ -339,8 +339,8 @@ export function ChildLearning({
             <HapticButton disabled={isPending || !bulkText.trim() || !subjectId} onClick={saveBulkWords} className="w-full rounded-xl bg-primary px-4 py-4 text-base font-bold text-primary-foreground disabled:opacity-50">일괄 단어 저장</HapticButton>
           </div>
         )}
+        </div>
       </section>
-
       </div>}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {activeTab !== "manage" && (
