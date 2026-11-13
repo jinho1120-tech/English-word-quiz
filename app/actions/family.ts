@@ -391,6 +391,7 @@ async function recordChildLoginFailure(): Promise<void> {
 
 export async function loginChildWithAccessCode(input: { accessCode?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
+  const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
   const multiplier = client.unknown ? 10 : 1
   const result = await runWithFailureRateLimit<ChildAuthResult>(
     client.key,
@@ -420,7 +421,7 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
         return { success: false, value: { ok: false, reason: "invalid" } as const }
       }
 
-      await createChildDeviceSession(child.id, input.deviceLabel, dbClient)
+      await createChildDeviceSession(child.id, deviceLabel, dbClient)
       return { success: true, value: { ok: true } as const }
     },
   )
@@ -431,6 +432,7 @@ export async function loginChildWithAccessCode(input: { accessCode?: unknown; de
 
 export async function completeChildQrEnrollment(input: { token?: unknown; deviceLabel?: string }): Promise<ChildAuthResult> {
   const client = await getClientRateLimitKey()
+  const deviceLabel = typeof input?.deviceLabel === "string" ? input.deviceLabel : undefined
   const multiplier = client.unknown ? 10 : 1
   const result = await runWithFailureRateLimit<ChildAuthResult>(
     client.key,
@@ -472,7 +474,7 @@ export async function completeChildQrEnrollment(input: { token?: unknown; device
         return { success: false, value: { ok: false, reason: "expired" } as const }
       }
 
-      await createChildDeviceSession(enrollment.child_profile_id, input.deviceLabel, dbClient)
+      await createChildDeviceSession(enrollment.child_profile_id, deviceLabel, dbClient)
       return { success: true, value: { ok: true } as const }
     },
   )
