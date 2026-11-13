@@ -6,7 +6,6 @@ import { haptic } from "@/lib/haptics"
 interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
   onClick?: () => void
   hapticLabel?: string
-  wrapperClassName?: string
   stopPropagation?: boolean
   children?: ReactNode
 }
@@ -14,7 +13,6 @@ interface HapticButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>
 export function HapticButton({
   onClick,
   hapticLabel,
-  wrapperClassName,
   stopPropagation = false,
   disabled,
   className,
