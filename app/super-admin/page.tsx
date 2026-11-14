@@ -103,6 +103,47 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
             </form>)}
             {detail.children.length === 0 && <p className="text-sm text-muted-foreground">등록된 아이 프로필이 없습니다.</p>}
           </div>
+          <section className="space-y-3 border-t pt-4">
+            <div>
+              <h3 className="font-bold">가정별 쿠폰 설정 및 쿠폰 내용</h3>
+              <p className="mt-1 text-xs text-muted-foreground">가족 공통 기본값, 자녀별 지급 조건, 등록된 쿠폰의 설명과 활성 상태를 조회합니다. 조회 전용이며 이 화면에서는 설정을 변경하지 않습니다.</p>
+            </div>
+            <div className="rounded-xl bg-muted p-3 text-sm">
+              <p className="font-semibold">가족 공통 기본 설정</p>
+              {detail.familyCouponSettings ? <>
+                <p className="mt-1">쿠폰 기능 {detail.familyCouponSettings.couponsEnabled ? "사용" : "사용 안 함"} · 최소 정답률 {detail.familyCouponSettings.rewardMinScore}% · 최소 문제 수 {detail.familyCouponSettings.rewardMinQuestions}개</p>
+                <p>힌트 미사용 조건 {detail.familyCouponSettings.requireNoHint ? "필수" : "선택"} · 꽝 쿠폰 확률 {detail.familyCouponSettings.blankCouponProbability}%</p>
+                <p className="mt-1 text-xs text-muted-foreground">마지막 수정 {formatKoreaDateTime(detail.familyCouponSettings.updatedAt)}</p>
+              </> : <p className="mt-1 text-muted-foreground">별도의 가족 공통 설정이 없습니다.</p>}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">자녀별 지급 설정</p>
+              {detail.childCouponSettings.map((setting) => <article key={setting.childProfileId} className="rounded-xl border p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold">{setting.childName}</p>
+                  <span className={setting.couponsEnabled ? "rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800" : "rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"}>{setting.couponsEnabled ? "쿠폰 사용 중" : "쿠폰 꺼짐"}</span>
+                </div>
+                <p className="mt-1">최소 정답률 {setting.rewardMinScore}% · 최소 문제 {setting.rewardMinQuestions}개 · 힌트 미사용 {setting.requireNoHint ? "필수" : "무관"}</p>
+                <p>꽝 확률 {setting.blankCouponProbability}% · 최대 보관 {setting.maxStoredCoupons}개</p>
+                <p className="mt-1 text-xs text-muted-foreground">마지막 수정 {formatKoreaDateTime(setting.updatedAt)}</p>
+              </article>)}
+              {detail.childCouponSettings.length === 0 && <p className="text-xs text-muted-foreground">자녀별 쿠폰 설정이 없습니다.</p>}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">등록된 쿠폰 목록 ({detail.couponTypes.length})</p>
+              {detail.couponTypes.map((coupon) => <article key={coupon.id} className="rounded-xl border p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold">{coupon.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{coupon.description || "설명 없음"}</p>
+                  </div>
+                  <span className={coupon.isActive ? "shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800" : "shrink-0 rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"}>{coupon.isActive ? "활성" : "비활성"}</span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{coupon.childName || "가족 공통"} · {coupon.couponKind === "blank" ? "꽝 쿠폰" : "일반 쿠폰"} · 추첨 가중치 {coupon.drawWeight} · 수정 {formatKoreaDateTime(coupon.updatedAt)}</p>
+              </article>)}
+              {detail.couponTypes.length === 0 && <p className="text-xs text-muted-foreground">등록된 쿠폰이 없습니다.</p>}
+            </div>
+          </section>
           {activity && <SuperAdminFamilyActivity activity={activity} />}
           <div className="space-y-2 border-t pt-4">
             <h3 className="font-bold">운영 변경 기록</h3>
