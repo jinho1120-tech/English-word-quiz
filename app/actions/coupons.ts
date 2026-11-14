@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -109,6 +109,10 @@ export async function redeemCouponWithToken(token: string) {
     const [record] = await tx.select({
       tokenId: couponRedemptionTokens.id,
       rewardId: couponRewards.id,
+      childProfileId: childProfiles.id,
+      childName: childProfiles.displayName,
+      familyId: childProfiles.familyId,
+      couponTitle: couponRewards.couponTitleSnapshot,
     }).from(couponRedemptionTokens)
       .innerJoin(couponRewards, eq(couponRedemptionTokens.rewardId, couponRewards.id))
       .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
@@ -125,6 +129,9 @@ export async function redeemCouponWithToken(token: string) {
       .where(and(eq(couponRedemptionTokens.id, record.tokenId), isNull(couponRedemptionTokens.consumedAt), gt(couponRedemptionTokens.expiresAt, now)))
       .returning({ id: couponRedemptionTokens.id })
     if (!consumed) throw new Error("이미 처리된 QR입니다.")
+    await tx.execute(sql`INSERT INTO coupon_activity_events
+      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
+      VALUES (${record.familyId}::uuid, ${record.childProfileId}::uuid, ${record.childName}, ${record.couponTitle}, 'redeemed', ${now})`)
     // Once the parent approves, remove the reward itself. Its QR tokens are
     // deleted automatically through the rewardId ON DELETE CASCADE relation.
     const [deleted] = await tx.delete(couponRewards)
