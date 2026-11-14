@@ -218,3 +218,22 @@ export async function getSuperAdminFamilyActivity(familyId: string) {
     },
   }
 }
+
+
+export async function getSuperAdminAnnouncementAudience() {
+  await requireSuperAdmin()
+  const result = await pool.query(`
+    SELECT count(*)::int AS recipients
+    FROM (
+      SELECT lower(u.email) AS email
+      FROM families f
+      INNER JOIN "user" u ON u.id = f.owner_user_id
+      WHERE u.email IS NOT NULL AND btrim(u.email) <> ''
+      UNION
+      SELECT lower(fm.email) AS email
+      FROM family_members fm
+      WHERE fm.email IS NOT NULL AND btrim(fm.email) <> ''
+    ) audience
+  `)
+  return { recipients: Number(result.rows[0]?.recipients ?? 0) }
+}
