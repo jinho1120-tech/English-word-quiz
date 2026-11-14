@@ -47,14 +47,21 @@ export async function sendSuperAdminAnnouncement(formData: FormData) {
   if (emails.length === 0) throw new Error("발송 대상 이메일이 없습니다.")
   if (emails.length > 450) throw new Error("현재 단체메일은 한 번에 최대 450명까지 발송합니다. 대상 분할 기능을 먼저 사용해 주세요.")
 
+  const safeSubject = subject.replace(/[\\r\\n]+/g, " ").trim()
+  const safeMessage = escapeHtml(message).replace(/\\n/g, "<br />")
+  const audit = await pool.query(
+    `INSERT INTO super_admin_system_audit_logs (actor_user_id, actor_email, action, target_type, target_id, details)
+     VALUES ($1, $2, 'announcement_sending', 'announcement', NULL, $3::jsonb)
+     RETURNING id`,
+    [actor.id, actor.email, JSON.stringify({ subject: safeSubject, recipientCount: emails.length })],
+  )
+  const auditId = audit.rows[0].id
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
     auth: { user: gmailUser, pass: appPassword },
   })
-  const safeSubject = subject.replace(/[\r\n]+/g, " ").trim()
-  const safeMessage = escapeHtml(message).replace(/\n/g, "<br />")
   try {
     await transporter.sendMail({
       from: { name: "영어 단어 학습 운영팀", address: gmailUser },
@@ -66,19 +73,23 @@ export async function sendSuperAdminAnnouncement(formData: FormData) {
     })
   } catch (error) {
     await pool.query(
-      `INSERT INTO super_admin_system_audit_logs (actor_user_id, actor_email, action, target_type, target_id, details)
-       VALUES ($1, $2, 'announcement_send_failed', 'announcement', NULL, $3::jsonb)`,
-      [actor.id, actor.email, JSON.stringify({ subject: safeSubject, recipientCount: emails.length, error: error instanceof Error ? error.message.slice(0, 500) : "unknown" })],
+      `UPDATE super_admin_system_audit_logs
+       SET action = 'announcement_send_failed', details = $2::jsonb
+       WHERE id = $1`,
+      [auditId, JSON.stringify({ subject: safeSubject, recipientCount: emails.length, error: error instanceof Error ? error.message.slice(0, 500) : "unknown" })],
     ).catch(() => undefined)
     throw new Error("메일 발송에 실패했습니다. SMTP 설정과 메일 계정의 발송 한도를 확인해 주세요.")
   } finally {
     await transporter.close()
   }
 
+  // The email has already been submitted successfully. Never report a send failure
+  // merely because the follow-up audit update failed, which could cause duplicate sends.
   await pool.query(
-    `INSERT INTO super_admin_system_audit_logs (actor_user_id, actor_email, action, target_type, target_id, details)
-     VALUES ($1, $2, 'announcement_sent', 'announcement', NULL, $3::jsonb)`,
-    [actor.id, actor.email, JSON.stringify({ subject: safeSubject, recipientCount: emails.length })],
-  )
+    `UPDATE super_admin_system_audit_logs
+     SET action = 'announcement_sent', details = $2::jsonb
+     WHERE id = $1`,
+    [auditId, JSON.stringify({ subject: safeSubject, recipientCount: emails.length })],
+  ).catch((error) => console.error("Announcement audit update failed:", error))
   redirect(`/super-admin/announcements?sent=1&count=${emails.length}`)
 }
