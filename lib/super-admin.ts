@@ -113,12 +113,18 @@ export async function getSuperAdminFamilyActivity(familyId: string) {
       ORDER BY cp.display_name
     `, [familyId]),
     pool.query(`
-      SELECT cp.display_name AS child_name, q.subject_name, q.word_snapshot,
-             q.quiz_type, q.is_correct, q.hint_used, q.answered_at::text AS occurred_at
+      SELECT cp.display_name AS child_name, q.quiz_session_id,
+             min(q.subject_name) AS subject_name,
+             count(*)::int AS question_count,
+             count(*) FILTER (WHERE q.is_correct)::int AS correct_count,
+             bool_or(q.hint_used) AS hint_used,
+             min(q.answered_at)::text AS started_at,
+             max(q.answered_at)::text AS completed_at
       FROM child_quiz_attempts q
       INNER JOIN child_profiles cp ON cp.id = q.child_profile_id
-      WHERE cp.family_id = $1
-      ORDER BY q.answered_at DESC LIMIT 100
+      WHERE cp.family_id = $1 AND q.quiz_session_id IS NOT NULL
+      GROUP BY cp.id, cp.display_name, q.quiz_session_id
+      ORDER BY max(q.answered_at) DESC LIMIT 100
     `, [familyId]),
     pool.query(`
       SELECT cp.id::text AS child_id, cp.display_name AS child_name,
