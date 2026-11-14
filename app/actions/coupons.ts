@@ -131,7 +131,7 @@ export async function redeemCouponWithToken(token: string) {
     if (!consumed) throw new Error("이미 처리된 QR입니다.")
     await tx.execute(sql`INSERT INTO coupon_activity_events
       (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
-      VALUES (${record.familyId}::uuid, ${record.childProfileId}::uuid, ${record.childName}, ${record.couponTitle}, 'redeemed', ${now})`)
+      VALUES (${record.familyId}::uuid, ${record.childProfileId}::uuid, ${record.childName}, ${record.couponTitle}, 'redeemed', now())`)
     // Once the parent approves, remove the reward itself. Its QR tokens are
     // deleted automatically through the rewardId ON DELETE CASCADE relation.
     const [deleted] = await tx.delete(couponRewards)
