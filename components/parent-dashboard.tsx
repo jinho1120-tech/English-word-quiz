@@ -1,6 +1,7 @@
 "use client"
 
 import { HapticButton, HapticSummary, HapticLink } from "@/components/haptic-button"
+import { formatKoreaDate, formatKoreaDateTime } from "@/lib/korea-time"
 import { HapticSwitch } from "@/components/haptic-switch"
 
 import { useEffect, useState, useTransition } from "react"
