@@ -27,7 +27,7 @@ export default async function SuperAdminAnnouncementsPage({ searchParams }: {
         <LogoutButton />
       </header>
       <SuperAdminNav active="/super-admin/announcements" />
-      {params.sent === "1" && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">공지 메일 발송 요청이 완료됐습니다. 대상 {Number(params.count ?? 0).toLocaleString("ko-KR")}명에게 전달을 요청했습니다.</p>}
+      {params.sent === "1" && <p role="status" className="rounded-xl bg-muted p-3 text-sm text-foreground">공지 메일 발송 요청이 완료됐습니다. 대상 {Number(params.count ?? 0).toLocaleString("ko-KR")}명에게 전달을 요청했습니다.</p>}
       <section className="rounded-2xl border bg-card p-4">
         <h2 className="text-lg font-bold">발송 대상</h2>
         <p className="mt-2 text-3xl font-black tabular-nums">{audience.recipients.toLocaleString("ko-KR")}명</p>
@@ -35,7 +35,7 @@ export default async function SuperAdminAnnouncementsPage({ searchParams }: {
       </section>
       <section className="rounded-2xl border bg-card p-4">
         <h2 className="text-lg font-bold">새 공지 메일 작성</h2>
-        {!emailReady && <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">메일 발송 환경변수 GMAIL_USER 또는 GMAIL_APP_PASSWORD가 설정되지 않았습니다.</p>}
+        {!emailReady && <p className="mt-3 rounded-xl border bg-muted p-3 text-sm text-muted-foreground">메일 발송 환경변수 GMAIL_USER 또는 GMAIL_APP_PASSWORD가 설정되지 않았습니다.</p>}
         {audience.recipients > 450 && <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">현재 대상이 450명을 초과합니다. 대상 분할 발송 기능을 추가하기 전까지 전체 발송은 비활성화됩니다.</p>}
         <form action={sendSuperAdminAnnouncement} className="mt-4 space-y-4">
           <label className="grid gap-1 text-sm font-semibold">메일 제목
