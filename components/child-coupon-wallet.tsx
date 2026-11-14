@@ -1,7 +1,7 @@
 "use client"
 
 import { HapticButton } from "@/components/haptic-button"
-import { formatKoreaDate } from "@/lib/korea-time"
+import { formatKoreaDateTime } from "@/lib/korea-time"
 
 import { useEffect, useState, useTransition } from "react"
 import { QRCodeSVG } from "qrcode.react"
@@ -89,7 +89,7 @@ export function ChildCouponWallet({ rewards, maxStoredCoupons }: { rewards: Rewa
         <div className="mb-3 flex items-center justify-between"><div><h2 className="font-bold">내 쿠폰 보관함</h2><p className="text-xs text-muted-foreground">보관 중 {availableCount}개 / 최대 {maxStoredCoupons}개</p></div><HapticButton type="button" onClick={() => setIsOpen(false)} className="rounded-lg px-2 py-1 text-xs text-muted-foreground">닫기</HapticButton></div>
         {walletRewards.length === 0 ? <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">아직 받은 쿠폰이 없어요. 퀴즈 보상을 받아 보세요!</p> : <div className="space-y-2">{walletRewards.map((reward) => (
           <article key={reward.id} className="flex items-center gap-3 rounded-xl border border-border p-3">
-            <div className="min-w-0 flex-1"><p className="font-semibold">{reward.couponKind === "blank" ? "💥" : "🎁"} {reward.title}</p><p className="text-xs text-muted-foreground">{formatKoreaDate(reward.earnedAt)} 발급 · {reward.status === "redeemed" ? (reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 완료" : "사용 완료") : reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 대기" : "사용 대기"}</p></div>
+            <div className="min-w-0 flex-1"><p className="font-semibold">{reward.couponKind === "blank" ? "💥" : "🎁"} {reward.title}</p><p className="text-xs text-muted-foreground">{formatKoreaDateTime(reward.earnedAt)} 발급 · {reward.status === "redeemed" ? (reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 완료" : "사용 완료") : reward.couponKind === "blank" ? "꽝 쿠폰 · 사용 대기" : "사용 대기"}</p></div>
             {(reward.status === "earned" || reward.status === "blank") && <HapticButton disabled={pending} onClick={() => showQr(reward)} className="shrink-0 rounded-lg bg-foreground px-3 py-2 text-xs font-bold text-background disabled:opacity-50">사용하기</HapticButton>}
           </article>
         ))}</div>}
