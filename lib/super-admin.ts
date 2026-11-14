@@ -179,10 +179,42 @@ export async function getSuperAdminFamilyActivity(familyId: string) {
     `, [familyId]),
   ])
 
+  let couponEventsSummary: any[] = []
+  let couponEventsRecent: any[] = []
+  try {
+    const [summary, recent] = await Promise.all([
+      pool.query(`
+        SELECT child_profile_id::text AS child_id, child_name,
+               count(*) FILTER (WHERE event_type = 'issued')::int AS issued_count,
+               count(*) FILTER (WHERE event_type = 'redeemed')::int AS redeemed_count,
+               max(occurred_at)::text AS last_activity
+        FROM coupon_activity_events
+        WHERE family_id = $1
+        GROUP BY child_profile_id, child_name
+        ORDER BY child_name
+      `, [familyId]),
+      pool.query(`
+        SELECT child_name, coupon_title, event_type, occurred_at::text AS occurred_at
+        FROM coupon_activity_events
+        WHERE family_id = $1
+        ORDER BY occurred_at DESC LIMIT 100
+      `, [familyId]),
+    ])
+    couponEventsSummary = summary.rows
+    couponEventsRecent = recent.rows
+  } catch (error) {
+    if ((error as { code?: string })?.code !== "42P01") throw error
+  }
+
   return {
     quizzes: { summary: quizSummary.rows, recent: quizRecent.rows },
     games: { summary: gameSummary.rows, recent: gameRecent.rows },
     words: { summary: wordSummary.rows, recent: wordRecent.rows },
-    coupons: { summary: couponSummary.rows, recent: couponRecent.rows },
+    coupons: {
+      summary: couponSummary.rows,
+      recent: couponRecent.rows,
+      eventsSummary: couponEventsSummary,
+      eventsRecent: couponEventsRecent,
+    },
   }
 }
