@@ -27,8 +27,10 @@ async function requireParentFamily() {
 export async function getChildCouponWallet() {
   const child = await getChildDeviceSession()
   if (!child) throw new Error("자녀 기기 로그인이 필요합니다.")
-  const [settings] = await db.select({ maxStoredCoupons: childCouponSettings.maxStoredCoupons })
-    .from(childCouponSettings).where(eq(childCouponSettings.childProfileId, child.childProfileId)).limit(1)
+  const [settings] = await db.select({
+    couponsEnabled: childCouponSettings.couponsEnabled,
+    maxStoredCoupons: childCouponSettings.maxStoredCoupons,
+  }).from(childCouponSettings).where(eq(childCouponSettings.childProfileId, child.childProfileId)).limit(1)
   const rewards = await db.select({
     id: couponRewards.id,
     title: couponRewards.couponTitleSnapshot,
@@ -42,7 +44,7 @@ export async function getChildCouponWallet() {
     .where(and(eq(couponRewards.childProfileId, child.childProfileId), or(eq(couponRewards.status, "earned"), eq(couponRewards.status, "blank"))))
     .orderBy(desc(couponRewards.earnedAt))
     .limit(100)
-  return { rewards, maxStoredCoupons: settings?.maxStoredCoupons ?? 20 }
+  return { rewards, couponsEnabled: settings?.couponsEnabled ?? false, maxStoredCoupons: settings?.maxStoredCoupons ?? 20 }
 }
 
 export async function createCouponUseRequest(rewardId: string) {
