@@ -66,18 +66,22 @@ jobs:
               const sql = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, "ops-migrations/0001_super_admin_operations.sql"), "utf8");
               await client.query(sql);
 
+              const couponHistorySql = fs.readFileSync(path.join(process.env.GITHUB_WORKSPACE, "ops-migrations/0002_coupon_activity_history.sql"), "utf8");
+              await client.query(couponHistorySql);
+
               const verified = await client.query(`
                 select
                   to_regclass('public.service_usage_events') as usage_events,
                   to_regclass('public.service_usage_limits') as usage_limits,
                   to_regclass('public.provider_monthly_costs') as monthly_costs,
-                  to_regclass('public.super_admin_system_audit_logs') as system_audit
+                  to_regclass('public.super_admin_system_audit_logs') as system_audit,
+                  to_regclass('public.coupon_activity_events') as coupon_activity_events
               `);
               console.log("OPERATIONS_TABLES_AFTER:", JSON.stringify(verified.rows[0]));
               if (Object.values(verified.rows[0]).some(value => !value)) {
                 throw new Error("Operations table verification failed.");
               }
-              console.log("SUPER_ADMIN_OPERATIONS_MIGRATION: applied and verified.");
+              console.log("SUPER_ADMIN_OPERATIONS_AND_COUPON_HISTORY_MIGRATIONS: applied and verified.");
             } finally {
               await client.end();
             }
