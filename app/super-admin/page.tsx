@@ -106,7 +106,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
           <section className="space-y-3 border-t pt-4">
             <div>
               <h3 className="font-bold">가정별 쿠폰 설정 및 쿠폰 내용</h3>
-              <p className="mt-1 text-xs text-muted-foreground">가족 공통 기본값, 자녀별 지급 조건, 등록된 쿠폰의 설명과 활성 상태를 조회합니다. 조회 전용이며 이 화면에서는 설정을 변경하지 않습니다.</p>
+              <p className="mt-1 text-xs text-muted-foreground">자녀별 지급 조건과 자녀에게 등록된 쿠폰을 조회합니다. 기본 쿠폰 내용과 다른 항목만 색상으로 강조합니다. 조회 전용 화면입니다.</p>
             </div>
             <div className="rounded-xl bg-muted p-3 text-sm">
               <p className="font-semibold">가족 공통 기본 설정</p>
@@ -130,16 +130,19 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
               {detail.childCouponSettings.length === 0 && <p className="text-xs text-muted-foreground">자녀별 쿠폰 설정이 없습니다.</p>}
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-semibold">등록된 쿠폰 목록 ({detail.couponTypes.length})</p>
-              {detail.couponTypes.map((coupon) => <article key={coupon.id} className="rounded-xl border p-3">
+              <p className="text-sm font-semibold">자녀에게 등록된 쿠폰 ({detail.couponTypes.length})</p>
+              {detail.couponTypes.map((coupon) => <article key={coupon.id} className={coupon.differsFromDefault ? "rounded-xl border border-amber-300 bg-amber-50/70 p-3 dark:border-amber-700 dark:bg-amber-950/20" : "rounded-xl border p-3"}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-semibold">{coupon.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{coupon.title}</p>
+                      {coupon.differsFromDefault && <span className="rounded-full bg-amber-200 px-2 py-1 text-[11px] font-semibold text-amber-900 dark:bg-amber-900 dark:text-amber-100">기본 내용과 다름</span>}
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">{coupon.description || "설명 없음"}</p>
                   </div>
                   <span className={coupon.isActive ? "shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800" : "shrink-0 rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground"}>{coupon.isActive ? "활성" : "비활성"}</span>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">{coupon.childName || "가족 공통"} · {coupon.couponKind === "blank" ? "꽝 쿠폰" : "일반 쿠폰"} · 추첨 가중치 {coupon.drawWeight} · 수정 {formatKoreaDateTime(coupon.updatedAt)}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{coupon.childName} · {coupon.couponKind === "blank" ? "꽝 쿠폰" : "일반 쿠폰"} · 추첨 가중치 {coupon.drawWeight} · 수정 {formatKoreaDateTime(coupon.updatedAt)}</p>
               </article>)}
               {detail.couponTypes.length === 0 && <p className="text-xs text-muted-foreground">등록된 쿠폰이 없습니다.</p>}
             </div>
