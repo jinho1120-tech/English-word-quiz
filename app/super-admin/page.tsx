@@ -1,10 +1,11 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { requireSuperAdmin, getSuperAdminFamilies, getSuperAdminFamilyDetail } from "@/lib/super-admin"
+import { requireSuperAdmin, getSuperAdminFamilies, getSuperAdminFamilyDetail, getSuperAdminFamilyActivity } from "@/lib/super-admin"
 import { updateSuperAdminChildName, updateSuperAdminMemberName, updateSuperAdminOwnerName } from "@/app/actions/super-admin"
 import { LogoutButton } from "@/components/logout-button"
 import { formatKoreaDate, formatKoreaDateTime } from "@/lib/korea-time"
 import { SuperAdminNav } from "@/components/super-admin-nav"
+import { SuperAdminFamilyActivity } from "@/components/super-admin-family-activity"
 
 export const dynamic = "force-dynamic"
 
@@ -21,6 +22,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
   const families = await getSuperAdminFamilies(params.q ?? "")
   const detail = params.family && /^[0-9a-f-]{36}$/i.test(params.family) ? await getSuperAdminFamilyDetail(params.family) : null
   if (params.family && !detail) notFound()
+  const activity = detail ? await getSuperAdminFamilyActivity(detail.family.id) : null
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-5xl space-y-6 px-4 py-8">
@@ -101,6 +103,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
             </form>)}
             {detail.children.length === 0 && <p className="text-sm text-muted-foreground">등록된 아이 프로필이 없습니다.</p>}
           </div>
+          {activity && <SuperAdminFamilyActivity activity={activity} />}
           <div className="space-y-2 border-t pt-4">
             <h3 className="font-bold">운영 변경 기록</h3>
             {detail.audit.map((entry) => <div key={entry.id} className="rounded-lg bg-muted p-3 text-xs">
