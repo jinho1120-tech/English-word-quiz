@@ -262,10 +262,16 @@ export function HelpCenter({
       .filter((section) => section.id !== "games" || pacmanEnabled || wordDefenseEnabled)
       .map((section) => {
         if (section.id === "games") {
+          const summary = pacmanEnabled && wordDefenseEnabled
+            ? "학습 조건을 충족하면 두 가지 영어 단어 게임을 즐길 수 있습니다."
+            : pacmanEnabled
+              ? "학습 조건을 충족하면 보카맨을 즐길 수 있습니다."
+              : "학습 조건을 충족하면 영어 타자 디펜스를 즐길 수 있습니다."
           return {
             ...section,
+            summary,
             steps: section.steps.filter((step) => {
-              if (step.startsWith("두 게임 모두") ) return pacmanEnabled || wordDefenseEnabled
+              if (step.startsWith("게임 화면의 ‘크게 보기’")) return pacmanEnabled || wordDefenseEnabled
               if (step.startsWith("보카맨(Voca-Man)은") || step.startsWith("보카맨 설정에서") || step.startsWith("기울기 센서 켜기") || step.startsWith("가속도 센서")) return pacmanEnabled
               if (step.startsWith("영어 타자 디펜스는")) return wordDefenseEnabled
               return true
