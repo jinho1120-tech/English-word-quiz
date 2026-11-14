@@ -4,7 +4,7 @@ import { desc, eq, ilike, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { db, pool } from "@/lib/db"
-import { childProfiles, families, familyMembers, superAdminAuditLogs, user } from "@/lib/db/schema"
+import { childProfiles, childCouponSettings, couponTypes, familySettings, families, familyMembers, superAdminAuditLogs, user } from "@/lib/db/schema"
 
 export async function requireSuperAdmin() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -82,6 +82,47 @@ export async function getSuperAdminFamilyDetail(familyId: string) {
     .where(eq(childProfiles.familyId, familyId))
     .orderBy(desc(childProfiles.createdAt))
 
+  const [familyCouponSettings] = await db.select({
+    couponsEnabled: familySettings.couponsEnabled,
+    rewardMinScore: familySettings.rewardMinScore,
+    rewardMinQuestions: familySettings.rewardMinQuestions,
+    requireNoHint: familySettings.requireNoHint,
+    blankCouponProbability: familySettings.blankCouponProbability,
+    updatedAt: familySettings.updatedAt,
+  }).from(familySettings)
+    .where(eq(familySettings.familyId, familyId))
+    .limit(1)
+
+  const childCouponSettingsRows = await db.select({
+    childProfileId: childCouponSettings.childProfileId,
+    childName: childProfiles.displayName,
+    couponsEnabled: childCouponSettings.couponsEnabled,
+    rewardMinScore: childCouponSettings.rewardMinScore,
+    rewardMinQuestions: childCouponSettings.rewardMinQuestions,
+    requireNoHint: childCouponSettings.requireNoHint,
+    blankCouponProbability: childCouponSettings.blankCouponProbability,
+    maxStoredCoupons: childCouponSettings.maxStoredCoupons,
+    updatedAt: childCouponSettings.updatedAt,
+  }).from(childCouponSettings)
+    .innerJoin(childProfiles, eq(childCouponSettings.childProfileId, childProfiles.id))
+    .where(eq(childProfiles.familyId, familyId))
+    .orderBy(desc(childProfiles.createdAt))
+
+  const couponTypeRows = await db.select({
+    id: couponTypes.id,
+    childProfileId: couponTypes.childProfileId,
+    childName: childProfiles.displayName,
+    title: couponTypes.title,
+    description: couponTypes.description,
+    couponKind: couponTypes.couponKind,
+    drawWeight: couponTypes.drawWeight,
+    isActive: couponTypes.isActive,
+    updatedAt: couponTypes.updatedAt,
+  }).from(couponTypes)
+    .leftJoin(childProfiles, eq(couponTypes.childProfileId, childProfiles.id))
+    .where(eq(couponTypes.familyId, familyId))
+    .orderBy(desc(couponTypes.updatedAt))
+
   const audit = await db.select({
     id: superAdminAuditLogs.id,
     actorEmail: superAdminAuditLogs.actorEmail,
@@ -92,7 +133,7 @@ export async function getSuperAdminFamilyDetail(familyId: string) {
     .where(eq(superAdminAuditLogs.targetFamilyId, familyId))
     .orderBy(desc(superAdminAuditLogs.createdAt))
     .limit(30)
-  return { family, members, children, audit }
+  return { family, members, children, familyCouponSettings: familyCouponSettings ?? null, childCouponSettings: childCouponSettingsRows, couponTypes: couponTypeRows, audit }
 }
 
 
