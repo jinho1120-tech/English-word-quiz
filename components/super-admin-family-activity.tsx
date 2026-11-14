@@ -4,7 +4,7 @@ type Activity = {
   quizzes: { summary: any[]; recent: any[] }
   games: { summary: any[]; recent: any[] }
   words: { summary: any[]; recent: any[] }
-  coupons: { summary: any[]; recent: any[] }
+  coupons: { summary: any[]; recent: any[]; eventsSummary: any[]; eventsRecent: any[] }
 }
 
 const count = (value: unknown) => Number(value ?? 0).toLocaleString("ko-KR")
@@ -36,9 +36,10 @@ export function SuperAdminFamilyActivity({ activity }: { activity: Activity }) {
               {activity.words.recent.map((row, index) => <div key={index} className="border-b py-2 text-xs"><p className="font-semibold">{row.child_name} · {row.word} — {row.meaning}</p><p className="text-muted-foreground">{row.subject} · 학습일 {row.assignment_date} · 입력 {formatKoreaDateTime(row.occurred_at)}</p></div>)}
             </>}
             {section.id === "coupons" && <>
-              {activity.coupons.summary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted p-2 text-sm"><span className="font-semibold">{row.child_name}</span><span>보유 {count(row.stored_coupons)}개 · 꽝 {count(row.blank_coupons)}개</span></div>)}
-              {activity.coupons.recent.map((row, index) => <div key={index} className="flex justify-between gap-2 border-b py-2 text-xs"><span>{row.child_name} · {row.title} · {row.status === "blank" ? "꽝 쿠폰" : "보유 중"}</span><span className="text-muted-foreground">{formatKoreaDateTime(row.occurred_at)}</span></div>)}
-              <p className="text-xs text-muted-foreground">현재 쿠폰 지갑에 남아 있는 발급 내역입니다. 기존 시스템은 사용 승인 시 쿠폰 행을 삭제하므로 과거 사용 내역은 별도 기록 기능 추가 전까지 조회할 수 없습니다.</p>
+              {activity.coupons.eventsSummary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted p-2 text-sm"><span className="font-semibold">{row.child_name}</span><span>총 발급 {count(row.issued_count)}개 · 사용 {count(row.redeemed_count)}개</span></div>)}
+              {activity.coupons.summary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg border p-2 text-xs"><span>{row.child_name} · 현재 보유</span><span>{count(row.stored_coupons)}개 · 꽝 {count(row.blank_coupons)}개</span></div>)}
+              {activity.coupons.eventsRecent.map((row, index) => <div key={index} className="flex justify-between gap-2 border-b py-2 text-xs"><span>{row.child_name} · {row.coupon_title} · {row.event_type === "redeemed" ? "사용 완료" : "발급"}</span><span className="text-muted-foreground">{formatKoreaDateTime(row.occurred_at)}</span></div>)}
+              {activity.coupons.eventsRecent.length === 0 && <p className="text-xs text-muted-foreground">쿠폰 활동 이력 테이블은 마이그레이션 적용 후부터 발급·사용 기록을 보존합니다. 과거에 이미 삭제된 쿠폰 사용 이력은 복원할 수 없습니다.</p>}
             </>}
             {section.summary.length === 0 && <p className="py-2 text-xs text-muted-foreground">조회할 자녀 기록이 없습니다.</p>}
           </div>
