@@ -57,7 +57,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
                 <div className="shrink-0 text-right text-xs text-muted-foreground">
                   <p>아이 {family.childCount}명</p>
                   <p>공동관리자 {family.adminCount}명</p>
-                  <p>{formatKoreaDate(family.createdAt)}</p>
+                  <p>{formatKoreaDateTime(family.createdAt)}</p>
                 </div>
               </div>
             </Link>
