@@ -39,7 +39,14 @@ export default async function ChildPage({ searchParams }: { searchParams: Promis
         <div className="min-w-0"><p className="text-xs font-semibold text-muted-foreground">영단어 마스터</p><h1 className="truncate text-xl font-black">{data.childName}의 학습 공간</h1></div>
         <div className="flex shrink-0 items-center gap-2">
           <ChildCouponWallet rewards={couponWallet.rewards} maxStoredCoupons={couponWallet.maxStoredCoupons} />
-          <HelpCenter audience="child" />
+          <HelpCenter
+            audience="child"
+            featureVisibility={{
+              couponsEnabled: couponWallet.couponsEnabled,
+              pacmanEnabled: pacmanStatus.showPacman,
+              wordDefenseEnabled: pacmanStatus.showWordDefense,
+            }}
+          />
           <ChildProfileSettings profileKey={session.childProfileId} />
         </div>
       </header>

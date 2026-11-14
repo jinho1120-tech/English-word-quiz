@@ -236,11 +236,32 @@ const CHILD_GUIDE: GuideSection[] = [
 export function HelpCenter({
   audience,
   initialSection = "start",
+  featureVisibility,
 }: {
   audience: "parent" | "child"
   initialSection?: string
+  featureVisibility?: {
+    couponsEnabled?: boolean
+    pacmanEnabled?: boolean
+    wordDefenseEnabled?: boolean
+  }
 }) {
-  const guide = audience === "parent" ? PARENT_GUIDE : CHILD_GUIDE
+  const couponsEnabled = featureVisibility?.couponsEnabled ?? false
+  const pacmanEnabled = featureVisibility?.pacmanEnabled ?? false
+  const wordDefenseEnabled = featureVisibility?.wordDefenseEnabled ?? false
+  const guide = audience === "parent"
+    ? PARENT_GUIDE
+    : CHILD_GUIDE
+      .filter((section) => section.id !== "coupons" || couponsEnabled)
+      .filter((section) => section.id !== "games" || pacmanEnabled || wordDefenseEnabled)
+      .map((section) => section.id !== "games" ? section : {
+        ...section,
+        steps: section.steps.filter((step) => {
+          if (step.startsWith("보카맨(Voca-Man)은")) return pacmanEnabled
+          if (step.startsWith("영어 타자 디펜스는")) return wordDefenseEnabled
+          return true
+        }),
+      })
   const storageKey = `english-word-master-guide-seen-${audience}`
   const [open, setOpen] = useState(false)
   const [activeId, setActiveId] = useState(initialSection)
@@ -330,9 +351,9 @@ export function HelpCenter({
                   <button
                     key={section.id}
                     type="button"
-                    aria-current={activeId === section.id ? "page" : undefined}
+                    aria-current={activeSection.id === section.id ? "page" : undefined}
                     onClick={() => setActiveId(section.id)}
-                    className={`shrink-0 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors sm:w-full sm:text-sm ${activeId === section.id ? "bg-primary-container text-primary-container-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                    className={`shrink-0 rounded-xl px-3 py-2 text-left text-xs font-semibold transition-colors sm:w-full sm:text-sm ${activeSection.id === section.id ? "bg-primary-container text-primary-container-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                   >
                     {section.title}
                   </button>
