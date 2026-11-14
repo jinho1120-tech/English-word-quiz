@@ -371,6 +371,9 @@ export async function revealChildQuizCoupon(quizSessionId: string) {
         .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
       return { created: false, value: { outcome: duplicate?.status === "blank" ? "blank" as const : "won" as const, title: duplicate?.title ?? chosen.title, description: duplicate?.description ?? chosen.description } }
     }
+    await tx.execute(sql`INSERT INTO coupon_activity_events
+      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
+      VALUES (${childProfile.familyId}::uuid, ${child.childProfileId}::uuid, ${childProfile.displayName}, ${chosen.title}, 'issued', now())`)
     return { created: true, value: { outcome: isBlank ? "blank" as const : "won" as const, title: chosen.title, description: chosen.description }, chosenTitle: chosen.title, isBlank }
   })
   if (result.created) {
