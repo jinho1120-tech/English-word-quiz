@@ -1,9 +1,11 @@
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
-import { requireSuperAdmin, getSuperAdminFamilies, getSuperAdminFamilyDetail } from "@/lib/super-admin"
+import { requireSuperAdmin, getSuperAdminFamilies, getSuperAdminFamilyDetail, getSuperAdminFamilyActivity } from "@/lib/super-admin"
 import { updateSuperAdminChildName, updateSuperAdminMemberName, updateSuperAdminOwnerName } from "@/app/actions/super-admin"
 import { LogoutButton } from "@/components/logout-button"
+import { formatKoreaDate, formatKoreaDateTime } from "@/lib/korea-time"
 import { SuperAdminNav } from "@/components/super-admin-nav"
+import { SuperAdminFamilyActivity } from "@/components/super-admin-family-activity"
 
 export const dynamic = "force-dynamic"
 
@@ -20,6 +22,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
   const families = await getSuperAdminFamilies(params.q ?? "")
   const detail = params.family && /^[0-9a-f-]{36}$/i.test(params.family) ? await getSuperAdminFamilyDetail(params.family) : null
   if (params.family && !detail) notFound()
+  const activity = detail ? await getSuperAdminFamilyActivity(detail.family.id) : null
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-5xl space-y-6 px-4 py-8">
@@ -54,7 +57,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
                 <div className="shrink-0 text-right text-xs text-muted-foreground">
                   <p>아이 {family.childCount}명</p>
                   <p>공동관리자 {family.adminCount}명</p>
-                  <p>{new Date(family.createdAt).toLocaleDateString("ko-KR")}</p>
+                  <p>{formatKoreaDateTime(family.createdAt)}</p>
                 </div>
               </div>
             </Link>
@@ -70,7 +73,7 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
             <Link href="/super-admin" className="text-sm underline">목록으로</Link>
           </div>
           {params.updated === "1" && <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">변경 사항을 저장했습니다.</p>}
-          <div className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">가족 ID: {detail.family.id}<br />가입일: {new Date(detail.family.createdAt).toLocaleString("ko-KR")}</div>
+          <div className="rounded-xl bg-muted p-3 text-xs text-muted-foreground">가족 ID: {detail.family.id}<br />가입일: {formatKoreaDateTime(detail.family.createdAt)}</div>
           <div className="space-y-3">
             <h3 className="font-bold">가족 대표</h3>
             <p className="text-sm text-muted-foreground">{detail.family.ownerEmail}</p>
@@ -95,16 +98,17 @@ export default async function SuperAdminPage({ searchParams }: { searchParams: P
             {detail.children.map((child) => <form key={child.id} action={updateSuperAdminChildName} className="space-y-2 rounded-xl border p-3">
               <input type="hidden" name="familyId" value={detail.family.id} />
               <input type="hidden" name="childId" value={child.id} />
-              <p className="text-xs text-muted-foreground">{child.isActive ? "활성" : "비활성"} · {new Date(child.createdAt).toLocaleDateString("ko-KR")}</p>
+              <p className="text-xs text-muted-foreground">{child.isActive ? "활성" : "비활성"} · {formatKoreaDate(child.createdAt)}</p>
               <div className="flex gap-2"><input name="name" defaultValue={child.displayName} aria-label="아이 이름" className="min-w-0 flex-1 rounded-lg border bg-background px-3 py-2 text-sm" maxLength={40} required /><button className="rounded-lg border px-3 py-2 text-sm">저장</button></div>
             </form>)}
             {detail.children.length === 0 && <p className="text-sm text-muted-foreground">등록된 아이 프로필이 없습니다.</p>}
           </div>
+          {activity && <SuperAdminFamilyActivity activity={activity} />}
           <div className="space-y-2 border-t pt-4">
             <h3 className="font-bold">운영 변경 기록</h3>
             {detail.audit.map((entry) => <div key={entry.id} className="rounded-lg bg-muted p-3 text-xs">
               <p className="font-semibold">{entry.action}</p>
-              <p className="text-muted-foreground">{entry.actorEmail} · {new Date(entry.createdAt).toLocaleString("ko-KR")}</p>
+              <p className="text-muted-foreground">{entry.actorEmail} · {formatKoreaDateTime(entry.createdAt)}</p>
               <p>{JSON.stringify(entry.details)}</p>
             </div>)}
             {detail.audit.length === 0 && <p className="text-sm text-muted-foreground">아직 운영자 변경 기록이 없습니다.</p>}

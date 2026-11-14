@@ -1,7 +1,7 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
-import { and, desc, eq, gt, isNull, or } from "drizzle-orm"
+import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -105,10 +105,14 @@ export async function redeemCouponWithToken(token: string) {
   const { family } = await requireParentFamily()
   if (typeof token !== "string" || token.length < 20 || token.length > 200) throw new Error("QR 정보가 올바르지 않습니다.")
   const now = new Date()
-  await db.transaction(async (tx) => {
+  const redeemedEvent = await db.transaction(async (tx) => {
     const [record] = await tx.select({
       tokenId: couponRedemptionTokens.id,
       rewardId: couponRewards.id,
+      childProfileId: childProfiles.id,
+      childName: childProfiles.displayName,
+      familyId: childProfiles.familyId,
+      couponTitle: couponRewards.couponTitleSnapshot,
     }).from(couponRedemptionTokens)
       .innerJoin(couponRewards, eq(couponRedemptionTokens.rewardId, couponRewards.id))
       .innerJoin(childProfiles, eq(couponRewards.childProfileId, childProfiles.id))
@@ -134,7 +138,20 @@ export async function redeemCouponWithToken(token: string) {
       ))
       .returning({ id: couponRewards.id })
     if (!deleted) throw new Error("쿠폰이 이미 사용 처리되었거나 삭제되었습니다.")
+    return {
+      familyId: record.familyId,
+      childProfileId: record.childProfileId,
+      childName: record.childName,
+      couponTitle: record.couponTitle,
+    }
   })
+  try {
+    await db.execute(sql`INSERT INTO coupon_activity_events
+      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
+      VALUES (${redeemedEvent.familyId}::uuid, ${redeemedEvent.childProfileId}::uuid, ${redeemedEvent.childName}, ${redeemedEvent.couponTitle}, 'redeemed', now())`)
+  } catch (error) {
+    console.error("Coupon redemption history could not be recorded:", error)
+  }
   revalidatePath("/parent")
   revalidatePath("/child")
   return { success: true }

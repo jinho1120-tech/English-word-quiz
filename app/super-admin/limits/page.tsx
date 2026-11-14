@@ -4,6 +4,7 @@ import { getSuperAdminUsageLimits } from "@/lib/super-admin-operations"
 import { saveServiceUsageLimit } from "@/app/actions/super-admin-operations"
 import { SuperAdminNav } from "@/components/super-admin-nav"
 import { LogoutButton } from "@/components/logout-button"
+import { formatKoreaDateTime } from "@/lib/korea-time"
 
 export const dynamic = "force-dynamic"
 
@@ -76,7 +77,7 @@ export default async function SuperAdminLimitsPage({ searchParams }: { searchPar
                 <input type="hidden" name="provider" value={row.provider} />
                 <div><p className="font-semibold">{row.owner_name}</p><p className="text-xs text-muted-foreground">{row.owner_email} · {PROVIDERS.find((p) => p.id === row.provider)?.label ?? row.provider}</p></div>
                 <label className="grid gap-1 text-xs font-semibold">월간 요청 횟수<input name="monthlyRequestLimit" type="number" min="0" max="100000000" step="1" defaultValue={String(row.monthly_request_limit)} className="rounded-lg border bg-background px-3 py-2 text-sm font-normal" /></label>
-                <p className="text-xs text-muted-foreground">수정 {new Date(row.updated_at).toLocaleDateString("ko-KR")}</p>
+                <p className="text-xs text-muted-foreground">수정 {formatKoreaDateTime(row.updated_at)}</p>
                 <button className="rounded-lg border px-3 py-2 text-sm font-semibold">수정</button>
               </form>)}
               {data.familyLimits.length === 0 && <p className="py-5 text-sm text-muted-foreground">별도로 설정된 가족별 한도가 없습니다.</p>}

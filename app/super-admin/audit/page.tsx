@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@/lib/super-admin"
 import { getSuperAdminAuditReport } from "@/lib/super-admin-operations"
 import { SuperAdminNav } from "@/components/super-admin-nav"
 import { LogoutButton } from "@/components/logout-button"
+import { formatKoreaDateTime } from "@/lib/korea-time"
 
 export const dynamic = "force-dynamic"
 
@@ -27,7 +28,7 @@ export default async function SuperAdminAuditPage() {
         {report.entries.map((entry) => <article key={entry.id} className="rounded-2xl border bg-card p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><p className="font-bold">{entry.action}</p><p className="mt-1 text-xs text-muted-foreground">{entry.actor_email} · {entry.scope === "system" ? "시스템 설정" : "가족 데이터"}{entry.target ? ` · ${entry.target}` : ""}</p></div>
-            <time className="text-xs text-muted-foreground">{new Date(entry.created_at).toLocaleString("ko-KR")}</time>
+            <time className="text-xs text-muted-foreground">{formatKoreaDateTime(entry.created_at)}</time>
           </div>
           <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-xl bg-muted p-3 text-xs">{JSON.stringify(entry.details, null, 2)}</pre>
         </article>)}

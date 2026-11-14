@@ -6,6 +6,7 @@ const ITEMS = [
   { href: "/super-admin/usage", label: "사용량·비용" },
   { href: "/super-admin/limits", label: "사용 한도" },
   { href: "/super-admin/audit", label: "활동 기록" },
+  { href: "/super-admin/announcements", label: "공지·메일" },
 ]
 
 export function SuperAdminNav({ active }: { active: string }) {
