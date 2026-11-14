@@ -3,7 +3,7 @@ import "server-only"
 import { desc, eq, ilike, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
+import { db, pool } from "@/lib/db"
 import { childProfiles, families, familyMembers, superAdminAuditLogs, user } from "@/lib/db/schema"
 
 export async function requireSuperAdmin() {
@@ -93,4 +93,96 @@ export async function getSuperAdminFamilyDetail(familyId: string) {
     .orderBy(desc(superAdminAuditLogs.createdAt))
     .limit(30)
   return { family, members, children, audit }
+}
+
+
+export async function getSuperAdminFamilyActivity(familyId: string) {
+  await requireSuperAdmin()
+  if (!/^[0-9a-f-]{36}$/i.test(familyId)) throw new Error("가족 정보가 올바르지 않습니다.")
+
+  const [quizSummary, quizRecent, gameSummary, gameRecent, wordSummary, wordRecent, couponSummary, couponRecent] = await Promise.all([
+    pool.query(`
+      SELECT cp.id::text AS child_id, cp.display_name AS child_name,
+             count(q.id)::int AS attempts,
+             count(q.id) FILTER (WHERE q.is_correct)::int AS correct,
+             max(q.answered_at)::text AS last_activity
+      FROM child_profiles cp
+      LEFT JOIN child_quiz_attempts q ON q.child_profile_id = cp.id
+      WHERE cp.family_id = $1
+      GROUP BY cp.id, cp.display_name
+      ORDER BY cp.display_name
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.display_name AS child_name, q.subject_name, q.word_snapshot,
+             q.quiz_type, q.is_correct, q.hint_used, q.answered_at::text AS occurred_at
+      FROM child_quiz_attempts q
+      INNER JOIN child_profiles cp ON cp.id = q.child_profile_id
+      WHERE cp.family_id = $1
+      ORDER BY q.answered_at DESC LIMIT 100
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.id::text AS child_id, cp.display_name AS child_name,
+             count(g.id)::int AS plays,
+             count(g.id) FILTER (WHERE g.game = 'pacman')::int AS vocaman_plays,
+             count(g.id) FILTER (WHERE g.game = 'word_defense')::int AS word_defense_plays,
+             max(g.started_at)::text AS last_activity
+      FROM child_profiles cp
+      LEFT JOIN child_game_plays g ON g.child_profile_id = cp.id
+      WHERE cp.family_id = $1
+      GROUP BY cp.id, cp.display_name
+      ORDER BY cp.display_name
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.display_name AS child_name, g.game, g.started_at::text AS occurred_at
+      FROM child_game_plays g
+      INNER JOIN child_profiles cp ON cp.id = g.child_profile_id
+      WHERE cp.family_id = $1
+      ORDER BY g.started_at DESC LIMIT 100
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.id::text AS child_id, cp.display_name AS child_name,
+             count(w.id)::int AS current_words,
+             count(w.id) FILTER (WHERE w.created_at >= now() - interval '30 days')::int AS words_added_30d,
+             max(w.created_at)::text AS last_activity
+      FROM child_profiles cp
+      LEFT JOIN word_entries w ON w.child_profile_id = cp.id
+      WHERE cp.family_id = $1
+      GROUP BY cp.id, cp.display_name
+      ORDER BY cp.display_name
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.display_name AS child_name, w.word, w.meaning, w.subject,
+             w.assignment_date, w.created_at::text AS occurred_at
+      FROM word_entries w
+      INNER JOIN child_profiles cp ON cp.id = w.child_profile_id
+      WHERE cp.family_id = $1
+      ORDER BY w.created_at DESC LIMIT 100
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.id::text AS child_id, cp.display_name AS child_name,
+             count(r.id)::int AS stored_coupons,
+             count(r.id) FILTER (WHERE r.status = 'blank')::int AS blank_coupons,
+             max(r.earned_at)::text AS last_issued
+      FROM child_profiles cp
+      LEFT JOIN coupon_rewards r ON r.child_profile_id = cp.id
+      WHERE cp.family_id = $1
+      GROUP BY cp.id, cp.display_name
+      ORDER BY cp.display_name
+    `, [familyId]),
+    pool.query(`
+      SELECT cp.display_name AS child_name, r.coupon_title_snapshot AS title,
+             r.status, r.earned_at::text AS occurred_at
+      FROM coupon_rewards r
+      INNER JOIN child_profiles cp ON cp.id = r.child_profile_id
+      WHERE cp.family_id = $1
+      ORDER BY r.earned_at DESC LIMIT 100
+    `, [familyId]),
+  ])
+
+  return {
+    quizzes: { summary: quizSummary.rows, recent: quizRecent.rows },
+    games: { summary: gameSummary.rows, recent: gameRecent.rows },
+    words: { summary: wordSummary.rows, recent: wordRecent.rows },
+    coupons: { summary: couponSummary.rows, recent: couponRecent.rows },
+  }
 }
