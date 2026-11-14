@@ -1,6 +1,6 @@
 import "server-only"
 
-import { desc, eq, ilike, or, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { db, pool } from "@/lib/db"
@@ -108,20 +108,43 @@ export async function getSuperAdminFamilyDetail(familyId: string) {
     .where(eq(childProfiles.familyId, familyId))
     .orderBy(desc(childProfiles.createdAt))
 
-  const couponTypeRows = await db.select({
-    id: couponTypes.id,
-    childProfileId: couponTypes.childProfileId,
-    childName: childProfiles.displayName,
-    title: couponTypes.title,
-    description: couponTypes.description,
-    couponKind: couponTypes.couponKind,
-    drawWeight: couponTypes.drawWeight,
-    isActive: couponTypes.isActive,
-    updatedAt: couponTypes.updatedAt,
-  }).from(couponTypes)
-    .leftJoin(childProfiles, eq(couponTypes.childProfileId, childProfiles.id))
-    .where(eq(couponTypes.familyId, familyId))
-    .orderBy(desc(couponTypes.updatedAt))
+  const [familyCouponDefaults, childCouponRows] = await Promise.all([
+    db.select({
+      title: couponTypes.title,
+      description: couponTypes.description,
+      couponKind: couponTypes.couponKind,
+      drawWeight: couponTypes.drawWeight,
+      isActive: couponTypes.isActive,
+    }).from(couponTypes)
+      .where(and(eq(couponTypes.familyId, familyId), isNull(couponTypes.childProfileId))),
+    db.select({
+      id: couponTypes.id,
+      childProfileId: couponTypes.childProfileId,
+      childName: childProfiles.displayName,
+      title: couponTypes.title,
+      description: couponTypes.description,
+      couponKind: couponTypes.couponKind,
+      drawWeight: couponTypes.drawWeight,
+      isActive: couponTypes.isActive,
+      updatedAt: couponTypes.updatedAt,
+    }).from(couponTypes)
+      .innerJoin(childProfiles, eq(couponTypes.childProfileId, childProfiles.id))
+      .where(and(eq(couponTypes.familyId, familyId), isNotNull(couponTypes.childProfileId)))
+      .orderBy(desc(couponTypes.updatedAt)),
+  ])
+
+  // Child coupons are seeded copies of the family's default rows. Compare the
+  // visible content and draw settings, but never render the family defaults.
+  const couponTypeRows = childCouponRows.map((coupon) => ({
+    ...coupon,
+    differsFromDefault: !familyCouponDefaults.some((baseline) =>
+      baseline.title === coupon.title &&
+      (baseline.description ?? "") === (coupon.description ?? "") &&
+      baseline.couponKind === coupon.couponKind &&
+      baseline.drawWeight === coupon.drawWeight &&
+      baseline.isActive === coupon.isActive
+    ),
+  }))
 
   const audit = await db.select({
     id: superAdminAuditLogs.id,
