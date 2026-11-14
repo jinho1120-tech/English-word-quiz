@@ -168,7 +168,8 @@ const CHILD_GUIDE: GuideSection[] = [
       "‘날짜별 퀴즈’를 선택하고 날짜와 과목을 고릅니다.",
       "퀴즈 시작 화면에서 ‘뜻 보고 영어 쓰기’ 또는 ‘듣고 영어와 뜻 쓰기’를 선택합니다.",
       "듣기 유형에서는 영어 발음을 듣고 영어 단어와 우리말 뜻을 입력합니다.",
-      "퀴즈를 마치면 결과를 확인할 수 있으며, 설정된 조건을 만족하면 쿠폰 보상을 받을 수 있습니다."
+      "퀴즈를 마치면 결과를 확인할 수 있습니다.",
+      "설정된 조건을 만족하면 쿠폰 보상을 받을 수 있습니다."
     ],
     tip: "발음이 잘 들리지 않으면 음성 설정에서 목소리나 느린 재생 옵션을 확인하세요."
   },
@@ -254,13 +255,34 @@ export function HelpCenter({
     : CHILD_GUIDE
       .filter((section) => section.id !== "coupons" || couponsEnabled)
       .filter((section) => section.id !== "games" || pacmanEnabled || wordDefenseEnabled)
-      .map((section) => section.id !== "games" ? section : {
-        ...section,
-        steps: section.steps.filter((step) => {
-          if (step.startsWith("보카맨(Voca-Man)은")) return pacmanEnabled
-          if (step.startsWith("영어 타자 디펜스는")) return wordDefenseEnabled
-          return true
-        }),
+      .map((section) => {
+        if (section.id === "games") {
+          return {
+            ...section,
+            steps: section.steps.filter((step) => {
+              if (step.startsWith("보카맨(Voca-Man)은")) return pacmanEnabled
+              if (step.startsWith("영어 타자 디펜스는")) return wordDefenseEnabled
+              return true
+            }),
+          }
+        }
+        if (section.id === "quiz") {
+          return {
+            ...section,
+            steps: section.steps.filter((step) =>
+              !step.startsWith("설정된 조건을 만족하면 쿠폰 보상을") || couponsEnabled
+            ),
+          }
+        }
+        if (section.id === "wrong") {
+          return {
+            ...section,
+            steps: section.steps.filter((step) =>
+              !step.includes("보너스 게임 이용 조건") || pacmanEnabled || wordDefenseEnabled
+            ),
+          }
+        }
+        return section
       })
   const storageKey = `english-word-master-guide-seen-${audience}`
   const [open, setOpen] = useState(false)
