@@ -47,8 +47,8 @@ export async function sendSuperAdminAnnouncement(formData: FormData) {
   if (emails.length === 0) throw new Error("발송 대상 이메일이 없습니다.")
   if (emails.length > 450) throw new Error("현재 단체메일은 한 번에 최대 450명까지 발송합니다. 대상 분할 기능을 먼저 사용해 주세요.")
 
-  const safeSubject = subject.replace(/[\\r\\n]+/g, " ").trim()
-  const safeMessage = escapeHtml(message).replace(/\\n/g, "<br />")
+  const safeSubject = subject.replace(/[\r\n]+/g, " ").trim()
+  const safeMessage = escapeHtml(message).replace(/\n/g, "<br />")
   const audit = await pool.query(
     `INSERT INTO super_admin_system_audit_logs (actor_user_id, actor_email, action, target_type, target_id, details)
      VALUES ($1, $2, 'announcement_sending', 'announcement', NULL, $3::jsonb)
