@@ -371,12 +371,16 @@ export async function revealChildQuizCoupon(quizSessionId: string) {
         .leftJoin(couponTypes, eq(couponRewards.couponTypeId, couponTypes.id)).where(eq(couponRewards.sourceKey, sourceKey)).limit(1)
       return { created: false, value: { outcome: duplicate?.status === "blank" ? "blank" as const : "won" as const, title: duplicate?.title ?? chosen.title, description: duplicate?.description ?? chosen.description } }
     }
-    await tx.execute(sql`INSERT INTO coupon_activity_events
-      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
-      VALUES (${childProfile.familyId}::uuid, ${child.childProfileId}::uuid, ${childProfile.displayName}, ${chosen.title}, 'issued', now())`)
     return { created: true, value: { outcome: isBlank ? "blank" as const : "won" as const, title: chosen.title, description: chosen.description }, chosenTitle: chosen.title, isBlank }
   })
   if (result.created) {
+    try {
+      await db.execute(sql`INSERT INTO coupon_activity_events
+        (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
+        VALUES (${childProfile.familyId}::uuid, ${child.childProfileId}::uuid, ${childProfile.displayName}, ${result.chosenTitle}, 'issued', now())`)
+    } catch (error) {
+      console.error("Coupon issuance history could not be recorded:", error)
+    }
     await notifyFamilyParents({ familyId: childProfile.familyId, childProfileId: child.childProfileId, type: "coupon_issued",
       title: result.isBlank ? "꽝 쿠폰이 발행됐어요" : "새 쿠폰이 발행됐어요",
       message: child.childName + "에게 " + result.chosenTitle + " " + (result.isBlank ? "꽝 쿠폰" : "쿠폰") + "이 발행됐어요.", href: "/parent#coupon-rewards" })
