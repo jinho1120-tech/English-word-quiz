@@ -222,7 +222,7 @@ export function ParentNotifications({ initialData }: { initialData: Notification
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{item.title}</span>
                   <span className="mt-0.5 block text-xs text-muted-foreground">{item.message}</span>
-                  <span className="mt-1 block text-[11px] text-muted-foreground">{new Date(item.createdAt).toLocaleString("ko-KR")}</span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">{formatKoreaDateTime(item.createdAt)}</span>
                 </span>
               </span>
             </HapticButton>
