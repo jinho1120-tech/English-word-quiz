@@ -1,6 +1,3 @@
-"use client"
-
-import { useState } from "react"
 import { formatKoreaDateTime } from "@/lib/korea-time"
 
 type Activity = {
@@ -13,7 +10,6 @@ type Activity = {
 const count = (value: unknown) => Number(value ?? 0).toLocaleString("ko-KR")
 
 export function SuperAdminFamilyActivity({ activity }: { activity: Activity }) {
-  const [expanded, setExpanded] = useState("quizzes")
   const sections = [
     { id: "quizzes", title: "퀴즈 실행 · 정답 현황", summary: activity.quizzes.summary },
     { id: "games", title: "게임 실행 기록", summary: activity.games.summary },
@@ -24,9 +20,7 @@ export function SuperAdminFamilyActivity({ activity }: { activity: Activity }) {
     <section className="space-y-3 border-t pt-4">
       <div><h3 className="font-bold">가족별 학습·이용 통계</h3><p className="mt-1 text-xs text-muted-foreground">자녀별 집계와 최근 상세 기록 · 시간은 한국시간</p></div>
       {sections.map((section) => (
-        <details key={section.id} open={expanded === section.id} onToggle={(event) => {
-          if ((event.currentTarget as HTMLDetailsElement).open) setExpanded(section.id)
-        }} className="rounded-xl border p-3">
+        <details key={section.id} open={section.id === "quizzes"} className="rounded-xl border p-3">
           <summary className="cursor-pointer font-semibold">{section.title}</summary>
           <div className="mt-3 space-y-2">
             {section.id === "quizzes" && <>
