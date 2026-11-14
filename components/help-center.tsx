@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { BookOpen, Info, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
 
@@ -244,14 +244,21 @@ export function HelpCenter({
   const storageKey = `english-word-master-guide-seen-${audience}`
   const [open, setOpen] = useState(false)
   const [activeId, setActiveId] = useState(initialSection)
-  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
     try {
       if (!window.localStorage.getItem(storageKey)) setOpen(true)
-      setDismissed(Boolean(window.localStorage.getItem(storageKey)))
     } catch {
       setOpen(false)
+    }
+  }, [storageKey])
+
+  const closeGuide = useCallback(() => {
+    setOpen(false)
+    try {
+      window.localStorage.setItem(storageKey, "1")
+    } catch {
+      // The guide remains available from the info button.
     }
   }, [storageKey])
 
@@ -262,17 +269,7 @@ export function HelpCenter({
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [open])
-
-  function closeGuide() {
-    setOpen(false)
-    try {
-      window.localStorage.setItem(storageKey, "1")
-      setDismissed(true)
-    } catch {
-      // The guide remains available from the info button.
-    }
-  }
+  }, [open, closeGuide])
 
   function showGuide(sectionId = initialSection) {
     setActiveId(sectionId)
