@@ -105,7 +105,7 @@ export async function redeemCouponWithToken(token: string) {
   const { family } = await requireParentFamily()
   if (typeof token !== "string" || token.length < 20 || token.length > 200) throw new Error("QR 정보가 올바르지 않습니다.")
   const now = new Date()
-  await db.transaction(async (tx) => {
+  const redeemedEvent = await db.transaction(async (tx) => {
     const [record] = await tx.select({
       tokenId: couponRedemptionTokens.id,
       rewardId: couponRewards.id,
@@ -129,9 +129,6 @@ export async function redeemCouponWithToken(token: string) {
       .where(and(eq(couponRedemptionTokens.id, record.tokenId), isNull(couponRedemptionTokens.consumedAt), gt(couponRedemptionTokens.expiresAt, now)))
       .returning({ id: couponRedemptionTokens.id })
     if (!consumed) throw new Error("이미 처리된 QR입니다.")
-    await tx.execute(sql`INSERT INTO coupon_activity_events
-      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
-      VALUES (${record.familyId}::uuid, ${record.childProfileId}::uuid, ${record.childName}, ${record.couponTitle}, 'redeemed', now())`)
     // Once the parent approves, remove the reward itself. Its QR tokens are
     // deleted automatically through the rewardId ON DELETE CASCADE relation.
     const [deleted] = await tx.delete(couponRewards)
@@ -141,7 +138,20 @@ export async function redeemCouponWithToken(token: string) {
       ))
       .returning({ id: couponRewards.id })
     if (!deleted) throw new Error("쿠폰이 이미 사용 처리되었거나 삭제되었습니다.")
+    return {
+      familyId: record.familyId,
+      childProfileId: record.childProfileId,
+      childName: record.childName,
+      couponTitle: record.couponTitle,
+    }
   })
+  try {
+    await db.execute(sql`INSERT INTO coupon_activity_events
+      (family_id, child_profile_id, child_name, coupon_title, event_type, occurred_at)
+      VALUES (${redeemedEvent.familyId}::uuid, ${redeemedEvent.childProfileId}::uuid, ${redeemedEvent.childName}, ${redeemedEvent.couponTitle}, 'redeemed', now())`)
+  } catch (error) {
+    console.error("Coupon redemption history could not be recorded:", error)
+  }
   revalidatePath("/parent")
   revalidatePath("/child")
   return { success: true }
