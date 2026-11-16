@@ -86,7 +86,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childName?: string }) {
+export function WordQuiz({ words, accent, isMonsterMode = false, childName, onSessionComplete }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childName?: string; onSessionComplete?: (quizSessionId: string) => void | Promise<void> }) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>("start")
   const [deck, setDeck] = useState<QuizWord[]>([])
@@ -673,6 +673,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName }: { 
       setChildCouponConfigured(result.sessionResult.couponConfigured)
       setChildCouponEligible(result.sessionResult.couponEligible)
       setChildCouponFull(result.sessionResult.couponFull)
+      if (onSessionComplete) await onSessionComplete(childQuizSessionId)
       router.refresh()
     }
   }
