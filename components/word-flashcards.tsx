@@ -61,6 +61,7 @@ export function WordFlashcards({
       word: item.expressionSnapshot,
       meaning: item.meaningSnapshot,
       example: item.exampleSnapshot,
+      disambiguation: null,
       lexicalType: item.lexicalType,
       aiBundleItemId: item.id,
     })), [aiBundle])
