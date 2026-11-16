@@ -186,8 +186,13 @@ export function ChildLearning({
   function add() {
     if (!subjectId) { setError("부모에게 과목을 먼저 등록해 달라고 요청하세요."); return }
     run(async () => {
-      await addChildWord({ date, subjectId, word, meaning, example })
+      const result = await addChildWord({ date, subjectId, word, meaning, example })
       setWord(""); setMeaning(""); setExample("")
+      setError(result.status === "pending_review"
+        ? result.reason === "not_found"
+          ? "사전에서 표현을 확인하지 못해 부모 확인 대기로 보냈어요."
+          : "사전 확인을 완료하지 못해 부모 확인 대기로 보냈어요."
+        : "단어를 단어장에 등록했어요.")
     })
   }
 
@@ -213,9 +218,12 @@ export function ChildLearning({
     if (!parsed.length) { setError("단어와 뜻을 구분해 입력해 주세요. 예: apple | 사과 | I eat an apple."); return }
     if (parsed.length > 100) { setError("한 번에 최대 100개까지 등록할 수 있어요."); return }
     run(async () => {
-      await addChildWordsBulk({ date, subjectId, words: parsed })
+      const result = await addChildWordsBulk({ date, subjectId, words: parsed })
       setBulkText("")
       setIsBulkMode(false)
+      setError(result.pendingCount
+        ? "단어 " + result.count + "개를 등록했고, " + result.pendingCount + "개는 부모 확인 대기로 보냈어요."
+        : "단어 " + result.count + "개를 등록했어요.")
     })
   }
 
