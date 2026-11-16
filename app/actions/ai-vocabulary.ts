@@ -30,6 +30,11 @@ async function requireParentFamily() {
       family = joined
     }
   }
+  if (!family) {
+    const [created] = await db.insert(families).values({ ownerUserId: session.user.id }).onConflictDoNothing().returning({ id: families.id, ownerUserId: families.ownerUserId })
+    family = created ?? (await db.select({ id: families.id, ownerUserId: families.ownerUserId })
+      .from(families).where(eq(families.ownerUserId, session.user.id)).limit(1))[0]
+  }
   if (!family) throw new Error("가족 정보를 찾을 수 없습니다.")
   return { family, userId: session.user.id }
 }
@@ -135,7 +140,7 @@ export async function saveParentAiVocabularySettings(input: {
         .where(eq(childSubjects.childProfileId, child.id))
       const usedNames = new Set(currentSubjects.map((item) => item.name))
       let subjectName = "AI 추천 어휘"
-      let suffix = 1
+      let suffix = 0
       while (usedNames.has(subjectName)) {
         suffix += 1
         subjectName = `AI 추천 어휘 (추천 ${suffix})`
