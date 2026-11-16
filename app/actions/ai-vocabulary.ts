@@ -347,21 +347,46 @@ export async function getParentAiVocabularyBundles(childProfileId?: string) {
   const conditions = childProfileId
     ? and(eq(childProfiles.familyId, family.id), eq(aiVocabularyBundles.childProfileId, childProfileId))
     : eq(childProfiles.familyId, family.id)
-  return db.select({
+  const bundles = await db.select({
     id: aiVocabularyBundles.id,
     childProfileId: childProfiles.id,
     childName: childProfiles.displayName,
     studyDate: aiVocabularyBundles.studyDate,
     status: aiVocabularyBundles.status,
     createdAt: aiVocabularyBundles.createdAt,
-    itemCount: sql<number>`count(${aiVocabularyBundleItems.id})::int`,
   }).from(aiVocabularyBundles)
     .innerJoin(childProfiles, eq(aiVocabularyBundles.childProfileId, childProfiles.id))
-    .leftJoin(aiVocabularyBundleItems, eq(aiVocabularyBundleItems.bundleId, aiVocabularyBundles.id))
     .where(conditions)
-    .groupBy(aiVocabularyBundles.id, childProfiles.id, childProfiles.displayName)
     .orderBy(desc(aiVocabularyBundles.createdAt))
     .limit(30)
+
+  if (!bundles.length) return []
+  const bundleIds = bundles.map((bundle) => bundle.id)
+  const items = await db.select({
+    id: aiVocabularyBundleItems.id,
+    bundleId: aiVocabularyBundleItems.bundleId,
+    sourceType: aiVocabularyBundleItems.sourceType,
+    lexicalType: aiVocabularyBundleItems.lexicalType,
+    expression: aiVocabularyBundleItems.expressionSnapshot,
+    meaning: aiVocabularyBundleItems.meaningSnapshot,
+    disambiguation: aiVocabularyBundleItems.disambiguationSnapshot,
+    example: aiVocabularyBundleItems.exampleSnapshot,
+    sortOrder: aiVocabularyBundleItems.sortOrder,
+  }).from(aiVocabularyBundleItems)
+    .where(inArray(aiVocabularyBundleItems.bundleId, bundleIds))
+    .orderBy(asc(aiVocabularyBundleItems.sortOrder))
+  const itemsByBundle = new Map<string, typeof items>()
+  for (const item of items) {
+    const current = itemsByBundle.get(item.bundleId) ?? []
+    current.push(item)
+    itemsByBundle.set(item.bundleId, current)
+  }
+
+  return bundles.map((bundle) => ({
+    ...bundle,
+    itemCount: itemsByBundle.get(bundle.id)?.length ?? 0,
+    items: itemsByBundle.get(bundle.id) ?? [],
+  }))
 }
 
 /**
