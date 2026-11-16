@@ -16,8 +16,8 @@ type ChildSetting = {
   idiomLevel: string
   activeDays: number[]
   publishMode: "manual" | "automatic"
-  latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
-  latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
+  latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date | null } | null
+  latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date | null } | null
 }
 
 const DAYS = [
@@ -153,7 +153,7 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
                           <>
                             <p className="mt-1 text-sm font-bold">{result.assignedLevel}</p>
                             <p className="mt-0.5 text-[11px] text-muted-foreground">{result.correctCount}/{result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"}</p>
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">{new Date(result.completedAt).toLocaleDateString("ko-KR")}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">{result.completedAt ? new Date(result.completedAt).toLocaleDateString("ko-KR") : "날짜 정보 없음"}</p>
                           </>
                         ) : <p className="mt-1 text-xs text-muted-foreground">진단 기록 없음</p>}
                       </div>
