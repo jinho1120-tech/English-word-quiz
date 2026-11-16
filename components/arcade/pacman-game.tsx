@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { HapticButton } from "@/components/haptic-button";
 import { VOCAB_OWL_NAME } from "@/lib/game-branding";
+import { ARCADE_MONSTER_COLORS, drawArcadeMonster, drawBookCollectible, drawOwl, drawPencilBonus, drawStarCollectible } from "@/lib/arcade-art";
 
 const COLS = 15;
 const ROWS = 15;
@@ -21,7 +22,7 @@ const INITIAL_MAP = [
   [1, 1, 2, 1, 2, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1], // (7, 5): 소굴 문 밖 출구
   [0, 0, 2, 1, 2, 1, 0, 0, 0, 1, 2, 1, 2, 0, 0], // (6..8, 6): 소굴 안
   [1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (7, 8): 🍒 보너스 체리 스폰 위치
+  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (7, 8): ✏️ 보너스 연필 스폰 위치
   [1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1],
   [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 부엉이 시작 지점
   [1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1],
@@ -42,11 +43,11 @@ const STAGE_WALL_ADDITIONS: Array<Array<[number, number]>> = [
 ];
 
 const STAGE_THEMES = [
-  { name: "클래식 미로", background: "#020617", wall: "#1e3a8a", stroke: "#3b82f6", dot: "#fef08a", power: "#facc15" },
-  { name: "바다 미로", background: "#031b2f", wall: "#0e7490", stroke: "#22d3ee", dot: "#a5f3fc", power: "#67e8f9" },
-  { name: "수정 동굴", background: "#160b2e", wall: "#6d28d9", stroke: "#c4b5fd", dot: "#ddd6fe", power: "#a78bfa" },
-  { name: "화산 미로", background: "#2a1008", wall: "#9a3412", stroke: "#fb923c", dot: "#fed7aa", power: "#f97316" },
-  { name: "우주 미로", background: "#07152d", wall: "#047857", stroke: "#34d399", dot: "#bbf7d0", power: "#a3e635" },
+  { name: "별빛 도서관", background: "#020617", wall: "#1e3a8a", stroke: "#3b82f6", dot: "#fef08a", power: "#facc15" },
+  { name: "산호초 바다", background: "#031b2f", wall: "#0e7490", stroke: "#22d3ee", dot: "#a5f3fc", power: "#67e8f9" },
+  { name: "수정 동굴 탐험", background: "#160b2e", wall: "#6d28d9", stroke: "#c4b5fd", dot: "#ddd6fe", power: "#a78bfa" },
+  { name: "화산 지대", background: "#2a1008", wall: "#9a3412", stroke: "#fb923c", dot: "#fed7aa", power: "#f97316" },
+  { name: "별빛 우주 정거장", background: "#07152d", wall: "#047857", stroke: "#34d399", dot: "#bbf7d0", power: "#a3e635" },
 ];
 
 function createStageMap(stage: number): number[][] {
@@ -169,7 +170,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const tiltPermissionRef = useRef(false);
   const lastTiltUiUpdateRef = useRef(0);
 
-  // 💡 체리 보너스 과일 상태
+  // 💡 연필 보너스 아이템 상태
   const [cherryVisible, setCherryVisible] = useState(false);
   const [cherryPopup, setCherryPopup] = useState<string | null>(null);
   const cherrySpawnedRef = useRef(false);
@@ -189,10 +190,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const ghostAscensionsRef = useRef<Array<{ x: number; y: number; word: string; startedAt: number }>>([]);
 
   const ghostsRef = useRef<Ghost[]>([
-    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
-    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
-    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
+    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[2], isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
   ]);
 
   const mapRef = useRef<number[][]>(INITIAL_MAP.map((r) => [...r]));
@@ -218,10 +219,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       mouthDir: 1,
     };
     ghostsRef.current = [
-      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
-      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
-      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
+      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[2], isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
     ];
     gameStartTimeRef.current = Date.now();
     lastTimeRef.current = performance.now();
@@ -613,7 +614,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             setDotsLeft((d) => {
               const next = d - 1;
 
-              // 🍒 도트를 절반 먹었을 때 체리 출현 (스테이지당 1회)
+              // ✏️ 도트를 절반 먹었을 때 체리 출현 (스테이지당 1회)
               if (!cherrySpawnedRef.current && next <= totalDotsCountRef.current * 0.55) {
                 cherrySpawnedRef.current = true;
                 setCherryVisible(true);
@@ -645,7 +646,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           }
         }
 
-        // 🍒 체리 획득 판정 (7, 8 위치)
+        // ✏️ 체리 획득 판정 (7, 8 위치)
         if (cherryVisible && Math.hypot(pac.x - 7, pac.y - 8) < 0.6) {
           setCherryVisible(false);
           setScore((s) => s + 100);
@@ -818,28 +819,19 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             ctx.strokeStyle = isStageClear ? "#fde047" : currentTheme.stroke;
             ctx.strokeRect(px + 1, py + 1, CELL_SIZE - 2, CELL_SIZE - 2);
           } else if (val === 2) {
-            ctx.fillStyle = currentTheme.dot;
-            ctx.beginPath();
-            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 2.5, 0, Math.PI * 2);
-            ctx.fill();
+            drawStarCollectible(ctx, px + CELL_SIZE / 2, py + CELL_SIZE / 2, 3.4, currentTheme.dot);
           } else if (val === 3) {
-            ctx.fillStyle = currentTheme.power;
-            ctx.beginPath();
-            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 5.5, 0, Math.PI * 2);
-            ctx.fill();
+            drawBookCollectible(ctx, px + CELL_SIZE / 2, py + CELL_SIZE / 2, 11.5, currentTheme.power);
           }
         }
       }
 
-      // 🍒 보너스 체리 그리기 (7, 8 위치)
+      // 보너스 연필 아이템 그리기 (7, 8 위치)
       if (cherryVisible) {
-        ctx.font = "14px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("🍒", 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE + CELL_SIZE / 2);
+        drawPencilBonus(ctx, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE + CELL_SIZE / 2, 14);
       }
 
-      // 🍒 체리 획득 +100 팝업 텍스트
+      // 연필 획득 +100 팝업 텍스트
       if (cherryPopup) {
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 11px sans-serif";
@@ -850,126 +842,22 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       // 박사 모드 제한 시간 종료
       if (doctorModeActiveRef.current && nowMs >= doctorModeUntil) doctorModeActiveRef.current = false;
 
-      // 부엉이 그리기
-      const shouldDrawPacman = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
-      if (shouldDrawPacman) {
+      // 방향에 따라 부엉이의 정면·뒷모습·좌우 옆모습을 그린다.
+      const shouldDrawOwl = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
+      if (shouldDrawOwl) {
         const centerX = pac.x * CELL_SIZE + CELL_SIZE / 2;
         const centerY = pac.y * CELL_SIZE + CELL_SIZE / 2;
-        const doctorVertical = doctorModeActiveRef.current && pac.dirY !== 0;
-        let angleOffset = 0;
-        if (pac.dirX === 1) angleOffset = 0;
-        else if (pac.dirX === -1) angleOffset = Math.PI;
-        else if (pac.dirY === 1) angleOffset = Math.PI / 2;
-        else if (pac.dirY === -1) angleOffset = (Math.PI * 3) / 2;
-
-        // 박사 모드의 상하 이동은 입이 없는 둥근 얼굴로, 좌우 이동은 기존 측면 입 모양으로 표현한다.
-        ctx.fillStyle = "#facc15";
-        ctx.beginPath();
-        if (doctorVertical) {
-          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1, 0, Math.PI * 2);
-        } else {
-          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1,
-            angleOffset + pac.mouthAngle * Math.PI,
-            angleOffset + (2 - pac.mouthAngle) * Math.PI);
-          ctx.lineTo(centerX, centerY);
-        }
-        ctx.fill();
-
-        if (doctorModeActiveRef.current) {
-          ctx.save();
-          const facingX = pac.dirX !== 0 ? pac.dirX : 0;
-          const facingY = pac.dirY !== 0 ? pac.dirY : 0;
-          const idleFacingX = facingX === 0 && facingY === 0 ? 1 : facingX;
-          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 28 + Math.sin(nowMs / 90) * 3);
-          aura.addColorStop(0, "rgba(250,204,21,0.62)");
-          aura.addColorStop(1, "rgba(250,204,21,0)");
-          ctx.fillStyle = aura;
-          ctx.beginPath(); ctx.arc(centerX, centerY, 32, 0, Math.PI * 2); ctx.fill();
-
-          // 아래 이동: 정면 얼굴 + 정면 안경. 입은 그리지 않는다.
-          if (pac.dirY > 0) {
-            ctx.fillStyle = "#713f12";
-            ctx.beginPath();
-            ctx.ellipse(centerX - 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
-            ctx.ellipse(centerX + 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#172033";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.roundRect(centerX - 8, centerY - 5, 7, 7, 2);
-            ctx.roundRect(centerX + 1, centerY - 5, 7, 7, 2);
-            ctx.moveTo(centerX - 1, centerY - 2);
-            ctx.lineTo(centerX + 1, centerY - 2);
-            ctx.stroke();
-          } else if (pac.dirY < 0) {
-            // 위 이동: 뒤통수만 보여 안경·눈·입은 모두 숨긴다.
-            ctx.fillStyle = "#eab308";
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            // 좌우 이동은 기존 측면 모습과 방향에 맞춘 안경을 유지한다.
-            const glassesX = centerX + idleFacingX * 5;
-            const glassesY = centerY - 3;
-            ctx.strokeStyle = "#172033";
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
-            ctx.moveTo(glassesX + idleFacingX * 4, glassesY);
-            ctx.lineTo(glassesX + idleFacingX * 7, glassesY + 1);
-            ctx.stroke();
-          }
-
-          // 학사모는 모든 방향에서 유지한다.
-          ctx.fillStyle = "#1e293b";
-          ctx.beginPath();
-          ctx.moveTo(centerX - 10, centerY - 9);
-          ctx.lineTo(centerX + 10, centerY - 9);
-          ctx.lineTo(centerX + 4, centerY - 14);
-          ctx.lineTo(centerX - 4, centerY - 14);
-          ctx.closePath();
-          ctx.fill();
-          ctx.fillStyle = "#334155";
-          ctx.beginPath();
-          ctx.moveTo(centerX - 13, centerY - 14);
-          ctx.lineTo(centerX, centerY - 20);
-          ctx.lineTo(centerX + 13, centerY - 14);
-          ctx.lineTo(centerX, centerY - 10);
-          ctx.closePath();
-          ctx.fill();
-          ctx.strokeStyle = "#facc15";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(centerX - idleFacingX * 10, centerY - 14);
-          ctx.lineTo(centerX - idleFacingX * 13, centerY - 7);
-          ctx.stroke();
-          ctx.restore();
-        }
+        const direction = pac.dirY < 0 ? "up" : pac.dirY > 0 ? "down" : pac.dirX < 0 ? "left" : pac.dirX > 0 ? "right" : "down";
+        drawOwl(ctx, centerX, centerY, CELL_SIZE / 2 - 1, direction, doctorModeActiveRef.current, nowMs / 1000);
       }
 
-      // 유령 그리기
+      // 미로와 타자 디펜스가 공유하는 몬스터 렌더러를 사용한다.
       ghostsRef.current.forEach((g) => {
         const gx = g.x * CELL_SIZE + CELL_SIZE / 2;
         const gy = g.y * CELL_SIZE + CELL_SIZE / 2;
-        ctx.fillStyle = doctorModeActiveRef.current ? "#cbd5e1" : g.isFrightened ? "#2563eb" : g.color;
-        ctx.beginPath();
-        ctx.arc(gx, gy - 2, CELL_SIZE / 2 - 2, Math.PI, 0, false);
-        ctx.lineTo(gx + CELL_SIZE / 2 - 2, gy + CELL_SIZE / 2 - 2);
-        ctx.lineTo(gx - CELL_SIZE / 2 + 2, gy + CELL_SIZE / 2 - 2);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(gx - 3, gy - 3, 2, 0, Math.PI * 2);
-        ctx.arc(gx + 3, gy - 3, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#000000";
-        ctx.beginPath();
-        ctx.arc(gx - 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
-        ctx.arc(gx + 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
-        ctx.fill();
-
+        const color = doctorModeActiveRef.current ? "#cbd5e1" : g.isFrightened ? "#2563eb" : g.color;
+        const mood = g.id === "red" ? "angry" : g.id === "pink" ? "mischievous" : g.id === "blue" ? "surprised" : "worried";
+        drawArcadeMonster(ctx, gx, gy, CELL_SIZE / 2 + 1, nowMs / 260, false, mood, color);
       });
 
       // 정답을 맞힌 유령은 단어를 남기며 위로 승천한 뒤 소굴에서 다시 등장한다.
@@ -1172,7 +1060,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label={`박사 ${VOCAB_OWL_NAME} 도전 영어 단어 입력`} placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
             </> : <><p className="text-xl font-black text-amber-200">박사 {VOCAB_OWL_NAME} 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
-          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
+          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 책 아이템의 기회는 사라집니다.</p>
         </div>
       )}
 
@@ -1193,12 +1081,14 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 {defenseEncounter.word.meaning}
               </div>
               <div className="absolute bottom-9 transition-all duration-75" style={{ left: (12 + (1 - defenseRemainingMs / defenseEncounter.durationMs) * 68) + "%", transform: "translateX(-50%)" }}>
-                <div className="relative h-24 w-20 rounded-t-[48%] rounded-b-[22%] shadow-[0_0_34px_rgba(255,255,255,0.2)]" style={{ backgroundColor: defenseEncounter.ghostColor }}>
-                  <div className="absolute left-[22%] top-[32%] flex w-[56%] justify-between">
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                  </div>
-                </div>
+                <svg viewBox="0 0 100 100" role="img" aria-label="영단어 몬스터" className="h-24 w-20 overflow-visible" style={{ filter: `drop-shadow(0 0 18px ${defenseEncounter.ghostColor}88)` }}>
+                  <path d="M10 72 L12 36 Q12 18 31 13 L39 7 Q48 9 51 14 Q61 6 72 12 L67 17 Q88 21 89 39 L90 72 Q76 60 65 72 Q50 87 35 72 Q22 60 10 72Z" fill={defenseEncounter.ghostColor} stroke="rgba(15,23,42,0.65)" strokeWidth="3" strokeLinejoin="round" />
+                  <ellipse cx="35" cy="47" rx="10" ry="13" fill="white" />
+                  <ellipse cx="65" cy="47" rx="10" ry="13" fill="white" />
+                  <ellipse cx="37" cy="50" rx="4.5" ry="7" fill="#172033" />
+                  <ellipse cx="67" cy="50" rx="4.5" ry="7" fill="#172033" />
+                  <path d="M44 68 Q50 73 56 68" fill="none" stroke="#172033" strokeWidth="3" strokeLinecap="round" />
+                </svg>
               </div>
               <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
             </div>
