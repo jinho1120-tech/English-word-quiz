@@ -41,8 +41,12 @@ async function requireParentFamily() {
 async function requireOwnedChild(childProfileId: string) {
   const { family } = await requireParentFamily()
   if (typeof childProfileId !== "string" || !childProfileId) throw new Error("자녀 정보가 올바르지 않습니다.")
-  const [child] = await db.select({ id: childProfiles.id, displayName: childProfiles.displayName })
-    .from(childProfiles)
+  const [child] = await db.select({
+    id: childProfiles.id,
+    displayName: childProfiles.displayName,
+    ownerUserId: families.ownerUserId,
+  }).from(childProfiles)
+    .innerJoin(families, eq(childProfiles.familyId, families.id))
     .where(and(eq(childProfiles.id, childProfileId), eq(childProfiles.familyId, family.id)))
     .limit(1)
   if (!child) throw new Error("해당 자녀의 설정을 변경할 권한이 없습니다.")
@@ -393,7 +397,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
     )).limit(1)
     if (!aiSubject) return { status: "subject_missing" as const }
 
-    const [usedRows, existingWords, previousBundles] = await Promise.all([
+    const [usedRows, existingWords] = await Promise.all([
       tx.select({
         candidateId: aiVocabularyBundleItems.candidateId,
         sourceWordEntryId: aiVocabularyBundleItems.sourceWordEntryId,
@@ -408,8 +412,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
         eq(wordEntries.childProfileId, child.id),
         eq(wordEntries.userId, child.ownerUserId),
       )),
-      tx.select({ id: aiVocabularyBundles.id }).from(aiVocabularyBundles)
-        .where(eq(aiVocabularyBundles.childProfileId, child.id)),
+
     ])
 
     const usedCandidateIds = new Set(usedRows.map((row) => row.candidateId).filter((value): value is string => Boolean(value)))
@@ -448,7 +451,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
 
     for (const target of targets) {
       if (!target.count) continue
-      const currentLevelCount = Math.ceil(target.count * 0.7)
+      const currentLevelCount = target.level === "L6" ? target.count : Math.ceil(target.count * 0.7)
       const nextLevel = target.level === "L6"
         ? "L6"
         : `L${Number(target.level.slice(1)) + 1}`
