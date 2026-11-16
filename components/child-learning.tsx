@@ -378,7 +378,7 @@ export function ChildLearning({
               {OWL_GAME_NAME} 🦉
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-700">
-              영어 타자 디펜스 👻
+              영단어 몬스터 디펜스 👾
             </HapticButton>}
           </div>
           <p className="text-[11px] text-muted-foreground">{pacmanStatus.unlimitedPlays
