@@ -1,3 +1,21 @@
+CREATE TABLE "dictionary_lookup_cache" (
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "normalized_expression" varchar(120) NOT NULL,
+  "lookup_status" varchar(16) NOT NULL,
+  "response_payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+  "source_url" text,
+  "license_name" varchar(40) DEFAULT 'CC BY-SA 4.0' NOT NULL,
+  "license_url" text,
+  "checked_at" timestamp DEFAULT now() NOT NULL,
+  "expires_at" timestamp NOT NULL,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  "updated_at" timestamp DEFAULT now() NOT NULL
+);
+CREATE UNIQUE INDEX "dictionary_lookup_cache_expression_unique"
+  ON "dictionary_lookup_cache" ("normalized_expression");
+CREATE INDEX "dictionary_lookup_cache_expires_idx"
+  ON "dictionary_lookup_cache" ("expires_at");
+
 ALTER TABLE "child_subjects"
   ADD COLUMN "is_ai_vocabulary" boolean DEFAULT false NOT NULL;
 
