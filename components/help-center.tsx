@@ -202,7 +202,7 @@ const CHILD_GUIDE: GuideSection[] = [
   {
     id: "games",
     title: "보너스 게임",
-    summary: "학습 조건을 충족하면 두 가지 영어 단어 게임을 즐길 수 있습니다.",
+    summary: `학습 조건을 충족하면 ${OWL_GAME_NAME}과 영어 타자 디펜스를 즐길 수 있습니다.`,
     steps: [
       "‘오답 몬스터’ 화면의 보너스 게임 영역을 확인합니다.",
       "게임 화면의 ‘크게 보기’를 누르면 전체 화면으로 즐길 수 있어요.",
@@ -266,7 +266,7 @@ export function HelpCenter({
           const summary = pacmanEnabled && wordDefenseEnabled
             ? "학습 조건을 충족하면 두 가지 영어 단어 게임을 즐길 수 있습니다."
             : pacmanEnabled
-              ? "학습 조건을 충족하면 보카맨을 즐길 수 있습니다."
+              ? `학습 조건을 충족하면 ${OWL_GAME_NAME}을 즐길 수 있습니다.`
               : "학습 조건을 충족하면 영어 타자 디펜스를 즐길 수 있습니다."
           return {
             ...section,
