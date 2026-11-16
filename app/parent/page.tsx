@@ -10,11 +10,12 @@ import { ChildProfileSettings } from "@/components/child-profile-settings"
 import { AccountWithdrawal } from "@/components/account-withdrawal"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { HelpCenter } from "@/components/help-center"
-import { getParentAiVocabularySettings, getParentVocabularyCandidateQueue } from "@/app/actions/ai-vocabulary"
+import { getParentAiVocabularySettings, getParentVocabularyCandidateQueue, getParentAiVocabularyBundles } from "@/app/actions/ai-vocabulary"
 import { ParentAiVocabularySettings } from "@/components/parent-ai-vocabulary-settings"
 import { VocabularyCandidateImporter } from "@/components/vocabulary-candidate-importer"
 import { ParentChildWordSubmissionReview } from "@/components/parent-child-word-submission-review"
 import { VocabularyCandidateReview } from "@/components/vocabulary-candidate-review"
+import { ParentAiVocabularyBundleReview } from "@/components/parent-ai-vocabulary-bundle-review"
 
 export const dynamic = "force-dynamic"
 
@@ -25,11 +26,12 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
   const params = await searchParams
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) redirect("/login")
-  const [dashboard, notificationData, aiVocabularySettings, vocabularyCandidates] = await Promise.all([
+  const [dashboard, notificationData, aiVocabularySettings, vocabularyCandidates, aiVocabularyBundles] = await Promise.all([
     getParentFamilyDashboard(),
     getParentNotificationData(),
     getParentAiVocabularySettings(),
     getParentVocabularyCandidateQueue(),
+    getParentAiVocabularyBundles(),
   ])
 
   return (
@@ -44,6 +46,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
       <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} arcadeSettings={dashboard.arcadeSettings} gameUsage={dashboard.gameUsage} coupons={dashboard.coupons} couponSettings={dashboard.couponSettings} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} familyTerms={dashboard.familyTerms} />
       <ParentChildWordSubmissionReview children={dashboard.children.filter((child) => child.isActive).map((child) => ({ id: child.id, displayName: child.displayName }))} />
       <ParentAiVocabularySettings settings={aiVocabularySettings} />
+      <ParentAiVocabularyBundleReview children={dashboard.children.filter((child) => child.isActive).map((child) => ({ id: child.id, displayName: child.displayName }))} bundles={aiVocabularyBundles} />
       <VocabularyCandidateImporter />
       <VocabularyCandidateReview candidates={vocabularyCandidates} />
       <AccountWithdrawal />
