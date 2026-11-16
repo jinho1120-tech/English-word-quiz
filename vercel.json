@@ -3,7 +3,7 @@
   "schedules": {
     "daily-ai-vocabulary": {
       "schedule": "0 8 * * *",
-      "function": "app/api/cron/ai-vocabulary/route.ts",
+      "function": "app/api/cron/ai-vocabulary/route",
       "timezone": "Asia/Seoul"
     }
   },
