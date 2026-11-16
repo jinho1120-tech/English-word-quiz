@@ -51,6 +51,14 @@ jobs:
         run: pnpm check:design-system
       - name: Check Drizzle migration history
         run: pnpm exec drizzle-kit check
+      - name: Apply all Drizzle migrations to a clean CI database
+        env:
+          PGPASSWORD: test
+          DATABASE_URL: postgresql://test:test@127.0.0.1:5432/ai_vocabulary_migration_test
+        run: |
+          psql -h 127.0.0.1 -U test -d postgres -c 'CREATE DATABASE ai_vocabulary_migration_test'
+          pnpm db:migrate
+          psql -h 127.0.0.1 -U test -d ai_vocabulary_migration_test -c "SELECT to_regclass('public.vocabulary_candidates'), to_regclass('public.ai_vocabulary_settings'), to_regclass('public.dictionary_lookup_cache'), to_regclass('public.child_word_favorites')"
       - name: Build
         run: pnpm build
         env:
