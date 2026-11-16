@@ -73,18 +73,19 @@ export function drawBlueOwl(
     ctx.ellipse(0, 0, h * 0.91, h * 0.94, 0, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
 
-    // Two swept-back feather tufts, like the reference's distinct owl ears.
+    // Two compact swept-back crown feathers. Their tips point backward, not forward,
+    // matching the reference sheet and avoiding a horn-like silhouette.
     outline("#3299f5");
     ctx.beginPath();
-    ctx.moveTo(-h * 0.48, -h * 0.64);
-    ctx.lineTo(-h * 0.88, -h * 1.13);
-    ctx.quadraticCurveTo(-h * 0.42, -h * 1.02, -h * 0.12, -h * 0.86);
-    ctx.quadraticCurveTo(-h * 0.02, -h * 0.7, -h * 0.48, -h * 0.64);
+    ctx.moveTo(-h * 0.48, -h * 0.68);
+    ctx.quadraticCurveTo(-h * 0.34, -h * 0.94, h * 0.34, -h * 1.12);
+    ctx.quadraticCurveTo(h * 0.28, -h * 0.76, h * 0.02, -h * 0.62);
+    ctx.quadraticCurveTo(-h * 0.2, -h * 0.58, -h * 0.48, -h * 0.68);
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(-h * 0.28, -h * 0.68);
-    ctx.quadraticCurveTo(-h * 0.12, -h * 0.92, h * 0.1, -h * 0.78);
-    ctx.quadraticCurveTo(h * 0.02, -h * 0.58, -h * 0.28, -h * 0.68);
+    ctx.moveTo(-h * 0.22, -h * 0.69);
+    ctx.quadraticCurveTo(-h * 0.02, -h * 0.91, h * 0.42, -h * 0.86);
+    ctx.quadraticCurveTo(h * 0.28, -h * 0.62, h * 0.02, -h * 0.57);
     ctx.closePath(); ctx.fill(); ctx.stroke();
 
     // Compact white facial mask: keep most of the side silhouette blue, as in the reference.
