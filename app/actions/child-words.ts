@@ -935,9 +935,43 @@ export async function startChildAiVocabularyQuiz(bundleId: string) {
     throw new Error("아직 확인하지 않은 카드가 있어요. 모든 카드의 앞면과 뒷면을 확인해 주세요.")
   }
 
-  await db.update(aiVocabularyBundles).set({ status: "quiz_in_progress", updatedAt: new Date() })
-    .where(eq(aiVocabularyBundles.id, bundle.id))
-  return { success: true, wordIds: items.map((item) => item.wordEntryId!) }
+  const wordIds = items.map((item) => item.wordEntryId!)
+  // The bundle ID is the stable quiz session ID. Re-entry after a refresh
+  // continues the same session and skips expressions already submitted.
+  const previousAttempts = await db.select({ wordEntryId: childQuizAttempts.wordEntryId })
+    .from(childQuizAttempts).where(and(
+      eq(childQuizAttempts.childProfileId, child.childProfileId),
+      eq(childQuizAttempts.quizSessionId, bundle.id),
+      inArray(childQuizAttempts.wordEntryId, wordIds),
+    ))
+  const answeredWordIds = [...new Set(previousAttempts.map((attempt) => attempt.wordEntryId))]
+  if (answeredWordIds.length === wordIds.length) {
+    await db.update(aiVocabularyBundles).set({
+      status: "completed",
+      completedAt: bundle.completedAt ?? new Date(),
+      updatedAt: new Date(),
+    }).where(eq(aiVocabularyBundles.id, bundle.id))
+    revalidatePath("/child")
+    return {
+      success: true,
+      completed: true,
+      quizSessionId: bundle.id,
+      wordIds,
+      answeredWordIds,
+    }
+  }
+
+  if (bundle.status === "cards_completed") {
+    await db.update(aiVocabularyBundles).set({ status: "quiz_in_progress", updatedAt: new Date() })
+      .where(eq(aiVocabularyBundles.id, bundle.id))
+  }
+  return {
+    success: true,
+    completed: false,
+    quizSessionId: bundle.id,
+    wordIds,
+    answeredWordIds,
+  }
 }
 
 export async function completeChildAiVocabularyQuiz(bundleId: string, quizSessionId: string) {
