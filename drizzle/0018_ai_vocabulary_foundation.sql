@@ -1,6 +1,3 @@
-ALTER TABLE "vocabulary_candidates"
-  ADD COLUMN "reviewed_by_user_id" text;
-
 CREATE TABLE "dictionary_lookup_cache" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "normalized_expression" varchar(120) NOT NULL,
@@ -49,6 +46,9 @@ CREATE TABLE "vocabulary_candidates" (
   "created_at" timestamp DEFAULT now() NOT NULL,
   "updated_at" timestamp DEFAULT now() NOT NULL
 );
+
+ALTER TABLE "vocabulary_candidates"
+  ADD COLUMN "reviewed_by_user_id" text;
 
 CREATE UNIQUE INDEX "vocabulary_candidates_sense_unique"
   ON "vocabulary_candidates" ("normalized_expression", "lexical_type", "part_of_speech", "sense_key");
