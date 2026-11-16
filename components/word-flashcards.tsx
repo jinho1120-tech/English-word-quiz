@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { Bookmark, ChevronLeft, ChevronRight, RotateCcw, Star, Volume2 } from "lucide-react"
+import { Bookmark, ChevronLeft, ChevronRight, List, RotateCcw, Star, Volume2 } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
 import { toggleChildWordFavorite } from "@/app/actions/child-words"
 
@@ -31,6 +31,7 @@ export function WordFlashcards({
 }) {
   const [subjectFilter, setSubjectFilter] = useState("__all__")
   const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(() => new Set(initialFavoriteWordIds))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
@@ -88,9 +89,14 @@ export function WordFlashcards({
           <h2 className="text-lg font-bold">단어 카드</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">카드를 눌러 뜻과 예문을 확인해 보세요.</p>
         </div>
-        <button type="button" aria-pressed={favoritesOnly} onClick={() => { setFavoritesOnly((value) => !value); setCurrentIndex(0); setIsFlipped(false) }} className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold ${favoritesOnly ? "border-primary bg-primary-container text-primary-container-foreground" : "border-border bg-background text-muted-foreground"}`}>
-          <Star className="size-3.5" /> 즐겨찾기 {favoritesOnly ? "보기" : "모아보기"}
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button type="button" aria-pressed={favoritesOnly} onClick={() => { setFavoritesOnly((value) => !value); setCurrentIndex(0); setIsFlipped(false) }} className={favoritesOnly ? "inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary-container px-3 py-2 text-xs font-semibold text-primary-container-foreground" : "inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground"}>
+            <Star className="size-3.5" /> 즐겨찾기
+          </button>
+          <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode((value) => value === "card" ? "list" : "card")} className={viewMode === "list" ? "inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary-container px-3 py-2 text-xs font-semibold text-primary-container-foreground" : "inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground"}>
+            <List className="size-3.5" /> {viewMode === "list" ? "카드 보기" : "전체 목록"}
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -100,7 +106,22 @@ export function WordFlashcards({
         ))}
       </div>
 
-      {!current ? (
+      {viewMode === "list" && filteredWords.length > 0 ? (
+        <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
+          {filteredWords.map((item, index) => (
+            <button key={item.id} type="button" onClick={() => { setCurrentIndex(index); setIsFlipped(false); setViewMode("card") }} className="w-full rounded-xl border border-border bg-background p-3 text-left transition-colors hover:bg-muted/50">
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold">{item.word}</span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">{item.meaning}{item.disambiguation ? " (" + item.disambiguation + ")" : ""}</span>
+                  {item.example && <span className="mt-1 block text-xs text-muted-foreground">{item.example}</span>}
+                </span>
+                {favoriteIds.has(item.id) && <Star className="size-4 shrink-0 fill-amber-500 text-amber-500" aria-label="즐겨찾기" />}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : !current ? (
         <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-12 text-center">
           <Bookmark className="mx-auto mb-3 size-8 text-muted-foreground" />
           <p className="font-semibold">{favoritesOnly ? "즐겨찾기한 표현이 아직 없어요." : "아직 카드로 볼 표현이 없어요."}</p>
