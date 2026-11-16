@@ -1,10 +1,11 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
-import { GraduationCap, Ghost, Pencil, Trash2 } from "lucide-react"
+import { BookOpen, GraduationCap, Ghost, Pencil, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
+import { WordFlashcards } from "@/components/word-flashcards"
 import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
 import { WordDefenseGame } from "@/components/arcade/word-defense-game"
@@ -13,7 +14,7 @@ import { BlueOwlIcon } from "@/components/arcade/owl-icon"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
-type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number }
+type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number; disambiguation: string | null; lexicalType: string }
 
 const TTS_VOICES = [
   { id: "en-US-AnaNeural", label: "어린이 목소리" },
@@ -25,6 +26,7 @@ const TTS_VOICES = [
 export function ChildLearning({
   pacmanStatus,
   childName,
+  favoriteWordIds,
   subjects,
   initialWords,
   allWords,
@@ -34,6 +36,7 @@ export function ChildLearning({
 }: {
   pacmanStatus: { showPacman: boolean; showWordDefense: boolean; enabled: boolean; dailyPlayLimit: number; unlimitedPlays: boolean; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
   childName: string
+  favoriteWordIds: number[]
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
   initialWords: Word[]
@@ -75,7 +78,7 @@ export function ChildLearning({
   const ttsCacheRef = useRef(new Map<string, string>())
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
-  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "manage">("daily")
+  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "cards" | "manage">("daily")
   const [isPacmanOpen, setIsPacmanOpen] = useState(false)
   const [isWordDefenseOpen, setIsWordDefenseOpen] = useState(false)
   const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
@@ -238,7 +241,7 @@ export function ChildLearning({
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start lg:gap-5">
       <section className="space-y-2 sm:space-y-3 lg:col-start-1 lg:row-start-1">
         <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
-        <div className="grid grid-cols-3 gap-1 rounded-2xl border border-border bg-muted/50 p-1 sm:gap-1.5 sm:p-1.5">
+        <div className="grid grid-cols-4 gap-1 rounded-2xl border border-border bg-muted/50 p-1 sm:gap-1.5 sm:p-1.5">
           <HapticButton
             hapticLabel="날짜별 퀴즈 탭"
             onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
@@ -257,6 +260,15 @@ export function ChildLearning({
             <span>오답 몬스터</span>
           </HapticButton>
           <HapticButton
+            hapticLabel="단어 카드 탭"
+            onClick={() => { setActiveTab("cards"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
+            wrapperClassName="relative flex h-full"
+            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "cards" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
+          >
+            <BookOpen className={`size-5 shrink-0 ${activeTab === "cards" ? "animate-tab-pulse" : ""}`} style={activeTab === "cards" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
+            <span>단어 카드</span>
+          </HapticButton>
+          <HapticButton
             hapticLabel="단어 입력 탭"
             onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
             wrapperClassName="relative flex h-full"
@@ -265,12 +277,13 @@ export function ChildLearning({
             <Pencil className={`size-5 shrink-0 ${activeTab === "manage" ? "animate-pencil-write" : ""}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>단어 입력</span>
           </HapticButton>
         </div>
-        {activeTab !== "manage" && <div className="flex gap-2 overflow-x-auto pb-1">
+        {(activeTab === "daily" || activeTab === "wrong") && <div className="flex gap-2 overflow-x-auto pb-1">
           <HapticButton type="button" onClick={() => setFilterSubjectId("")} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${!filterSubjectId ? "bg-primary text-primary-foreground shadow-sm" : "border border-border bg-muted text-muted-foreground"}`}>전체</HapticButton>
           {subjects.map((subject) => <HapticButton type="button" key={subject.id} onClick={() => setFilterSubjectId(subject.id)} className={`shrink-0 rounded-xl px-3.5 py-1.5 text-xs font-bold ${filterSubjectId === subject.id ? "bg-primary text-primary-foreground shadow-sm" : "border border-border bg-muted text-muted-foreground"}`}>{subject.name}</HapticButton>)}
         </div>}
       </section>
 
+      {activeTab === "cards" && <WordFlashcards words={allWords} subjects={subjects} initialFavoriteWordIds={favoriteWordIds} onSpeak={playPronunciation} />}
       {activeTab === "manage" && <div className="space-y-6 lg:col-span-2">
       <section className="space-y-4 rounded-2xl border border-border p-4">
         <h2 className="font-bold">단어 추가</h2>
@@ -345,7 +358,7 @@ export function ChildLearning({
       </section>
       </div>}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {activeTab !== "manage" && (
+      {(activeTab === "daily" || activeTab === "wrong") && (
         <section className="min-w-0 space-y-2 sm:space-y-3 lg:col-start-2 lg:row-start-1">
           <WordQuiz
             key={`child-${activeTab}-${filterSubjectId}-${date}`}
