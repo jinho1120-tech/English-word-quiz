@@ -1,11 +1,15 @@
 "use server"
 
+import { createHash } from "node:crypto"
 import { and, asc, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { aiVocabularySettings, childProfiles, childSubjects, families, familyMembers } from "@/lib/db/schema"
+import { aiVocabularySettings, childProfiles, childSubjects, families, familyMembers, dictionaryLookupCache, vocabularyCandidates } from "@/lib/db/schema"
+import { lookupFreeDictionary, normalizeDictionaryExpression, type DictionaryLookupResult } from "@/lib/free-dictionary-api"
+import { getClientRateLimitKey } from "@/lib/client-ip"
+import { consumeRateLimit } from "@/lib/rate-limit"
 
 const LEVELS = new Set(["L1", "L2", "L3", "L4", "L5", "L6"])
 const DAY_VALUES = new Set([0, 1, 2, 3, 4, 5, 6])
@@ -153,4 +157,150 @@ export async function saveParentAiVocabularySettings(input: {
   revalidatePath("/parent")
   revalidatePath("/child")
   return { success: true }
+}
+
+
+type CandidateLexicalType = "word" | "idiom" | "phrasal_verb" | "collocation"
+
+function isCachedDictionaryPayload(value: unknown): value is {
+  word: string
+  senses: { partOfSpeech: string; definition: string; examples: string[] }[]
+  sourceUrl: string
+  licenseName: string
+  licenseUrl: string
+} {
+  if (!value || typeof value !== "object") return false
+  const row = value as Record<string, unknown>
+  return typeof row.word === "string" &&
+    typeof row.sourceUrl === "string" &&
+    typeof row.licenseName === "string" &&
+    typeof row.licenseUrl === "string" &&
+    Array.isArray(row.senses) &&
+    row.senses.every((sense) => {
+      if (!sense || typeof sense !== "object") return false
+      const item = sense as Record<string, unknown>
+      return typeof item.partOfSpeech === "string" &&
+        typeof item.definition === "string" &&
+        Array.isArray(item.examples) &&
+        item.examples.every((example) => typeof example === "string")
+    })
+}
+
+async function lookupDictionaryWithCache(expression: string): Promise<DictionaryLookupResult> {
+  const normalizedExpression = normalizeDictionaryExpression(expression)
+  const [cached] = await db.select().from(dictionaryLookupCache)
+    .where(eq(dictionaryLookupCache.normalizedExpression, normalizedExpression))
+    .limit(1)
+  const now = new Date()
+
+  if (cached && cached.expiresAt > now) {
+    if (cached.lookupStatus === "not_found") return { status: "not_found", word: normalizedExpression }
+    if (cached.lookupStatus === "found" && isCachedDictionaryPayload(cached.responsePayload)) {
+      return {
+        status: "found",
+        word: cached.responsePayload.word,
+        senses: cached.responsePayload.senses,
+        sourceUrl: cached.responsePayload.sourceUrl,
+        licenseName: cached.responsePayload.licenseName,
+        licenseUrl: cached.responsePayload.licenseUrl,
+        payload: cached.responsePayload as Record<string, unknown>,
+      }
+    }
+  }
+
+  const ip = await getClientRateLimitKey()
+  const budget = await consumeRateLimit(ip.key, "free-dictionary-api", 45, 3600)
+  if (!budget.allowed) return { status: "unavailable", word: normalizedExpression, reason: "rate_limited" }
+
+  const result = await lookupFreeDictionary(normalizedExpression)
+  if (result.status === "unavailable") return result
+
+  const expiresAt = new Date(now.getTime() + (result.status === "found" ? 30 : 1) * 24 * 60 * 60 * 1000)
+  const responsePayload = result.status === "found"
+    ? {
+        word: result.word,
+        senses: result.senses,
+        sourceUrl: result.sourceUrl,
+        licenseName: result.licenseName,
+        licenseUrl: result.licenseUrl,
+      }
+    : {}
+
+  await db.insert(dictionaryLookupCache).values({
+    normalizedExpression,
+    lookupStatus: result.status,
+    responsePayload,
+    sourceUrl: result.status === "found" ? result.sourceUrl : null,
+    licenseName: result.status === "found" ? result.licenseName : "CC BY-SA 4.0",
+    licenseUrl: result.status === "found" ? result.licenseUrl : "https://creativecommons.org/licenses/by-sa/4.0/",
+    checkedAt: now,
+    expiresAt,
+    updatedAt: now,
+  }).onConflictDoUpdate({
+    target: dictionaryLookupCache.normalizedExpression,
+    set: {
+      lookupStatus: result.status,
+      responsePayload,
+      sourceUrl: result.status === "found" ? result.sourceUrl : null,
+      licenseName: result.status === "found" ? result.licenseName : "CC BY-SA 4.0",
+      licenseUrl: result.status === "found" ? result.licenseUrl : "https://creativecommons.org/licenses/by-sa/4.0/",
+      checkedAt: now,
+      expiresAt,
+      updatedAt: now,
+    },
+  })
+
+  return result
+}
+
+/**
+ * Adds dictionary-backed definitions to the shared candidate pool.
+ * Dictionary presence is not a difficulty rating or editorial approval.
+ */
+export async function lookupAndStageVocabularyCandidate(expressionInput: string, lexicalType: CandidateLexicalType) {
+  await requireParentFamily()
+  if (typeof expressionInput !== "string" || !["word", "idiom", "phrasal_verb", "collocation"].includes(lexicalType)) {
+    throw new Error("영어 표현과 유형을 확인해 주세요.")
+  }
+  const expression = normalizeDictionaryExpression(expressionInput)
+  if (!expression || expression.length > 100) throw new Error("영어 표현은 1~100자로 입력해 주세요.")
+
+  const lookup = await lookupDictionaryWithCache(expression)
+  if (lookup.status !== "found") return lookup
+
+  const rows = lookup.senses.map((sense) => ({
+    expression: lookup.word,
+    normalizedExpression: expression,
+    lexicalType,
+    partOfSpeech: sense.partOfSpeech || "unknown",
+    senseKey: createHash("sha256").update(sense.definition.toLocaleLowerCase("en-US")).digest("hex").slice(0, 24),
+    definitionEn: sense.definition,
+    meaningKo: null,
+    exampleSentence: sense.examples[0] ?? null,
+    difficultyVerified: false,
+    verificationStatus: "dictionary_found",
+    sourceName: "FreeDictionaryAPI.com",
+    sourceEntryUrl: lookup.sourceUrl,
+    licenseName: lookup.licenseName,
+    licenseUrl: lookup.licenseUrl,
+    sourcePayload: {
+      partOfSpeech: sense.partOfSpeech,
+      definition: sense.definition,
+      examples: sense.examples,
+    },
+    dictionaryFetchedAt: new Date(),
+  }))
+
+  const inserted = await db.insert(vocabularyCandidates).values(rows).onConflictDoNothing().returning({ id: vocabularyCandidates.id })
+  revalidatePath("/parent")
+  return {
+    status: "found" as const,
+    word: lookup.word,
+    sensesFound: rows.length,
+    added: inserted.length,
+    alreadyExists: rows.length - inserted.length,
+    sourceUrl: lookup.sourceUrl,
+    licenseName: lookup.licenseName,
+    licenseUrl: lookup.licenseUrl,
+  }
 }
