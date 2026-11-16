@@ -97,12 +97,13 @@ export async function saveParentAiVocabularySettings(input: {
   if (typeof input.enabled !== "boolean" ||
       !Number.isInteger(input.wordsPerDay) || input.wordsPerDay < 0 || input.wordsPerDay > 30 ||
       !Number.isInteger(input.idiomsPerDay) || input.idiomsPerDay < 0 || input.idiomsPerDay > 30 ||
+      (input.enabled && input.wordsPerDay + input.idiomsPerDay < 1) ||
       !LEVELS.has(input.wordLevel) || !LEVELS.has(input.idiomLevel) ||
       !Array.isArray(input.activeDays) || input.activeDays.length > 7 ||
       input.activeDays.some((day) => !Number.isInteger(day) || !DAY_VALUES.has(day)) ||
       new Set(input.activeDays).size !== input.activeDays.length ||
       !["manual", "automatic"].includes(input.publishMode)) {
-    throw new Error("AI 추천 어휘 설정값을 확인해 주세요.")
+    throw new Error(input.enabled && input.wordsPerDay + input.idiomsPerDay < 1 ? "AI 추천 학습을 켤 때는 하루 단어 또는 숙어를 하나 이상 설정해 주세요." : "AI 추천 어휘 설정값을 확인해 주세요.")
   }
 
   const activeDays = [...input.activeDays].sort((a, b) => a - b)
@@ -337,9 +338,6 @@ function shuffleItems<T>(items: T[]): T[] {
   return result
 }
 
-function idiomType(type: string): boolean {
-  return type === "idiom" || type === "phrasal_verb" || type === "collocation"
-}
 
 export async function getParentAiVocabularyBundles(childProfileId?: string) {
   const { family } = await requireParentFamily()
