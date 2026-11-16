@@ -3,6 +3,7 @@ import { HapticButton } from "@/components/haptic-button";
 import { drawBlueOwl } from "@/components/arcade/owl-art";
 import { ARCADE_MONSTER_COLORS, drawArcadeMonster } from "@/components/arcade/monster-art";
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding";
+import { BlueOwlIcon } from "@/components/arcade/owl-icon";
 import { MonsterAvatar } from "@/components/arcade/monster-avatar";
 
 const COLS = 15;
@@ -1048,7 +1049,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 text-sm" title={`남은 목숨: ${lives}개`}>
-            {"🦉".repeat(lives)}
+            {Array.from({ length: lives }, (_, index) => <BlueOwlIcon key={index} size={17} />)}
             {"⚪".repeat(Math.max(0, 3 - lives))}
           </div>
           <span className="text-[11px] font-bold text-muted-foreground">
