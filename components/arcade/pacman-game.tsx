@@ -193,7 +193,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
 
   const ghostsRef = useRef<Ghost[]>([
     { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[4], isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[2], isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
     { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
     { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
   ]);
