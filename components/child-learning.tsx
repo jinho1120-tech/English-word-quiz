@@ -96,7 +96,7 @@ export function ChildLearning({
   const pacmanWords = filteredDayWords.length > 0 ? filteredDayWords : allWords
   const wordDefenseStartWords = filteredDayWords.length > 0 ? filteredDayWords : initialWords.length > 0 ? initialWords : allWords
   const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
-  const [aiBundleCompleted, setAiBundleCompleted] = useState(false)
+  const [aiBundleCompleted, setAiBundleCompleted] = useState(todayAiBundle?.status === "completed")
   const [isPending, startTransition] = useTransition()
 
   const todayAiQuizWords: QuizWord[] = (todayAiBundle?.items ?? [])
