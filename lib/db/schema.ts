@@ -257,6 +257,23 @@ export const childSubjects = pgTable("child_subjects", {
   childSortIdx: index("child_subjects_child_sort_idx").on(table.childProfileId, table.sortOrder),
 }))
 
+export const dictionaryLookupCache = pgTable("dictionary_lookup_cache", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  normalizedExpression: varchar("normalized_expression", { length: 120 }).notNull(),
+  lookupStatus: varchar("lookup_status", { length: 16 }).notNull(),
+  responsePayload: jsonb("response_payload").$type<Record<string, unknown>>().default({}).notNull(),
+  sourceUrl: text("source_url"),
+  licenseName: varchar("license_name", { length: 40 }).default("CC BY-SA 4.0").notNull(),
+  licenseUrl: text("license_url"),
+  checkedAt: timestamp("checked_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  expressionUnique: uniqueIndex("dictionary_lookup_cache_expression_unique").on(table.normalizedExpression),
+  expiresIdx: index("dictionary_lookup_cache_expires_idx").on(table.expiresAt),
+}))
+
 export const vocabularyCandidates = pgTable("vocabulary_candidates", {
   id: uuid("id").defaultRandom().primaryKey(),
   expression: varchar("expression", { length: 120 }).notNull(),
