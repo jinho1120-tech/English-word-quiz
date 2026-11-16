@@ -86,7 +86,7 @@ function shuffle<T>(arr: T[]): T[] {
   return copy
 }
 
-export function WordQuiz({ words, accent, isMonsterMode = false, childName, onSessionComplete }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childName?: string; onSessionComplete?: (quizSessionId: string) => void | Promise<void> }) {
+export function WordQuiz({ words, accent, isMonsterMode = false, childName, onSessionComplete, initialSessionId }: { words: QuizWord[]; accent: string; isMonsterMode?: boolean; childName?: string; onSessionComplete?: (quizSessionId: string) => void | Promise<void>; initialSessionId?: string }) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>("start")
   const [deck, setDeck] = useState<QuizWord[]>([])
@@ -548,7 +548,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName, onSe
     setWordScores([]);
     setAiCoachMsg(null);
     setUserAudioUrl(null);
-    setChildQuizSessionId(crypto.randomUUID());
+    setChildQuizSessionId(initialSessionId || crypto.randomUUID());
     setChildSessionQuestionCount(nextDeck.length);
     setPhase("quiz");
 
@@ -644,7 +644,7 @@ export function WordQuiz({ words, accent, isMonsterMode = false, childName, onSe
     setWordScores([])
     setAiCoachMsg(null)
     setUserAudioUrl(null)
-    setChildQuizSessionId(crypto.randomUUID())
+    setChildQuizSessionId(initialSessionId || crypto.randomUUID())
     setChildSessionQuestionCount(initialDeck.length)
     setChildRewardTitle(null)
     setChildRewardDescription(null)
