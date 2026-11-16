@@ -297,6 +297,7 @@ export const vocabularyCandidates = pgTable("vocabulary_candidates", {
   licenseUrl: text("license_url"),
   sourcePayload: jsonb("source_payload").$type<Record<string, unknown>>().default({}).notNull(),
   dictionaryFetchedAt: timestamp("dictionary_fetched_at"),
+  reviewedByUserId: text("reviewed_by_user_id"),
   verifiedAt: timestamp("verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
