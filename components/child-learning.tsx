@@ -14,12 +14,12 @@ import { BlueOwlIcon } from "@/components/arcade/owl-icon"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame, startChildAiVocabularyQuiz, completeChildAiVocabularyQuiz } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
-type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number; disambiguation: string | null; lexicalType: string }
+type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number; disambiguation: string | null; lexicalType: string; sourceName?: string | null; sourceEntryUrl?: string | null; licenseName?: string | null; licenseUrl?: string | null }
 type TodayAiBundle = {
   id: string
   status: string
   studyDate: string
-  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; sourceName: string | null; sourceEntryUrl: string | null; licenseName: string | null; licenseUrl: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
 } | null
 
 const TTS_VOICES = [
