@@ -45,8 +45,9 @@ export function drawBlueOwl(
       ctx.ellipse(-h * 0.12 + strideA, h * 0.77 - liftA, h * 0.22, h * 0.085, -0.08 - phase * 0.12, 0, Math.PI * 2);
       ctx.ellipse(h * 0.35 + strideB, h * 0.77 - liftB, h * 0.22, h * 0.085, 0.08 + phase * 0.12, 0, Math.PI * 2);
     } else {
-      ctx.ellipse(-h * 0.28 + strideA, h * 0.79 - liftA, h * 0.19, h * 0.075, axis === "back" ? -phase * 0.08 : 0, 0, Math.PI * 2);
-      ctx.ellipse(h * 0.28 + strideB, h * 0.79 - liftB, h * 0.19, h * 0.075, axis === "back" ? phase * 0.08 : 0, 0, Math.PI * 2);
+      const footY = axis === "back" ? h * 0.96 : h * 0.79;
+      ctx.ellipse(-h * 0.28 + strideA, footY - liftA, h * 0.19, h * 0.075, axis === "back" ? -phase * 0.08 : 0, 0, Math.PI * 2);
+      ctx.ellipse(h * 0.28 + strideB, footY - liftB, h * 0.19, h * 0.075, axis === "back" ? phase * 0.08 : 0, 0, Math.PI * 2);
     }
     ctx.fill();
     ctx.stroke();
@@ -59,9 +60,11 @@ export function drawBlueOwl(
       ctx.moveTo(-h * 0.08 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.08 + strideA, h * 0.84 - liftA);
       ctx.moveTo(h * 0.28 + strideB, h * 0.77 - liftB); ctx.lineTo(h * 0.28 + strideB, h * 0.84 - liftB);
     } else {
-      ctx.moveTo(-h * 0.33 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.33 + strideA, h * 0.83 - liftA);
-      ctx.moveTo(-h * 0.25 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.25 + strideA, h * 0.83 - liftA);
-      ctx.moveTo(h * 0.23 + strideB, h * 0.77 - liftB); ctx.lineTo(h * 0.23 + strideB, h * 0.83 - liftB);
+      const toeTop = axis === "back" ? h * 0.94 : h * 0.77;
+      const toeBottom = axis === "back" ? h * 1.0 : h * 0.83;
+      ctx.moveTo(-h * 0.33 + strideA, toeTop - liftA); ctx.lineTo(-h * 0.33 + strideA, toeBottom - liftA);
+      ctx.moveTo(-h * 0.25 + strideA, toeTop - liftA); ctx.lineTo(-h * 0.25 + strideA, toeBottom - liftA);
+      ctx.moveTo(h * 0.23 + strideB, toeTop - liftB); ctx.lineTo(h * 0.23 + strideB, toeBottom - liftB);
     }
     ctx.stroke();
   };
@@ -218,6 +221,8 @@ export function drawBlueOwl(
       ctx.stroke();
     }
   } else {
+    // Back view faces upward: draw feet first so the body naturally hides most of each step.
+    drawFeet("back");
     // Back view: smooth blue head, swept ear tufts, folded wings and central tail.
     outline("#3299f5");
     ctx.beginPath(); ctx.ellipse(0, 0, h * 0.9, h * 0.94, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -252,7 +257,6 @@ export function drawBlueOwl(
 
     outline("#2782e8");
     ctx.beginPath(); ctx.ellipse(0, h * 0.72, h * 0.17, h * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    drawFeet("back");
   }
 
   if (doctorMode) {
