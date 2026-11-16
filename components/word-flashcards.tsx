@@ -215,7 +215,7 @@ export function WordFlashcards({
           </div>
         </>
       )}
-      {cardScope === "today-ai" && bundleCardsComplete && (
+      {cardScope === "today-ai" && bundleCardsComplete && aiBundle?.status !== "completed" && (
         <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
           {quizPromptDismissed ? (
             <HapticButton type="button" onClick={onStartAiQuiz} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">오늘의 확인 퀴즈 시작</HapticButton>
