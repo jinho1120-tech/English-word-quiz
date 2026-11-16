@@ -24,7 +24,7 @@ export function drawBlueOwl(
 
   ctx.save();
   ctx.translate(x, y + bob);
-  if (direction === "left") ctx.scale(-1, 1);
+  if (direction === "right") ctx.scale(-1, 1);
 
   const outline = (fill: string, stroke = "#124b9b", width = line) => {
     ctx.fillStyle = fill;
