@@ -414,9 +414,11 @@ export const aiVocabularyLevelAssessments = pgTable("ai_vocabulary_level_assessm
   assignedLevel: varchar("assigned_level", { length: 2 }).notNull(),
   questionCount: integer("question_count").notNull(),
   correctCount: integer("correct_count").notNull(),
-  confidence: varchar("confidence", { length: 16 }).notNull(),
+  confidence: varchar("confidence", { length: 16 }).default("pending").notNull(),
+  status: varchar("status", { length: 16 }).default("in_progress").notNull(),
   assessmentData: jsonb("assessment_data").$type<Record<string, unknown>>().default({}).notNull(),
-  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   childTypeCompletedIdx: index("ai_vocabulary_assessments_child_type_completed_idx").on(table.childProfileId, table.lexicalType, table.completedAt),
