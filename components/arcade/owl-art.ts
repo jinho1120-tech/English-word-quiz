@@ -12,7 +12,7 @@ export function drawBlueOwl(
   const half = size / 2;
   ctx.save();
   ctx.translate(x, y);
-  if (direction === "right") ctx.scale(-1, 1);
+  if (direction === "left") ctx.scale(-1, 1);
   const bob = Math.sin(frame) * size * 0.025;
   ctx.translate(0, bob);
 
