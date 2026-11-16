@@ -172,13 +172,31 @@ export async function getChildLearningData(date: string) {
     : []
   const favoriteRows = await db.select({ wordEntryId: childWordFavorites.wordEntryId }).from(childWordFavorites)
     .where(eq(childWordFavorites.childProfileId, child.childProfileId))
+  const [aiSettings] = await db.select({
+    enabled: aiVocabularySettings.enabled,
+    wordLevel: aiVocabularySettings.wordLevel,
+    idiomLevel: aiVocabularySettings.idiomLevel,
+  }).from(aiVocabularySettings).where(eq(aiVocabularySettings.childProfileId, child.childProfileId)).limit(1)
+  const recentAssessments = await db.select({
+    lexicalType: aiVocabularyLevelAssessments.lexicalType,
+    assignedLevel: aiVocabularyLevelAssessments.assignedLevel,
+    questionCount: aiVocabularyLevelAssessments.questionCount,
+    correctCount: aiVocabularyLevelAssessments.correctCount,
+    confidence: aiVocabularyLevelAssessments.confidence,
+    completedAt: aiVocabularyLevelAssessments.completedAt,
+  }).from(aiVocabularyLevelAssessments).where(and(
+    eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+    eq(aiVocabularyLevelAssessments.status, "completed"),
+  )).orderBy(desc(aiVocabularyLevelAssessments.completedAt)).limit(8)
+  const latestWordAssessment = recentAssessments.find((item) => item.lexicalType === "word") ?? null
+  const latestIdiomAssessment = recentAssessments.find((item) => item.lexicalType === "idiom") ?? null
   const stats = {
     total: attempts.length,
     correct: correctCount,
     accuracy: attempts.length ? Math.round(correctCount / attempts.length * 100) : 0,
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
-  return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), todayAiBundle: aiBundle ? { ...aiBundle, items: aiBundleItems } : null, stats }
+  return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), todayAiBundle: aiBundle ? { ...aiBundle, items: aiBundleItems } : null, aiVocabularyAssessment: aiSettings?.enabled ? { wordLevel: aiSettings.wordLevel, idiomLevel: aiSettings.idiomLevel, latestWordAssessment, latestIdiomAssessment } : null, stats }
 }
 
 type AssessmentCandidate = {
