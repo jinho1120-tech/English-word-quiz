@@ -115,11 +115,15 @@ export async function getChildLearningData(date: string) {
     if (item.isCorrect) current.correct += 1
     subjectStats.set(item.subjectName, current)
   }
-  const [aiBundle] = await db.select().from(aiVocabularyBundles).where(and(
-    eq(aiVocabularyBundles.childProfileId, child.childProfileId),
-    eq(aiVocabularyBundles.studyDate, date),
-    inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress"]),
-  )).limit(1)
+  let aiBundle: typeof aiVocabularyBundles.$inferSelect | null = null
+  if (date === todayInSeoulForAiVocabulary()) {
+    const [todayBundle] = await db.select().from(aiVocabularyBundles).where(and(
+      eq(aiVocabularyBundles.childProfileId, child.childProfileId),
+      eq(aiVocabularyBundles.studyDate, date),
+      inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress"]),
+    )).limit(1)
+    aiBundle = todayBundle ?? null
+  }
   const aiBundleItems = aiBundle
     ? await db.select().from(aiVocabularyBundleItems)
       .where(eq(aiVocabularyBundleItems.bundleId, aiBundle.id))
