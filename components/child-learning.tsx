@@ -121,7 +121,7 @@ export function ChildLearning({
     try {
       const session = await startChildAiVocabularyQuiz(todayAiBundle.id)
       setAiQuizSessionId(session.quizSessionId)
-      setAiQuizAnsweredWordIds(session.answeredWordIds)
+      setAiQuizAnsweredWordIds(session.answeredWordIds.filter((id): id is number => id !== null))
       if (session.completed) {
         setAiBundleCompleted(true)
         setActiveTab("ai-quiz")
