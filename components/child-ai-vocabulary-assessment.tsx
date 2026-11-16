@@ -55,7 +55,7 @@ function AssessmentResult({ label, result }: { label: string; result: Assessment
         <span className="text-sm font-black">{result.assignedLevel} {LEVEL_LABELS[result.assignedLevel] ?? ""}</span>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
-        {result.correctCount}/{result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"} · {new Date(result.completedAt).toLocaleDateString("ko-KR")}
+        {result.correctCount}/{result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"} · {result.completedAt ? new Date(result.completedAt).toLocaleDateString("ko-KR") : "날짜 정보 없음"}
       </p>
     </div>
   )
