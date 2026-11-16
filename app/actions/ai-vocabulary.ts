@@ -442,6 +442,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
       lexicalType: string
       expression: string
       meaning: string
+      disambiguation: string | null
       example: string | null
     }[] = []
 
