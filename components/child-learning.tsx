@@ -11,10 +11,16 @@ import { PacmanGame } from "@/components/arcade/pacman-game"
 import { WordDefenseGame } from "@/components/arcade/word-defense-game"
 import { OWL_GAME_NAME, OWL_GAME_TITLE } from "@/components/arcade/game-branding"
 import { BlueOwlIcon } from "@/components/arcade/owl-icon"
-import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
+import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame, startChildAiVocabularyQuiz, completeChildAiVocabularyQuiz } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number; disambiguation: string | null; lexicalType: string }
+type TodayAiBundle = {
+  id: string
+  status: string
+  studyDate: string
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+} | null
 
 const TTS_VOICES = [
   { id: "en-US-AnaNeural", label: "어린이 목소리" },
@@ -27,6 +33,7 @@ export function ChildLearning({
   pacmanStatus,
   childName,
   favoriteWordIds,
+  todayAiBundle,
   subjects,
   initialWords,
   allWords,
@@ -37,6 +44,7 @@ export function ChildLearning({
   pacmanStatus: { showPacman: boolean; showWordDefense: boolean; enabled: boolean; dailyPlayLimit: number; unlimitedPlays: boolean; remainingPlays: number; playsUsed: number; dailyQuestionCount: number; minDailyQuestions: number; outstandingWrongCount: number; requireNoWrongWords: boolean; eligible: boolean }
   childName: string
   favoriteWordIds: number[]
+  todayAiBundle: TodayAiBundle
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
   initialWords: Word[]
@@ -78,7 +86,7 @@ export function ChildLearning({
   const ttsCacheRef = useRef(new Map<string, string>())
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
-  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "cards" | "manage">("daily")
+  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "cards" | "manage" | "ai-quiz">("daily")
   const [isPacmanOpen, setIsPacmanOpen] = useState(false)
   const [isWordDefenseOpen, setIsWordDefenseOpen] = useState(false)
   const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
@@ -88,7 +96,41 @@ export function ChildLearning({
   const pacmanWords = filteredDayWords.length > 0 ? filteredDayWords : allWords
   const wordDefenseStartWords = filteredDayWords.length > 0 ? filteredDayWords : initialWords.length > 0 ? initialWords : allWords
   const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
+  const [aiBundleCompleted, setAiBundleCompleted] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const todayAiQuizWords: QuizWord[] = (todayAiBundle?.items ?? [])
+    .filter((item): item is typeof item & { wordEntryId: number } => item.wordEntryId !== null)
+    .map((item) => ({
+      id: item.wordEntryId,
+      word: item.expressionSnapshot,
+      meaning: item.meaningSnapshot,
+      example: item.exampleSnapshot,
+      subject: "AI 추천 어휘",
+    }))
+
+  async function startTodayAiQuiz() {
+    if (!todayAiBundle) return
+    setError("")
+    try {
+      await startChildAiVocabularyQuiz(todayAiBundle.id)
+      setAiBundleCompleted(false)
+      setActiveTab("ai-quiz")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "확인 퀴즈를 시작하지 못했어요.")
+    }
+  }
+
+  async function finishTodayAiQuiz(quizSessionId: string) {
+    if (!todayAiBundle) return
+    try {
+      await completeChildAiVocabularyQuiz(todayAiBundle.id, quizSessionId)
+      setAiBundleCompleted(true)
+      router.refresh()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "오늘의 학습 완료를 저장하지 못했어요.")
+    }
+  }
 
   async function playPronunciation(targetText: string) {
     const cleanText = targetText.replace(/\s*\/\s*/g, " ").trim()
@@ -291,7 +333,7 @@ export function ChildLearning({
         </div>}
       </section>
 
-      {activeTab === "cards" && <WordFlashcards words={allWords} subjects={subjects} initialFavoriteWordIds={favoriteWordIds} onSpeak={playPronunciation} />}
+      {activeTab === "cards" && <WordFlashcards words={allWords} subjects={subjects} initialFavoriteWordIds={favoriteWordIds} onSpeak={playPronunciation} aiBundle={todayAiBundle} onStartAiQuiz={startTodayAiQuiz} />}
       {activeTab === "manage" && <div className="space-y-6 lg:col-span-2">
       <section className="space-y-4 rounded-2xl border border-border p-4">
         <h2 className="font-bold">단어 추가</h2>
@@ -366,6 +408,28 @@ export function ChildLearning({
       </section>
       </div>}
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {activeTab === "ai-quiz" && todayAiBundle && (
+        <section className="min-w-0 space-y-3 lg:col-span-2">
+          {aiBundleCompleted ? (
+            <div className="rounded-2xl border border-border bg-card p-5 text-center">
+              <p className="text-lg font-black">오늘의 AI 추천 학습을 완료했어요!</p>
+              <p className="mt-1 text-sm text-muted-foreground">단어 카드와 확인 퀴즈까지 모두 마쳤어요.</p>
+              <HapticButton type="button" onClick={() => setActiveTab("cards")} className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">단어 카드로 돌아가기</HapticButton>
+            </div>
+          ) : todayAiQuizWords.length > 0 ? (
+            <WordQuiz
+              key={"ai-vocabulary-" + todayAiBundle.id}
+              words={todayAiQuizWords}
+              accent="var(--child-accent, #2563eb)"
+              childName={childName}
+              onSessionComplete={finishTodayAiQuiz}
+            />
+          ) : (
+            <p className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">확인 퀴즈를 준비할 단어가 없습니다. 부모님께 문의해 주세요.</p>
+          )}
+        </section>
+      )}
+
       {(activeTab === "daily" || activeTab === "wrong") && (
         <section className="min-w-0 space-y-2 sm:space-y-3 lg:col-start-2 lg:row-start-1">
           <WordQuiz
