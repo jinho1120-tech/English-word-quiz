@@ -119,20 +119,35 @@ export async function saveParentAiVocabularySettings(input: {
   })
 
   if (input.enabled) {
-    const [existing] = await db.select({ id: childSubjects.id }).from(childSubjects)
-      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.name, "AI 추천 어휘")))
+    const [aiSubject] = await db.select({ id: childSubjects.id }).from(childSubjects)
+      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true)))
       .limit(1)
-    if (!existing) {
-      const currentSubjects = await db.select({ sortOrder: childSubjects.sortOrder }).from(childSubjects)
+
+    if (aiSubject) {
+      await db.update(childSubjects).set({ isArchived: false, updatedAt: new Date() })
+        .where(and(eq(childSubjects.id, aiSubject.id), eq(childSubjects.childProfileId, child.id)))
+    } else {
+      const currentSubjects = await db.select({ name: childSubjects.name, sortOrder: childSubjects.sortOrder }).from(childSubjects)
         .where(eq(childSubjects.childProfileId, child.id))
+      const usedNames = new Set(currentSubjects.map((item) => item.name))
+      let subjectName = "AI 추천 어휘"
+      let suffix = 1
+      while (usedNames.has(subjectName)) {
+        suffix += 1
+        subjectName = `AI 추천 어휘 (추천 ${suffix})`
+      }
       const sortOrder = currentSubjects.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
       await db.insert(childSubjects).values({
         childProfileId: child.id,
-        name: "AI 추천 어휘",
+        name: subjectName,
         sortOrder,
         calendarColor: "#0D9488",
-      }).onConflictDoNothing()
+        isAiVocabulary: true,
+      })
     }
+  } else {
+    await db.update(childSubjects).set({ isArchived: true, updatedAt: new Date() })
+      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true), eq(childSubjects.isArchived, false)))
   }
 
   revalidatePath("/parent")
