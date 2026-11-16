@@ -65,7 +65,10 @@ export function WordFlashcards({
       lexicalType: item.lexicalType,
       aiBundleItemId: item.id,
     })), [aiBundle])
-  const sourceWords = cardScope === "today-ai" ? todayAiWords : words
+  const visibleWordbook = useMemo(() => words.filter((item) =>
+    !item.subjectId || subjects.some((subject) => subject.id === item.subjectId),
+  ), [words, subjects])
+  const sourceWords = cardScope === "today-ai" ? todayAiWords : visibleWordbook
   const filteredWords = useMemo(() => sourceWords.filter((item) => {
     const matchesSubject = cardScope === "today-ai" || subjectFilter === "__all__" ||
       item.subjectId === subjectFilter ||
