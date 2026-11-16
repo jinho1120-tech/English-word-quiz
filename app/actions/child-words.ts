@@ -177,8 +177,7 @@ export async function getChildLearningData(date: string) {
     wordLevel: aiVocabularySettings.wordLevel,
     idiomLevel: aiVocabularySettings.idiomLevel,
   }).from(aiVocabularySettings).where(eq(aiVocabularySettings.childProfileId, child.childProfileId)).limit(1)
-  const recentAssessments = await db.select({
-    lexicalType: aiVocabularyLevelAssessments.lexicalType,
+  const [latestWordAssessment] = await db.select({
     assignedLevel: aiVocabularyLevelAssessments.assignedLevel,
     questionCount: aiVocabularyLevelAssessments.questionCount,
     correctCount: aiVocabularyLevelAssessments.correctCount,
@@ -186,10 +185,20 @@ export async function getChildLearningData(date: string) {
     completedAt: aiVocabularyLevelAssessments.completedAt,
   }).from(aiVocabularyLevelAssessments).where(and(
     eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+    eq(aiVocabularyLevelAssessments.lexicalType, "word"),
     eq(aiVocabularyLevelAssessments.status, "completed"),
-  )).orderBy(desc(aiVocabularyLevelAssessments.completedAt)).limit(8)
-  const latestWordAssessment = recentAssessments.find((item) => item.lexicalType === "word") ?? null
-  const latestIdiomAssessment = recentAssessments.find((item) => item.lexicalType === "idiom") ?? null
+  )).orderBy(desc(aiVocabularyLevelAssessments.completedAt)).limit(1)
+  const [latestIdiomAssessment] = await db.select({
+    assignedLevel: aiVocabularyLevelAssessments.assignedLevel,
+    questionCount: aiVocabularyLevelAssessments.questionCount,
+    correctCount: aiVocabularyLevelAssessments.correctCount,
+    confidence: aiVocabularyLevelAssessments.confidence,
+    completedAt: aiVocabularyLevelAssessments.completedAt,
+  }).from(aiVocabularyLevelAssessments).where(and(
+    eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+    eq(aiVocabularyLevelAssessments.lexicalType, "idiom"),
+    eq(aiVocabularyLevelAssessments.status, "completed"),
+  )).orderBy(desc(aiVocabularyLevelAssessments.completedAt)).limit(1)
   const stats = {
     total: attempts.length,
     correct: correctCount,
