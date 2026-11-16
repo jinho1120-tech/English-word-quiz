@@ -168,16 +168,24 @@ export function WordFlashcards({
       {viewMode === "list" && filteredWords.length > 0 ? (
         <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
           {filteredWords.map((item, index) => (
-            <button key={item.id} type="button" onClick={() => { setCurrentIndex(index); setIsFlipped(false); setViewMode("card") }} className="w-full rounded-xl border border-border bg-background p-3 text-left transition-colors hover:bg-muted/50">
-              <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-bold">{item.word}</span>
-                  <span className="mt-0.5 block text-sm text-muted-foreground">{item.meaning}{item.disambiguation ? " (" + item.disambiguation + ")" : ""}</span>
-                  {item.example && <span className="mt-1 block text-xs text-muted-foreground">{item.example}</span>}
+            <div key={item.id} className="space-y-1.5">
+              <button type="button" onClick={() => { setCurrentIndex(index); setIsFlipped(false); setViewMode("card") }} className="w-full rounded-xl border border-border bg-background p-3 text-left transition-colors hover:bg-muted/50">
+                <span className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-bold">{item.word}</span>
+                    <span className="mt-0.5 block text-sm text-muted-foreground">{item.meaning}{item.disambiguation ? " (" + item.disambiguation + ")" : ""}</span>
+                    {item.example && <span className="mt-1 block text-xs text-muted-foreground">{item.example}</span>}
+                  </span>
+                  {favoriteIds.has(item.id) && <Star className="size-4 shrink-0 fill-amber-500 text-amber-500" aria-label="즐겨찾기" />}
                 </span>
-                {favoriteIds.has(item.id) && <Star className="size-4 shrink-0 fill-amber-500 text-amber-500" aria-label="즐겨찾기" />}
-              </span>
-            </button>
+              </button>
+              {item.sourceName && item.sourceEntryUrl && (
+                <p className="px-2 text-[11px] leading-relaxed text-muted-foreground">
+                  출처: {item.sourceName} · <a href={item.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 Wiktionary</a>{item.licenseName ? " · " + item.licenseName : ""}
+                  {item.licenseUrl && <> · <a href={item.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">라이선스</a></>}
+                </p>
+              )}
+            </div>
           ))}
         </div>
       ) : !current ? (
@@ -213,6 +221,12 @@ export function WordFlashcards({
               </>
             )}
           </button>
+          {current.sourceName && current.sourceEntryUrl && (
+            <p className="px-1 text-center text-[11px] leading-relaxed text-muted-foreground">
+              출처: {current.sourceName} · <a href={current.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 Wiktionary</a>{current.licenseName ? " · " + current.licenseName : ""}
+              {current.licenseUrl && <> · <a href={current.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">라이선스</a></>}
+            </p>
+          )}
           <div className="flex items-center justify-between gap-2">
             <HapticButton type="button" onClick={() => move(-1)} className="inline-flex items-center gap-1 rounded-xl border border-border px-3 py-2.5 text-sm font-semibold"><ChevronLeft className="size-4" /> 이전</HapticButton>
             <div className="flex items-center gap-2">
