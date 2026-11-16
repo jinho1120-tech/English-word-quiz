@@ -161,6 +161,22 @@ export function drawBlueOwl(
     ctx.moveTo(h * 0.62, -h * 0.62);
     ctx.quadraticCurveTo(h * 1.12, -h * 1.1, h * 0.38, -h * 0.83);
     ctx.quadraticCurveTo(h * 0.18, -h * 0.7, h * 0.62, -h * 0.62);
+    // Draw wings behind the white belly so their blue edges remain visible at the sides without covering the chest.
+    outline("#3999f2");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.69, -h * 0.06);
+    ctx.quadraticCurveTo(-h * 0.98, -h * 0.18, -h * 0.94, h * 0.47);
+    ctx.quadraticCurveTo(-h * 0.9, h * 0.79, -h * 0.77, h * 0.7);
+    ctx.quadraticCurveTo(-h * 0.65, h * 0.82, -h * 0.61, h * 0.62);
+    ctx.quadraticCurveTo(-h * 0.53, h * 0.78, -h * 0.52, h * 0.56);
+    ctx.lineTo(-h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.69, -h * 0.06);
+    ctx.quadraticCurveTo(h * 0.98, -h * 0.18, h * 0.94, h * 0.47);
+    ctx.quadraticCurveTo(h * 0.9, h * 0.79, h * 0.77, h * 0.7);
+    ctx.quadraticCurveTo(h * 0.65, h * 0.82, h * 0.61, h * 0.62);
+    ctx.quadraticCurveTo(h * 0.53, h * 0.78, h * 0.52, h * 0.56);
+    ctx.lineTo(h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.closePath(); ctx.fill(); ctx.stroke();
 
     ctx.fillStyle = "#fff";
@@ -190,23 +206,6 @@ export function drawBlueOwl(
       ctx.beginPath(); ctx.moveTo(0, -h * 0.09); ctx.quadraticCurveTo(h * 0.16, h * 0.04, 0, h * 0.15); ctx.quadraticCurveTo(-h * 0.16, h * 0.04, 0, -h * 0.09); ctx.fill(); ctx.restore();
     }
 
-    // Keep the wings tucked along the outer sides so they frame, rather than cover,
-    // the white face and belly (as in the supplied front-view reference).
-    outline("#3999f2");
-    ctx.beginPath();
-    ctx.moveTo(-h * 0.69, -h * 0.06);
-    ctx.quadraticCurveTo(-h * 0.98, -h * 0.18, -h * 0.94, h * 0.47);
-    ctx.quadraticCurveTo(-h * 0.9, h * 0.79, -h * 0.77, h * 0.7);
-    ctx.quadraticCurveTo(-h * 0.65, h * 0.82, -h * 0.61, h * 0.62);
-    ctx.quadraticCurveTo(-h * 0.53, h * 0.78, -h * 0.52, h * 0.56);
-    ctx.lineTo(-h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(h * 0.69, -h * 0.06);
-    ctx.quadraticCurveTo(h * 0.98, -h * 0.18, h * 0.94, h * 0.47);
-    ctx.quadraticCurveTo(h * 0.9, h * 0.79, h * 0.77, h * 0.7);
-    ctx.quadraticCurveTo(h * 0.65, h * 0.82, h * 0.61, h * 0.62);
-    ctx.quadraticCurveTo(h * 0.53, h * 0.78, h * 0.52, h * 0.56);
-    ctx.lineTo(h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
     drawFeet("front");
 
     if (doctorMode) {
