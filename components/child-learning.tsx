@@ -50,8 +50,8 @@ export function ChildLearning({
   aiVocabularyAssessment: {
     wordLevel: string
     idiomLevel: string
-    latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
-    latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
+    latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date | null } | null
+    latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date | null } | null
   } | null
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
