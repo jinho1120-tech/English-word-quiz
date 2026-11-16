@@ -716,7 +716,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
 
               if (doctorModeActiveRef.current) {
-                // 박사 모드인 동안 유령은 보카맨에게서 가장 멀어지는 길을 선택한다.
+                // 박사 모드인 동안 유령은 부엉이에게서 가장 멀어지는 길을 선택한다.
                 validDirs.sort(
                   (a, b) =>
                     Math.hypot(gTileX + b.x - pac.x, gTileY + b.y - pac.y) -
@@ -987,11 +987,11 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 text-sm" title={`남은 목숨: ${lives}개`}>
-            {"🟡".repeat(lives)}
+            {"🦉".repeat(lives)}
             {"⚪".repeat(Math.max(0, 3 - lives))}
           </div>
           <span className="text-[11px] font-bold text-muted-foreground">
-            도트: <b className="text-primary">{dotsLeft}</b>
+            별: <b className="text-primary">{dotsLeft}</b>
           </span>
         </div>
       </div>
@@ -1025,7 +1025,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         <p className="mt-2 text-[11px] text-muted-foreground">기울기 조작은 센서가 있는 휴대폰에서 사용할 수 있어요. PC에서는 키보드 방향키를 사용하세요.</p>
       </section>}
 
-      {/* 보카맨 캔버스 미로 */}
+      {/* 부엉이 미로 */}
       <div className={isFullscreen ? "relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 p-1.5 ring-2 ring-white/20 shadow-2xl" : "relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md"} style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
         <canvas
           ref={canvasRef}
@@ -1081,18 +1081,22 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="relative my-5 flex h-40 w-40 items-center justify-center">
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
-            <div className="relative h-28 w-28 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="박사 부엉이 얼굴">
-                <ellipse cx="39" cy="43" rx="5" ry="9" fill="#713f12" />
-                <ellipse cx="73" cy="43" rx="5" ry="9" fill="#713f12" />
-                <path d="M31 68 Q56 91 81 68" fill="none" stroke="#713f12" strokeWidth="6" strokeLinecap="round" />
-                {doctorChallenge.index >= 2 && <g fill="none" stroke="#172033" strokeWidth="5">
-                  <rect x="13" y="39" width="38" height="29" rx="12" />
-                  <rect x="61" y="39" width="38" height="29" rx="12" />
-                  <path d="M51 52 H61" />
-                </g>}
+            <div className="relative h-28 w-28 rounded-[42%] bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.45)]">
+              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="학사모와 안경을 쓴 박사 부엉이">
+                <path d="M14 36 L8 8 Q28 18 39 28 Q56 16 73 28 Q84 18 104 8 L98 38 Q110 84 56 104 Q2 84 14 36Z" fill="#2563eb"/>
+                <ellipse cx="56" cy="59" rx="39" ry="37" fill="#eff6ff"/>
+                <ellipse cx="39" cy="51" rx="5" ry="8" fill="#172554"/>
+                <ellipse cx="73" cy="51" rx="5" ry="8" fill="#172554"/>
+                <path d="M49 64 L63 64 L56 76Z" fill="#f59e0b"/>
+                <g fill="none" stroke="#172033" strokeWidth="4">
+                  <rect x="18" y="39" width="36" height="27" rx="11"/>
+                  <rect x="58" y="39" width="36" height="27" rx="11"/>
+                  <path d="M54 51 H58"/>
+                </g>
+                <path d="M12 22 L56 2 L100 22 L56 40Z" fill="#172033"/>
+                <path d="M30 27 H82 V35 Q56 45 30 35Z" fill="#334155"/>
+                <path d="M90 23 L96 49" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round"/>
               </svg>
-              {doctorChallenge.index >= 3 && <div className="absolute -top-5 left-1/2 z-20 -translate-x-1/2 text-5xl drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">🎓</div>}
             </div>
           </div>
           <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
@@ -1100,8 +1104,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             {doctorChallenge.index < 3 ? <>
               <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
               <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
-              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
-            </> : <><p className="text-xl font-black text-amber-200">박사 보카맨 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
+              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 부엉이 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+            </> : <><p className="text-xl font-black text-amber-200">박사 부엉이 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
           <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
         </div>
