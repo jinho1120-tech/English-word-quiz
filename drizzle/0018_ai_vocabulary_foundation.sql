@@ -1,3 +1,6 @@
+ALTER TABLE "child_subjects"
+  ADD COLUMN "is_ai_vocabulary" boolean DEFAULT false NOT NULL;
+
 CREATE TABLE "vocabulary_candidates" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "expression" varchar(120) NOT NULL,
