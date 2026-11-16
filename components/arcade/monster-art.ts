@@ -5,7 +5,6 @@ export const ARCADE_MONSTER_COLORS = [
   "#38bdf8",
   "#22c55e",
   "#f97316",
-  "#ec4899",
 ] as const;
 
 export function drawArcadeMonster(
