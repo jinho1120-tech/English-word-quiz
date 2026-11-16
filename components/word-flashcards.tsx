@@ -21,7 +21,7 @@ type FlashcardSubject = { id: string; name: string; color: string }
 type AiBundle = {
   id: string
   status: string
-  items: { id: string; wordEntryId: number | null; expressionSnapshot: string; meaningSnapshot: string; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
 }
 
 export function WordFlashcards({
@@ -61,7 +61,7 @@ export function WordFlashcards({
       word: item.expressionSnapshot,
       meaning: item.meaningSnapshot,
       example: item.exampleSnapshot,
-      lexicalType: "word",
+      lexicalType: item.lexicalType,
       aiBundleItemId: item.id,
     })), [aiBundle])
   const sourceWords = cardScope === "today-ai" ? todayAiWords : words
