@@ -87,16 +87,15 @@ export function drawBlueOwl(
     ctx.quadraticCurveTo(h * 0.02, -h * 0.58, -h * 0.28, -h * 0.68);
     ctx.closePath(); ctx.fill(); ctx.stroke();
 
-    // Large white face patch with the characteristic inward notch near the beak.
+    // Compact white facial mask: keep most of the side silhouette blue, as in the reference.
     ctx.fillStyle = "#fff";
     ctx.beginPath();
-    ctx.moveTo(-h * 0.88, -h * 0.47);
-    ctx.quadraticCurveTo(-h * 0.58, -h * 0.9, -h * 0.04, -h * 0.68);
-    ctx.quadraticCurveTo(h * 0.55, -h * 0.66, h * 0.67, -h * 0.1);
-    ctx.quadraticCurveTo(h * 0.72, h * 0.47, h * 0.2, h * 0.78);
-    ctx.lineTo(-h * 0.42, h * 0.74);
-    ctx.quadraticCurveTo(-h * 0.08, h * 0.55, -h * 0.3, h * 0.31);
-    ctx.quadraticCurveTo(-h * 0.64, h * 0.13, -h * 0.88, -h * 0.47);
+    ctx.moveTo(-h * 0.91, -h * 0.43);
+    ctx.quadraticCurveTo(-h * 0.72, -h * 0.78, -h * 0.42, -h * 0.7);
+    ctx.quadraticCurveTo(-h * 0.08, -h * 0.62, h * 0.12, -h * 0.25);
+    ctx.quadraticCurveTo(h * 0.22, h * 0.16, -h * 0.04, h * 0.48);
+    ctx.quadraticCurveTo(-h * 0.28, h * 0.67, -h * 0.58, h * 0.52);
+    ctx.quadraticCurveTo(-h * 0.88, h * 0.24, -h * 0.91, -h * 0.43);
     ctx.fill();
 
     // One large glossy eye.
@@ -143,9 +142,9 @@ export function drawBlueOwl(
     drawFeet("side");
     if (doctorMode) {
       // Side-view round lens and temple arm.
-      ctx.strokeStyle = "#172554"; ctx.lineWidth = Math.max(0.9, s * 0.045);
-      ctx.beginPath(); ctx.ellipse(-h * 0.58, -h * 0.13, h * 0.2, h * 0.27, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-h * 0.4, -h * 0.12); ctx.lineTo(-h * 0.17, -h * 0.1); ctx.stroke();
+      ctx.strokeStyle = "#172554"; ctx.lineWidth = Math.max(1.4, s * 0.075);
+      ctx.beginPath(); ctx.ellipse(-h * 0.58, -h * 0.13, h * 0.29, h * 0.34, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-h * 0.31, -h * 0.12); ctx.lineTo(-h * 0.12, -h * 0.1); ctx.stroke();
     }
   } else if (direction === "down") {
     // Front view: twin feather ears, round owl face, belly feathers and both wings.
@@ -211,8 +210,8 @@ export function drawBlueOwl(
     if (doctorMode) {
       ctx.strokeStyle = "#172554"; ctx.lineWidth = Math.max(1, s * 0.045);
       ctx.beginPath();
-      ctx.arc(-h * 0.3, -h * 0.08, h * 0.23, 0, Math.PI * 2);
-      ctx.arc(h * 0.3, -h * 0.08, h * 0.23, 0, Math.PI * 2);
+      ctx.arc(-h * 0.3, -h * 0.08, h * 0.29, 0, Math.PI * 2);
+      ctx.arc(h * 0.3, -h * 0.08, h * 0.29, 0, Math.PI * 2);
       ctx.moveTo(-h * 0.07, -h * 0.08); ctx.lineTo(h * 0.07, -h * 0.08);
       ctx.stroke();
     }
