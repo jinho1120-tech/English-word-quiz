@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { Check, Languages, ShieldCheck, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
-import { reviewVocabularyCandidate, type } from "@/app/actions/ai-vocabulary"
+import { reviewVocabularyCandidate } from "@/app/actions/ai-vocabulary"
 
 type Candidate = {
   id: string
@@ -136,6 +136,7 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
 export function VocabularyCandidateReview({ candidates }: { candidates: Candidate[] }) {
   const [items, setItems] = useState(candidates)
   const [showAll, setShowAll] = useState(false)
+  useEffect(() => setItems(candidates), [candidates])
   if (!items.length) return (
     <section className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-lg font-bold">어휘 후보 검토</h2>
