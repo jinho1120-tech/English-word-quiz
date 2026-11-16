@@ -6,7 +6,7 @@ import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { aiVocabularyBundleItems, aiVocabularyBundles, aiVocabularySettings, childProfiles, childSubjects, families, familyMembers, vocabularyCandidates, wordEntries } from "@/lib/db/schema"
+import { aiVocabularyBundleItems, aiVocabularyBundles, aiVocabularySettings, aiVocabularyLevelAssessments, childProfiles, childSubjects, families, familyMembers, vocabularyCandidates, wordEntries } from "@/lib/db/schema"
 import { normalizeDictionaryExpression } from "@/lib/free-dictionary-api"
 import { lookupFreeDictionaryCached } from "@/lib/free-dictionary-cache"
 import { generateAiVocabularyBundleForChild } from "@/lib/ai-vocabulary-engine"
@@ -71,6 +71,19 @@ export async function getParentAiVocabularySettings() {
     .where(eq(childProfiles.familyId, family.id))
     .orderBy(asc(childProfiles.createdAt))
 
+  const assessments = await db.select({
+    childProfileId: aiVocabularyLevelAssessments.childProfileId,
+    lexicalType: aiVocabularyLevelAssessments.lexicalType,
+    assignedLevel: aiVocabularyLevelAssessments.assignedLevel,
+    questionCount: aiVocabularyLevelAssessments.questionCount,
+    correctCount: aiVocabularyLevelAssessments.correctCount,
+    confidence: aiVocabularyLevelAssessments.confidence,
+    completedAt: aiVocabularyLevelAssessments.completedAt,
+  }).from(aiVocabularyLevelAssessments)
+    .innerJoin(childProfiles, eq(aiVocabularyLevelAssessments.childProfileId, childProfiles.id))
+    .where(and(eq(childProfiles.familyId, family.id), eq(aiVocabularyLevelAssessments.status, "completed")))
+    .orderBy(desc(aiVocabularyLevelAssessments.completedAt))
+
   return rows.map((row) => ({
     childProfileId: row.childProfileId,
     childName: row.childName,
@@ -81,6 +94,8 @@ export async function getParentAiVocabularySettings() {
     idiomLevel: row.idiomLevel ?? "L1",
     activeDays: row.activeDays ?? [0, 1, 2, 3, 4, 5, 6],
     publishMode: row.publishMode === "automatic" ? "automatic" as const : "manual" as const,
+    latestWordAssessment: assessments.find((item) => item.childProfileId === row.childProfileId && item.lexicalType === "word") ?? null,
+    latestIdiomAssessment: assessments.find((item) => item.childProfileId === row.childProfileId && item.lexicalType === "idiom") ?? null,
   }))
 }
 
