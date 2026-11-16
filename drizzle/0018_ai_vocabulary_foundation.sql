@@ -142,9 +142,11 @@ CREATE TABLE "ai_vocabulary_level_assessments" (
   "assigned_level" varchar(2) NOT NULL,
   "question_count" integer NOT NULL,
   "correct_count" integer NOT NULL,
-  "confidence" varchar(16) NOT NULL,
+  "confidence" varchar(16) DEFAULT 'pending' NOT NULL,
+  "status" varchar(16) DEFAULT 'in_progress' NOT NULL,
   "assessment_data" jsonb DEFAULT '{}'::jsonb NOT NULL,
-  "completed_at" timestamp DEFAULT now() NOT NULL,
+  "started_at" timestamp DEFAULT now() NOT NULL,
+  "completed_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
 CREATE INDEX "ai_vocabulary_assessments_child_type_completed_idx"
