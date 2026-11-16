@@ -494,7 +494,9 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     const expected = doctorChallenge.words[doctorChallenge.index]?.word ?? "";
     const normalized = value.trim().toLocaleLowerCase().replace(/\s+/g, "");
     const target = expected.toLocaleLowerCase().replace(/\s+/g, "");
-    if (!target.startsWith(normalized)) {
+    // 입력 도중에는 오타를 수정할 수 있도록 즉시 실패 처리하지 않는다.
+    // 정답과 같은 길이까지 입력했는데도 일치하지 않으면 오답으로 종료한다.
+    if (normalized.length >= target.length && normalized !== target) {
       doctorChallengeActiveRef.current = false;
       setDoctorChallenge(null);
       setDefenseTyped("");
@@ -1215,7 +1217,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             {doctorChallenge.index < 3 ? <>
               <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
               <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
-              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 부엉이 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+              <input autoFocus value={defenseTyped} maxLength={doctorChallenge.words[doctorChallenge.index]?.word.length ?? 100} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 부엉이 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
             </> : <><p className="text-xl font-black text-amber-200">박사 부엉이 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
           <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 책 아이템의 기회는 사라집니다.</p>
