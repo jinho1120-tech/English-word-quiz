@@ -120,7 +120,7 @@ export async function getChildLearningData(date: string) {
     const [todayBundle] = await db.select().from(aiVocabularyBundles).where(and(
       eq(aiVocabularyBundles.childProfileId, child.childProfileId),
       eq(aiVocabularyBundles.studyDate, date),
-      inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress"]),
+      inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress", "completed"]),
     )).limit(1)
     aiBundle = todayBundle ?? null
   }
