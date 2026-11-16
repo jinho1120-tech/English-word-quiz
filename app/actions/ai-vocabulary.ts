@@ -240,6 +240,7 @@ export async function getParentVocabularyCandidateQueue() {
     lexicalType: vocabularyCandidates.lexicalType,
     partOfSpeech: vocabularyCandidates.partOfSpeech,
     definitionEn: vocabularyCandidates.definitionEn,
+    disambiguation: vocabularyCandidates.disambiguation,
     exampleSentence: vocabularyCandidates.exampleSentence,
     sourceName: vocabularyCandidates.sourceName,
     sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
@@ -257,6 +258,7 @@ export async function reviewVocabularyCandidate(input: {
   candidateId: string
   decision: "approve" | "reject"
   meaningKo?: string
+  disambiguation?: string
   childLevel?: string
   cefrLevel?: string
   domain?: string
