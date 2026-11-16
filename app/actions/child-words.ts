@@ -1,11 +1,11 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, inArray, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding"
-import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions, aiVocabularyBundles, aiVocabularyBundleItems } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -115,6 +115,16 @@ export async function getChildLearningData(date: string) {
     if (item.isCorrect) current.correct += 1
     subjectStats.set(item.subjectName, current)
   }
+  const [aiBundle] = await db.select().from(aiVocabularyBundles).where(and(
+    eq(aiVocabularyBundles.childProfileId, child.childProfileId),
+    eq(aiVocabularyBundles.studyDate, date),
+    inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress"]),
+  )).limit(1)
+  const aiBundleItems = aiBundle
+    ? await db.select().from(aiVocabularyBundleItems)
+      .where(eq(aiVocabularyBundleItems.bundleId, aiBundle.id))
+      .orderBy(asc(aiVocabularyBundleItems.sortOrder))
+    : []
   const favoriteRows = await db.select({ wordEntryId: childWordFavorites.wordEntryId }).from(childWordFavorites)
     .where(eq(childWordFavorites.childProfileId, child.childProfileId))
   const stats = {
@@ -123,7 +133,7 @@ export async function getChildLearningData(date: string) {
     accuracy: attempts.length ? Math.round(correctCount / attempts.length * 100) : 0,
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
-  return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), stats }
+  return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), todayAiBundle: aiBundle ? { ...aiBundle, items: aiBundleItems } : null, stats }
 }
 
 const CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
@@ -809,4 +819,119 @@ export async function toggleChildWordFavorite(wordEntryId: number) {
   }).onConflictDoNothing()
   revalidatePath("/child")
   return { isFavorite: true }
+}
+
+
+function todayInSeoulForAiVocabulary(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")}`
+}
+
+export async function recordChildAiVocabularyCardView(
+  bundleId: string,
+  itemId: string,
+  side: "front" | "back",
+) {
+  const child = await requireChild()
+  if (!/^[0-9a-f-]{36}$/i.test(bundleId) || !/^[0-9a-f-]{36}$/i.test(itemId) ||
+      !["front", "back"].includes(side)) {
+    throw new Error("카드 학습 정보가 올바르지 않습니다.")
+  }
+  const [bundle] = await db.select().from(aiVocabularyBundles).where(and(
+    eq(aiVocabularyBundles.id, bundleId),
+    eq(aiVocabularyBundles.childProfileId, child.childProfileId),
+    eq(aiVocabularyBundles.studyDate, todayInSeoulForAiVocabulary()),
+    inArray(aiVocabularyBundles.status, ["published", "cards_completed", "quiz_in_progress"]),
+  )).limit(1)
+  if (!bundle) throw new Error("오늘 학습할 AI 추천 묶음을 찾을 수 없습니다.")
+
+  const update = side === "front"
+    ? { frontViewedAt: new Date() }
+    : { backViewedAt: new Date() }
+  const [item] = await db.update(aiVocabularyBundleItems).set(update).where(and(
+    eq(aiVocabularyBundleItems.id, itemId),
+    eq(aiVocabularyBundleItems.bundleId, bundle.id),
+  )).returning({ id: aiVocabularyBundleItems.id })
+  if (!item) throw new Error("오늘의 추천 카드를 찾을 수 없습니다.")
+
+  const items = await db.select({
+    frontViewedAt: aiVocabularyBundleItems.frontViewedAt,
+    backViewedAt: aiVocabularyBundleItems.backViewedAt,
+  }).from(aiVocabularyBundleItems).where(eq(aiVocabularyBundleItems.bundleId, bundle.id))
+  const cardsCompleted = items.length > 0 && items.every((item) => item.frontViewedAt && item.backViewedAt)
+  if (cardsCompleted && bundle.status === "published") {
+    await db.update(aiVocabularyBundles).set({ status: "cards_completed", updatedAt: new Date() })
+      .where(and(eq(aiVocabularyBundles.id, bundle.id), eq(aiVocabularyBundles.status, "published")))
+  }
+  revalidatePath("/child")
+  return { cardsCompleted }
+}
+
+export async function startChildAiVocabularyQuiz(bundleId: string) {
+  const child = await requireChild()
+  if (!/^[0-9a-f-]{36}$/i.test(bundleId)) throw new Error("오늘의 추천 묶음 정보가 올바르지 않습니다.")
+  const [bundle] = await db.select().from(aiVocabularyBundles).where(and(
+    eq(aiVocabularyBundles.id, bundleId),
+    eq(aiVocabularyBundles.childProfileId, child.childProfileId),
+    eq(aiVocabularyBundles.studyDate, todayInSeoulForAiVocabulary()),
+    inArray(aiVocabularyBundles.status, ["cards_completed", "quiz_in_progress"]),
+  )).limit(1)
+  if (!bundle) throw new Error("모든 오늘의 단어 카드를 확인한 다음 퀴즈를 시작해 주세요.")
+
+  const items = await db.select().from(aiVocabularyBundleItems)
+    .where(eq(aiVocabularyBundleItems.bundleId, bundle.id))
+  if (!items.length || items.some((item) => !item.frontViewedAt || !item.backViewedAt || !item.wordEntryId)) {
+    throw new Error("아직 확인하지 않은 카드가 있어요. 모든 카드의 앞면과 뒷면을 확인해 주세요.")
+  }
+
+  await db.update(aiVocabularyBundles).set({ status: "quiz_in_progress", updatedAt: new Date() })
+    .where(eq(aiVocabularyBundles.id, bundle.id))
+  return { success: true, wordIds: items.map((item) => item.wordEntryId!) }
+}
+
+export async function completeChildAiVocabularyQuiz(bundleId: string, quizSessionId: string) {
+  const child = await requireChild()
+  if (!/^[0-9a-f-]{36}$/i.test(bundleId) || !/^[0-9a-f-]{36}$/i.test(quizSessionId)) {
+    throw new Error("오늘의 확인 퀴즈 정보가 올바르지 않습니다.")
+  }
+
+  return db.transaction(async (tx) => {
+    const [bundle] = await tx.select().from(aiVocabularyBundles).where(and(
+      eq(aiVocabularyBundles.id, bundleId),
+      eq(aiVocabularyBundles.childProfileId, child.childProfileId),
+      eq(aiVocabularyBundles.studyDate, todayInSeoulForAiVocabulary()),
+      eq(aiVocabularyBundles.status, "quiz_in_progress"),
+    )).for("update").limit(1)
+    if (!bundle) throw new Error("진행 중인 오늘의 확인 퀴즈를 찾을 수 없습니다.")
+
+    const items = await tx.select({ wordEntryId: aiVocabularyBundleItems.wordEntryId })
+      .from(aiVocabularyBundleItems).where(eq(aiVocabularyBundleItems.bundleId, bundle.id))
+    const wordIds = items.map((item) => item.wordEntryId).filter((id): id is number => id !== null)
+    if (!wordIds.length || wordIds.length !== items.length) throw new Error("확인 퀴즈에 필요한 추천 단어가 완전하지 않습니다.")
+
+    const attempts = await tx.select({ wordEntryId: childQuizAttempts.wordEntryId })
+      .from(childQuizAttempts).where(and(
+        eq(childQuizAttempts.childProfileId, child.childProfileId),
+        eq(childQuizAttempts.quizSessionId, quizSessionId),
+        inArray(childQuizAttempts.wordEntryId, wordIds),
+      ))
+    const completedIds = new Set(attempts.map((attempt) => attempt.wordEntryId))
+    if (completedIds.size !== wordIds.length || wordIds.some((id) => !completedIds.has(id))) {
+      throw new Error("오늘의 추천 표현을 모두 퀴즈로 확인하지 않았습니다.")
+    }
+
+    await tx.update(aiVocabularyBundles).set({
+      status: "completed",
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(aiVocabularyBundles.id, bundle.id))
+    revalidatePath("/child")
+    return { completed: true }
+  })
 }
