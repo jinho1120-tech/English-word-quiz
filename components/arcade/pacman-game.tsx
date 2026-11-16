@@ -894,7 +894,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.arc(centerX, centerY, 27, 0, Math.PI * 2);
           ctx.fill();
         }
-        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 3, direction, doctorModeActiveRef.current, nowMs / 120);
+        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 3, direction, doctorModeActiveRef.current, nowMs / 120, pac.dirX !== 0 || pac.dirY !== 0);
       }
 
       // 두 게임이 공유하는 컬러 영단어 몬스터.
