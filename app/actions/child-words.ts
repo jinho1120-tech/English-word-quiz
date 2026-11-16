@@ -1,11 +1,11 @@
 "use server"
 
 import { randomInt } from "node:crypto"
-import { and, asc, desc, eq, gt, gte, inArray, lte, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding"
-import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions, aiVocabularyBundles, aiVocabularyBundleItems, vocabularyCandidates } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions, aiVocabularyBundles, aiVocabularyBundleItems, aiVocabularySettings, aiVocabularyLevelAssessments, vocabularyCandidates } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -179,6 +179,325 @@ export async function getChildLearningData(date: string) {
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
   return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), todayAiBundle: aiBundle ? { ...aiBundle, items: aiBundleItems } : null, stats }
+}
+
+type AssessmentCandidate = {
+  id: string
+  expression: string
+  meaningKo: string | null
+  disambiguation: string | null
+  lexicalType: string
+  childLevel: string | null
+}
+
+type AssessmentQuestionState = {
+  candidateId: string
+  level: string
+  optionIds: string[]
+}
+
+type AssessmentAnswerState = {
+  candidateId: string
+  level: string
+  selectedOptionId: string
+  correct: boolean
+}
+
+type AssessmentProgress = {
+  currentLevel: string
+  consecutiveCorrect: number
+  askedCandidateIds: string[]
+  answers: AssessmentAnswerState[]
+  currentQuestion: AssessmentQuestionState | null
+}
+
+const ASSESSMENT_QUESTION_COUNT = 18
+const ASSESSMENT_START_LEVEL = "L3"
+
+function shuffleAssessmentItems<T>(items: T[]) {
+  const result = [...items]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1)
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
+function assessmentLevelNumber(level: string) {
+  const value = Number(level.replace("L", ""))
+  return Number.isInteger(value) && value >= 1 && value <= 6 ? value : 3
+}
+
+function assessmentOptionLabel(candidate: AssessmentCandidate) {
+  return candidate.meaningKo?.trim()
+    ? candidate.meaningKo.trim() + (candidate.disambiguation?.trim() ? " (" + candidate.disambiguation.trim() + ")" : "")
+    : ""
+}
+
+function createAssessmentQuestion(
+  candidates: AssessmentCandidate[],
+  targetLevel: string,
+  askedCandidateIds: string[],
+  questionNumber: number,
+) {
+  const asked = new Set(askedCandidateIds)
+  const levelCandidates = shuffleAssessmentItems(candidates.filter((candidate) =>
+    candidate.childLevel === targetLevel && !asked.has(candidate.id),
+  ))
+  const levels = ["L1", "L2", "L3", "L4", "L5", "L6"]
+    .sort((a, b) => Math.abs(assessmentLevelNumber(a) - assessmentLevelNumber(targetLevel)) - Math.abs(assessmentLevelNumber(b) - assessmentLevelNumber(targetLevel)))
+  const orderedCandidates = [
+    ...levelCandidates,
+    ...levels.filter((level) => level !== targetLevel).flatMap((level) =>
+      shuffleAssessmentItems(candidates.filter((candidate) => candidate.childLevel === level && !asked.has(candidate.id))),
+    ),
+  ]
+
+  for (const prompt of orderedCandidates) {
+    const promptLabel = assessmentOptionLabel(prompt)
+    if (!promptLabel) continue
+    const labels = new Set([promptLabel.toLocaleLowerCase()])
+    const distractors = shuffleAssessmentItems(candidates.filter((candidate) =>
+      candidate.id !== prompt.id &&
+      candidate.lexicalType === prompt.lexicalType &&
+      !labels.has(assessmentOptionLabel(candidate).toLocaleLowerCase()) &&
+      Boolean(assessmentOptionLabel(candidate)),
+    ))
+    const options = [prompt]
+    for (const candidate of distractors) {
+      const label = assessmentOptionLabel(candidate).toLocaleLowerCase()
+      if (labels.has(label)) continue
+      labels.add(label)
+      options.push(candidate)
+      if (options.length === 4) break
+    }
+    if (options.length !== 4) continue
+    const shuffledOptions = shuffleAssessmentItems(options)
+    return {
+      state: {
+        candidateId: prompt.id,
+        level: prompt.childLevel ?? targetLevel,
+        optionIds: shuffledOptions.map((option) => option.id),
+      } satisfies AssessmentQuestionState,
+      publicQuestion: {
+        number: questionNumber,
+        total: ASSESSMENT_QUESTION_COUNT,
+        expression: prompt.expression,
+        options: shuffledOptions.map((option) => ({ id: option.id, label: assessmentOptionLabel(option) })),
+      },
+    }
+  }
+  return null
+}
+
+function assessmentProgress(value: Record<string, unknown>): AssessmentProgress {
+  const current = value as Partial<AssessmentProgress>
+  return {
+    currentLevel: typeof current.currentLevel === "string" ? current.currentLevel : ASSESSMENT_START_LEVEL,
+    consecutiveCorrect: Number.isInteger(current.consecutiveCorrect) ? current.consecutiveCorrect! : 0,
+    askedCandidateIds: Array.isArray(current.askedCandidateIds) ? current.askedCandidateIds.filter((id): id is string => typeof id === "string") : [],
+    answers: Array.isArray(current.answers) ? current.answers as AssessmentAnswerState[] : [],
+    currentQuestion: current.currentQuestion && typeof current.currentQuestion === "object"
+      ? current.currentQuestion as AssessmentQuestionState
+      : null,
+  }
+}
+
+function finalAssessmentLevel(answers: AssessmentAnswerState[]) {
+  const recentLevels = answers.slice(-7).map((answer) => assessmentLevelNumber(answer.level)).sort((a, b) => a - b)
+  const middle = Math.floor(recentLevels.length / 2)
+  const level = recentLevels.length % 2
+    ? recentLevels[middle]
+    : Math.round((recentLevels[middle - 1] + recentLevels[middle]) / 2)
+  const occurrences = recentLevels.filter((item) => item === level).length
+  const spread = recentLevels.length ? recentLevels[recentLevels.length - 1] - recentLevels[0] : 5
+  const confidence = occurrences >= 3 && spread <= 2 ? "high" : spread <= 3 ? "medium" : "low"
+  return { level: "L" + Math.min(6, Math.max(1, level)), confidence }
+}
+
+async function loadAssessmentCandidates(lexicalType: "word" | "idiom") {
+  const types = lexicalType === "word" ? ["word"] : ["idiom", "phrasal_verb", "collocation"]
+  return db.select({
+    id: vocabularyCandidates.id,
+    expression: vocabularyCandidates.expression,
+    meaningKo: vocabularyCandidates.meaningKo,
+    disambiguation: vocabularyCandidates.disambiguation,
+    lexicalType: vocabularyCandidates.lexicalType,
+    childLevel: vocabularyCandidates.childLevel,
+  }).from(vocabularyCandidates).where(and(
+    eq(vocabularyCandidates.verificationStatus, "approved"),
+    eq(vocabularyCandidates.difficultyVerified, true),
+    isNotNull(vocabularyCandidates.meaningKo),
+    isNotNull(vocabularyCandidates.childLevel),
+    inArray(vocabularyCandidates.lexicalType, types),
+  ))
+}
+
+export async function startChildAiVocabularyAssessment(lexicalType: "word" | "idiom") {
+  const child = await requireChild()
+  if (lexicalType !== "word" && lexicalType !== "idiom") throw new Error("진단 유형이 올바르지 않습니다.")
+  const [settings] = await db.select().from(aiVocabularySettings)
+    .where(eq(aiVocabularySettings.childProfileId, child.childProfileId)).limit(1)
+  if (!settings?.enabled) throw new Error("부모님이 AI 추천 학습을 켜야 레벨 진단을 시작할 수 있어요.")
+
+  const [existing] = await db.select().from(aiVocabularyLevelAssessments).where(and(
+    eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+    eq(aiVocabularyLevelAssessments.lexicalType, lexicalType),
+    eq(aiVocabularyLevelAssessments.status, "in_progress"),
+  )).orderBy(desc(aiVocabularyLevelAssessments.startedAt)).limit(1)
+
+  const candidates = await loadAssessmentCandidates(lexicalType)
+  if (candidates.length < ASSESSMENT_QUESTION_COUNT) {
+    throw new Error("진단 문제 데이터가 아직 충분하지 않아요. 부모님이 검증된 단어·숙어 후보를 더 등록해 주세요.")
+  }
+
+  if (existing) {
+    const progress = assessmentProgress(existing.assessmentData)
+    if (!progress.currentQuestion) throw new Error("진행 중인 진단 정보를 찾을 수 없어요. 부모님께 다시 시작을 요청해 주세요.")
+    const prompt = candidates.find((item) => item.id === progress.currentQuestion!.candidateId)
+    const options = progress.currentQuestion.optionIds.map((id) => candidates.find((item) => item.id === id)).filter((item): item is AssessmentCandidate => Boolean(item))
+    if (!prompt || options.length !== 4) throw new Error("진단 문제 데이터가 변경되었어요. 새 진단을 시작해 주세요.")
+    return {
+      assessmentId: existing.id,
+      question: {
+        number: progress.answers.length + 1,
+        total: ASSESSMENT_QUESTION_COUNT,
+        expression: prompt.expression,
+        options: options.map((item) => ({ id: item.id, label: assessmentOptionLabel(item) })),
+      },
+    }
+  }
+
+  const first = createAssessmentQuestion(candidates, ASSESSMENT_START_LEVEL, [], 1)
+  if (!first) throw new Error("진단 문제를 만들 수 없어요. 검증된 후보 데이터의 뜻과 유형을 확인해 주세요.")
+  const [created] = await db.insert(aiVocabularyLevelAssessments).values({
+    childProfileId: child.childProfileId,
+    lexicalType,
+    startingLevel: ASSESSMENT_START_LEVEL,
+    assignedLevel: ASSESSMENT_START_LEVEL,
+    questionCount: 0,
+    correctCount: 0,
+    confidence: "pending",
+    status: "in_progress",
+    assessmentData: {
+      currentLevel: ASSESSMENT_START_LEVEL,
+      consecutiveCorrect: 0,
+      askedCandidateIds: [],
+      answers: [],
+      currentQuestion: first.state,
+    },
+  }).returning({ id: aiVocabularyLevelAssessments.id })
+  return { assessmentId: created.id, question: first.publicQuestion }
+}
+
+export async function answerChildAiVocabularyAssessment(assessmentId: string, selectedOptionId: string) {
+  const child = await requireChild()
+  if (typeof assessmentId !== "string" || !assessmentId || typeof selectedOptionId !== "string" || !selectedOptionId) {
+    throw new Error("답안 정보가 올바르지 않습니다.")
+  }
+
+  return db.transaction(async (tx) => {
+    const [assessment] = await tx.select().from(aiVocabularyLevelAssessments).where(and(
+      eq(aiVocabularyLevelAssessments.id, assessmentId),
+      eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+      eq(aiVocabularyLevelAssessments.status, "in_progress"),
+    )).for("update").limit(1)
+    if (!assessment) throw new Error("진행 중인 진단을 찾을 수 없어요. 다시 시작해 주세요.")
+
+    const progress = assessmentProgress(assessment.assessmentData)
+    const question = progress.currentQuestion
+    if (!question || !question.optionIds.includes(selectedOptionId)) throw new Error("선택한 답안을 확인할 수 없어요.")
+    const correct = selectedOptionId === question.candidateId
+    const answers = [...progress.answers, {
+      candidateId: question.candidateId,
+      level: question.level,
+      selectedOptionId,
+      correct,
+    }]
+    const askedCandidateIds = [...progress.askedCandidateIds, question.candidateId]
+    const consecutiveCorrect = correct ? progress.consecutiveCorrect + 1 : 0
+    let currentLevelNumber = assessmentLevelNumber(progress.currentLevel)
+    if (!correct) currentLevelNumber = Math.max(1, currentLevelNumber - 1)
+    else if (consecutiveCorrect >= 2) currentLevelNumber = Math.min(6, currentLevelNumber + 1)
+    const currentLevel = "L" + currentLevelNumber
+    const correctCount = answers.filter((answer) => answer.correct).length
+    const candidates = await tx.select({
+      id: vocabularyCandidates.id,
+      expression: vocabularyCandidates.expression,
+      meaningKo: vocabularyCandidates.meaningKo,
+      disambiguation: vocabularyCandidates.disambiguation,
+      lexicalType: vocabularyCandidates.lexicalType,
+      childLevel: vocabularyCandidates.childLevel,
+    }).from(vocabularyCandidates).where(and(
+      eq(vocabularyCandidates.verificationStatus, "approved"),
+      eq(vocabularyCandidates.difficultyVerified, true),
+      isNotNull(vocabularyCandidates.meaningKo),
+      isNotNull(vocabularyCandidates.childLevel),
+      inArray(vocabularyCandidates.lexicalType, assessment.lexicalType === "word" ? ["word"] : ["idiom", "phrasal_verb", "collocation"]),
+    ))
+    const complete = answers.length >= ASSESSMENT_QUESTION_COUNT
+    const next = complete ? null : createAssessmentQuestion(candidates, currentLevel, askedCandidateIds, answers.length + 1)
+
+    if (!complete && !next) {
+      const estimate = finalAssessmentLevel(answers)
+      await tx.update(aiVocabularyLevelAssessments).set({
+        status: "completed",
+        assignedLevel: estimate.level,
+        questionCount: answers.length,
+        correctCount,
+        confidence: "low",
+        assessmentData: { ...progress, currentLevel, consecutiveCorrect, askedCandidateIds, answers, currentQuestion: null, stoppedForQuestionShortage: true },
+        completedAt: new Date(),
+      }).where(eq(aiVocabularyLevelAssessments.id, assessment.id))
+      if (assessment.lexicalType === "word") {
+        await tx.update(aiVocabularySettings).set({ wordLevel: estimate.level, updatedAt: new Date() }).where(eq(aiVocabularySettings.childProfileId, child.childProfileId))
+      } else {
+        await tx.update(aiVocabularySettings).set({ idiomLevel: estimate.level, updatedAt: new Date() }).where(eq(aiVocabularySettings.childProfileId, child.childProfileId))
+      }
+      revalidatePath("/child")
+      return { complete: true as const, correct, questionNumber: answers.length, result: { level: estimate.level, confidence: "low", correctCount, questionCount: answers.length } }
+    }
+
+    if (complete) {
+      const estimate = finalAssessmentLevel(answers)
+      await tx.update(aiVocabularyLevelAssessments).set({
+        status: "completed",
+        assignedLevel: estimate.level,
+        questionCount: answers.length,
+        correctCount,
+        confidence: estimate.confidence,
+        assessmentData: { ...progress, currentLevel, consecutiveCorrect, askedCandidateIds, answers, currentQuestion: null },
+        completedAt: new Date(),
+      }).where(eq(aiVocabularyLevelAssessments.id, assessment.id))
+      if (assessment.lexicalType === "word") {
+        await tx.update(aiVocabularySettings).set({ wordLevel: estimate.level, updatedAt: new Date() }).where(eq(aiVocabularySettings.childProfileId, child.childProfileId))
+      } else {
+        await tx.update(aiVocabularySettings).set({ idiomLevel: estimate.level, updatedAt: new Date() }).where(eq(aiVocabularySettings.childProfileId, child.childProfileId))
+      }
+      revalidatePath("/child")
+      return { complete: true as const, correct, questionNumber: answers.length, result: { level: estimate.level, confidence: estimate.confidence, correctCount, questionCount: answers.length } }
+    }
+
+    const nextProgress: AssessmentProgress = {
+      currentLevel,
+      consecutiveCorrect,
+      askedCandidateIds,
+      answers,
+      currentQuestion: next.state,
+    }
+    await tx.update(aiVocabularyLevelAssessments).set({
+      assignedLevel: currentLevel,
+      questionCount: answers.length,
+      correctCount,
+      assessmentData: nextProgress,
+    }).where(eq(aiVocabularyLevelAssessments.id, assessment.id))
+    return {
+      complete: false as const,
+      correct,
+      questionNumber: answers.length,
+      question: next.publicQuestion,
+    }
+  })
 }
 
 const CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
