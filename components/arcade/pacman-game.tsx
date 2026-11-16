@@ -1082,21 +1082,73 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="relative my-5 flex h-40 w-40 items-center justify-center">
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
-            <div className="relative h-28 w-28 rounded-[42%] bg-blue-600 shadow-[0_0_30px_rgba(59,130,246,0.45)]">
-              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="학사모와 안경을 쓴 박사 부엉이">
-                <path d="M14 36 L8 8 Q28 18 39 28 Q56 16 73 28 Q84 18 104 8 L98 38 Q110 84 56 104 Q2 84 14 36Z" fill="#2563eb"/>
-                <ellipse cx="56" cy="59" rx="39" ry="37" fill="#eff6ff"/>
-                <ellipse cx="39" cy="51" rx="5" ry="8" fill="#172554"/>
-                <ellipse cx="73" cy="51" rx="5" ry="8" fill="#172554"/>
-                <path d="M49 64 L63 64 L56 76Z" fill="#f59e0b"/>
-                <g fill="none" stroke="#172033" strokeWidth="4">
-                  <rect x="18" y="39" width="36" height="27" rx="11"/>
-                  <rect x="58" y="39" width="36" height="27" rx="11"/>
-                  <path d="M54 51 H58"/>
+            <div className="relative flex h-40 w-40 items-center justify-center">
+              {doctorChallenge.index >= 1 && (
+                <>
+                  <div className="absolute inset-1 rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.48)_0%,rgba(59,130,246,0.22)_48%,transparent_72%)] blur-sm" />
+                  <div className="absolute inset-0 animate-pulse text-amber-200">
+                    <span className="absolute left-2 top-7 text-xl">✦</span>
+                    <span className="absolute right-3 top-5 text-lg">✧</span>
+                    <span className="absolute bottom-5 left-4 text-lg">✧</span>
+                    <span className="absolute bottom-4 right-3 text-xl">✦</span>
+                    <span className="absolute left-1/2 top-0 -translate-x-1/2 text-sm">✧</span>
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-sm">✦</span>
+                  </div>
+                </>
+              )}
+              <svg viewBox="0 0 220 220" className="relative z-10 h-full w-full overflow-visible drop-shadow-[0_8px_10px_rgba(37,99,235,0.3)]" role="img" aria-label={doctorChallenge.index >= 3 ? "후광과 안경, 학사모를 쓴 박사 부엉이" : doctorChallenge.index >= 2 ? "안경을 쓴 부엉이" : "안경과 학사모가 없는 부엉이"}>
+                {doctorChallenge.index >= 1 && <ellipse cx="110" cy="112" rx="104" ry="104" fill="none" stroke="#60a5fa" strokeWidth="3" opacity=".45" />}
+                {/* 몸통과 머리 */}
+                <path d="M36 112 C20 76 31 42 49 29 C69 44 82 47 110 44 C138 47 151 44 171 29 C189 42 200 76 184 112 C207 145 190 193 157 199 L63 199 C30 193 13 145 36 112Z" fill="#3290f5" stroke="#124b9b" strokeWidth="6" strokeLinejoin="round"/>
+                {/* 귀깃 */}
+                <path d="M45 62 C26 51 20 27 28 12 C48 20 62 34 76 48Z" fill="#3290f5" stroke="#124b9b" strokeWidth="5" strokeLinejoin="round"/>
+                <path d="M175 62 C194 51 200 27 192 12 C172 20 158 34 144 48Z" fill="#3290f5" stroke="#124b9b" strokeWidth="5" strokeLinejoin="round"/>
+                {/* 날개 */}
+                <path d="M42 128 C17 141 15 179 31 190 C43 197 55 184 61 169 L67 148Z" fill="#2782e8" stroke="#124b9b" strokeWidth="5"/>
+                <path d="M178 128 C203 141 205 179 189 190 C177 197 165 184 159 169 L153 148Z" fill="#2782e8" stroke="#124b9b" strokeWidth="5"/>
+                {/* 얼굴과 가슴 */}
+                <path d="M47 80 C53 55 82 48 110 60 C138 48 167 55 173 80 C185 119 164 145 110 151 C56 145 35 119 47 80Z" fill="#f8fbff"/>
+                <path d="M58 139 C40 155 45 190 75 197 L145 197 C175 190 180 155 162 139 C146 127 127 130 110 139 C93 130 74 127 58 139Z" fill="#eff6ff"/>
+                {/* 눈 */}
+                <ellipse cx="82" cy="96" rx="11" ry="16" fill="#172554"/>
+                <ellipse cx="138" cy="96" rx="11" ry="16" fill="#172554"/>
+                <circle cx="78" cy="90" r="4" fill="#fff"/>
+                <circle cx="134" cy="90" r="4" fill="#fff"/>
+                {/* 부리 */}
+                <path d="M99 111 Q110 103 121 111 Q119 129 110 134 Q101 129 99 111Z" fill="#fbbf24" stroke="#a85c08" strokeWidth="2"/>
+                {/* 가슴 깃털 */}
+                <g fill="#60a5fa" opacity=".9">
+                  <path d="M83 151 Q70 150 72 169 Q82 172 83 151Z"/>
+                  <path d="M110 150 Q101 151 107 171 Q116 172 110 150Z"/>
+                  <path d="M137 151 Q150 150 148 169 Q138 172 137 151Z"/>
+                  <path d="M94 174 Q83 176 88 190 Q98 190 94 174Z"/>
+                  <path d="M126 174 Q137 176 132 190 Q122 190 126 174Z"/>
                 </g>
-                <path d="M12 22 L56 2 L100 22 L56 40Z" fill="#172033"/>
-                <path d="M30 27 H82 V35 Q56 45 30 35Z" fill="#334155"/>
-                <path d="M90 23 L96 49" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round"/>
+                {/* 발 */}
+                <g fill="#f7b51b" stroke="#a85c08" strokeWidth="3" strokeLinejoin="round">
+                  <path d="M73 192 Q61 196 65 207 Q78 214 96 205 L98 197Z"/>
+                  <path d="M147 192 Q159 196 155 207 Q142 214 124 205 L122 197Z"/>
+                  <path d="M71 201 L91 205 M149 201 L129 205" fill="none"/>
+                </g>
+                {/* 두 번째 정답부터 안경 */}
+                {doctorChallenge.index >= 2 && (
+                  <g fill="none" stroke="#172033" strokeWidth="5">
+                    <circle cx="82" cy="96" r="25"/>
+                    <circle cx="138" cy="96" r="25"/>
+                    <path d="M107 95 Q110 91 113 95 M57 94 H46 M163 94 H174"/>
+                  </g>
+                )}
+                {/* 세 번째 정답 후 학사모 */}
+                {doctorChallenge.index >= 3 && (
+                  <g stroke="#10234f" strokeWidth="4" strokeLinejoin="round">
+                    <path d="M36 38 L110 5 L184 38 L110 72Z" fill="#172554"/>
+                    <path d="M54 40 L110 16 L166 40 L110 62Z" fill="#263b70" stroke="none"/>
+                    <path d="M66 43 H154 V57 Q110 78 66 57Z" fill="#1e315f"/>
+                    <path d="M171 39 L185 88" fill="none" stroke="#a16207" strokeWidth="5"/>
+                    <path d="M180 82 Q194 77 197 91 L205 112 Q197 121 187 112 L178 94Z" fill="#fbbf24" stroke="#a16207" strokeWidth="3"/>
+                    <circle cx="179" cy="85" r="7" fill="#fbbf24" stroke="#a16207"/>
+                  </g>
+                )}
               </svg>
             </div>
           </div>
