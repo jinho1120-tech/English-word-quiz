@@ -158,7 +158,7 @@ CREATE TABLE "child_word_submissions" (
   "lexical_type" varchar(24) DEFAULT 'word' NOT NULL,
   "meaning" varchar(200) NOT NULL,
   "example" text,
-  "validation_status" varchar(20) DEFAULT 'pending' NOT NULL,
+  "validation_status" varchar(32) DEFAULT 'pending' NOT NULL,
   "dictionary_checked_at" timestamp,
   "reviewed_by_user_id" text,
   "reviewed_at" timestamp,
