@@ -1,4 +1,5 @@
 import { formatKoreaDateTime } from "@/lib/korea-time"
+import { VOCAB_OWL_NAME } from "@/lib/game-branding"
 
 type Activity = {
   quizzes: { summary: any[]; recent: any[] }
@@ -28,8 +29,8 @@ export function SuperAdminFamilyActivity({ activity }: { activity: Activity }) {
               {activity.quizzes.recent.map((row, index) => <div key={index} className="border-b py-2 text-xs"><p className="font-semibold">{row.child_name} · {row.subject_name} · 퀴즈 {index + 1}</p><p className="text-muted-foreground">{count(row.question_count)}문항 · 정답 {count(row.correct_count)} · 정답률 {Number(row.question_count) ? Math.round(Number(row.correct_count) / Number(row.question_count) * 100) : 0}% · 힌트 {row.hint_used ? "사용" : "미사용"}</p><p className="text-muted-foreground">{formatKoreaDateTime(row.started_at)} ~ {formatKoreaDateTime(row.completed_at)}</p></div>)}
             </>}
             {section.id === "games" && <>
-              {activity.games.summary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted p-2 text-sm"><span className="font-semibold">{row.child_name}</span><span>총 {count(row.plays)}회 · 보카맨 {count(row.vocaman_plays)}회 · 타자 디펜스 {count(row.word_defense_plays)}회</span></div>)}
-              {activity.games.recent.map((row, index) => <div key={index} className="flex justify-between gap-2 border-b py-2 text-xs"><span>{row.child_name} · {row.game === "pacman" ? "보카맨" : row.game === "word_defense" ? "영어 타자 디펜스" : row.game}</span><span className="text-muted-foreground">{formatKoreaDateTime(row.occurred_at)}</span></div>)}
+              {activity.games.summary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted p-2 text-sm"><span className="font-semibold">{row.child_name}</span><span>총 {count(row.plays)}회 · {VOCAB_OWL_NAME} {count(row.vocaman_plays)}회 · 타자 디펜스 {count(row.word_defense_plays)}회</span></div>)}
+              {activity.games.recent.map((row, index) => <div key={index} className="flex justify-between gap-2 border-b py-2 text-xs"><span>{row.child_name} · {row.game === "pacman" ? VOCAB_OWL_NAME : row.game === "word_defense" ? "영어 타자 디펜스" : row.game}</span><span className="text-muted-foreground">{formatKoreaDateTime(row.occurred_at)}</span></div>)}
             </>}
             {section.id === "words" && <>
               {activity.words.summary.map((row) => <div key={row.child_id} className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted p-2 text-sm"><span className="font-semibold">{row.child_name}</span><span>현재 {count(row.current_words)}개 · 최근 30일 추가 {count(row.words_added_30d)}개</span></div>)}

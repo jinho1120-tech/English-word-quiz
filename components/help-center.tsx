@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { BookOpen, Info, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
+import { VOCAB_OWL_NAME } from "@/lib/game-branding"
 
 type GuideSection = {
   id: string
@@ -98,7 +99,7 @@ const PARENT_GUIDE: GuideSection[] = [
       "하루 이용 횟수를 설정합니다. 0회 제한은 무제한을 뜻합니다.",
       "게임은 자녀 앱의 ‘오답 몬스터’ 영역에 조건을 충족하면 표시됩니다."
     ],
-    tip: "보카맨과 영어 타자 디펜스는 오늘의 보너스 게임 이용 횟수를 함께 사용할 수 있습니다."
+    tip: `${VOCAB_OWL_NAME}과 영어 타자 디펜스는 오늘의 보너스 게임 이용 횟수를 함께 사용할 수 있습니다.`
   },
   {
     id: "notifications",
@@ -205,8 +206,8 @@ const CHILD_GUIDE: GuideSection[] = [
     steps: [
       "‘오답 몬스터’ 화면의 보너스 게임 영역을 확인합니다.",
       "게임 화면의 ‘크게 보기’를 누르면 전체 화면으로 즐길 수 있어요.",
-      "보카맨(Voca-Man)은 방향키를 누르거나 게임 화면을 스와이프해서 움직일 수 있어요.",
-      "보카맨 설정에서 ‘기울기 센서 켜기’를 누르면 휴대폰을 기울여 조작할 수도 있어요.",
+      `${VOCAB_OWL_NAME}은 방향키를 누르거나 게임 화면을 스와이프해서 움직일 수 있어요.`,
+      `${VOCAB_OWL_NAME} 설정에서 ‘기울기 센서 켜기’를 누르면 휴대폰을 기울여 조작할 수도 있어요.`,
       "기울기 센서 켜기 버튼을 누른 뒤 권한 요청이 나타나면 허용해 주세요.",
       "가속도 센서나 방향 센서를 지원하지 않는 기기에서는 기울이기 조작을 사용할 수 없어요.",
       "영어 타자 디펜스는 단어를 입력해 게임을 진행합니다.",
@@ -265,14 +266,14 @@ export function HelpCenter({
           const summary = pacmanEnabled && wordDefenseEnabled
             ? "학습 조건을 충족하면 두 가지 영어 단어 게임을 즐길 수 있습니다."
             : pacmanEnabled
-              ? "학습 조건을 충족하면 보카맨을 즐길 수 있습니다."
+              ? `학습 조건을 충족하면 ${VOCAB_OWL_NAME}을 즐길 수 있습니다.`
               : "학습 조건을 충족하면 영어 타자 디펜스를 즐길 수 있습니다."
           return {
             ...section,
             summary,
             steps: section.steps.filter((step) => {
               if (step.startsWith("게임 화면의 ‘크게 보기’")) return pacmanEnabled || wordDefenseEnabled
-              if (step.startsWith("보카맨(Voca-Man)은") || step.startsWith("보카맨 설정에서") || step.startsWith("기울기 센서 켜기") || step.startsWith("가속도 센서")) return pacmanEnabled
+              if (step.startsWith(`${VOCAB_OWL_NAME}은`) || step.startsWith(`${VOCAB_OWL_NAME} 설정에서`) || step.startsWith("기울기 센서 켜기") || step.startsWith("가속도 센서")) return pacmanEnabled
               if (step.startsWith("영어 타자 디펜스는")) return wordDefenseEnabled
               return true
             }),

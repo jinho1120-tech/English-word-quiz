@@ -8,6 +8,7 @@ import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
 import { WordDefenseGame } from "@/components/arcade/word-defense-game"
+import { VOCAB_OWL_NAME } from "@/lib/game-branding"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
@@ -371,10 +372,10 @@ export function ChildLearning({
           </div>
           {!pacmanStatus.eligible && <div className="rounded-xl bg-muted p-3 text-xs leading-relaxed text-muted-foreground"><p>오늘 푼 단어 문제: <strong>{pacmanStatus.dailyQuestionCount} / {pacmanStatus.minDailyQuestions}개</strong></p>{pacmanStatus.requireNoWrongWords && <p>남은 오답: <strong>{pacmanStatus.outstandingWrongCount}개</strong> · 모두 정리해야 해요.</p>}{pacmanStatus.dailyQuestionCount < pacmanStatus.minDailyQuestions && <p>최소 문제 수를 채우면 보너스 게임이 열려요!</p>}</div>}
           {pacmanError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{pacmanError}</p>}
-          {allWords.length === 0 && <p className="text-xs text-muted-foreground">보카맨과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
+          {allWords.length === 0 && <p className="text-xs text-muted-foreground">{VOCAB_OWL_NAME}과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-violet-700 dark:hover:bg-violet-600">
-              보카맨(Voca-Man)😀
+              🦉 {VOCAB_OWL_NAME}
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-700">
               영어 타자 디펜스 👻
@@ -391,7 +392,7 @@ export function ChildLearning({
         <div className="fixed inset-0 z-[120] overflow-y-auto bg-background/95 p-3 backdrop-blur-sm sm:p-6">
           <div className="mx-auto min-h-full w-full max-w-lg rounded-3xl border border-border bg-card p-3 shadow-2xl sm:p-5">
             <div className="mb-3 text-center">
-              <h2 className="text-xl font-black">보카맨(Voca-Man) 아케이드</h2>
+              <h2 className="text-xl font-black">{VOCAB_OWL_NAME} 아케이드</h2>
               <p className="text-xs text-muted-foreground">방향키 또는 화면 버튼으로 움직여 보세요!</p>
             </div>
             <PacmanGame
