@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { HapticButton } from "@/components/haptic-button"
-import { answerChildAiVocabularyAssessment, startChildAiVocabularyAssessment } from "@/app/actions/child-words"
+import { answerChildAiVocabularyAssessment, startChildAiVocabularyCombinedAssessment } from "@/app/actions/child-words"
 
 type LexicalType = "word" | "idiom"
 type AssessmentSummary = {
@@ -36,6 +36,15 @@ type Result = {
   correctCount: number
   questionCount: number
 }
+type AssessmentState = {
+  assessmentId: string
+  question: Question | null
+  result: Result | null
+}
+type CombinedSession = {
+  word: AssessmentState
+  idiom: AssessmentState
+}
 
 const LEVEL_LABELS: Record<string, string> = {
   L1: "입문",
@@ -61,49 +70,72 @@ function AssessmentResult({ label, result }: { label: string; result: Assessment
   )
 }
 
+function ResultCard({ label, result }: { label: string; result: Result }) {
+  return (
+    <div className="rounded-xl bg-muted/50 p-3 text-left">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold">{label}</span>
+        <span className="text-lg font-black">{result.level} <span className="text-xs font-semibold">{LEVEL_LABELS[result.level] ?? ""}</span></span>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {result.correctCount}/{result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"}
+      </p>
+    </div>
+  )
+}
+
 export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSummary | null }) {
   const router = useRouter()
-  const [assessmentId, setAssessmentId] = useState("")
-  const [lexicalType, setLexicalType] = useState<LexicalType>("word")
-  const [question, setQuestion] = useState<Question | null>(null)
-  const [result, setResult] = useState<Result | null>(null)
+  const [session, setSession] = useState<CombinedSession | null>(null)
+  const [activeType, setActiveType] = useState<LexicalType>("word")
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null)
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
 
   if (!summary) return null
 
-  function start(type: LexicalType) {
+  const active = session?.[activeType]
+  const question = active?.question ?? null
+  const wordDone = session?.word.result !== null && session?.word.result !== undefined
+  const idiomDone = session?.idiom.result !== null && session?.idiom.result !== undefined
+  const completed = Boolean(session && wordDone && idiomDone)
+  const wordAnswered = session ? (session.word.result?.questionCount ?? (session.word.question ? session.word.question.number - 1 : 0)) : 0
+  const idiomAnswered = session ? (session.idiom.result?.questionCount ?? (session.idiom.question ? session.idiom.question.number - 1 : 0)) : 0
+  const overallNumber = wordAnswered + idiomAnswered + 1
+
+  function start() {
     setError("")
-    setResult(null)
-    setQuestion(null)
     setLastAnswerCorrect(null)
-    setLexicalType(type)
     startTransition(async () => {
       try {
-        const response = await startChildAiVocabularyAssessment(type)
-        setAssessmentId(response.assessmentId)
-        setQuestion(response.question)
+        const response = await startChildAiVocabularyCombinedAssessment()
+        setSession(response)
+        setActiveType(response.word.question ? "word" : "idiom")
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "레벨 진단을 시작하지 못했어요.")
+        setError(cause instanceof Error ? cause.message : "통합 레벨 진단을 시작하지 못했어요.")
       }
     })
   }
 
   function answer(optionId: string) {
-    if (!assessmentId || !question || isPending) return
+    if (!session || !active || !question || isPending) return
     setError("")
     startTransition(async () => {
       try {
-        const response = await answerChildAiVocabularyAssessment(assessmentId, optionId)
+        const response = await answerChildAiVocabularyAssessment(active.assessmentId, optionId)
         setLastAnswerCorrect(response.correct)
-        if (response.complete) {
-          setQuestion(null)
-          setResult(response.result)
-          router.refresh()
-        } else {
-          setQuestion(response.question)
+        const updated: CombinedSession = {
+          ...session,
+          [activeType]: response.complete
+            ? { ...active, question: null, result: response.result }
+            : { ...active, question: response.question },
         }
+        setSession(updated)
+        const otherType: LexicalType = activeType === "word" ? "idiom" : "word"
+        if (updated[otherType].question) setActiveType(otherType)
+        else if (updated[activeType].question) setActiveType(activeType)
+        else if (!updated[otherType].result) setActiveType(otherType)
+        if (response.complete && updated.word.result && updated.idiom.result) router.refresh()
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "답안을 저장하지 못했어요.")
       }
@@ -111,9 +143,8 @@ export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSu
   }
 
   function reset() {
-    setAssessmentId("")
-    setQuestion(null)
-    setResult(null)
+    setSession(null)
+    setActiveType("word")
     setLastAnswerCorrect(null)
     setError("")
   }
@@ -123,11 +154,11 @@ export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSu
       <div>
         <h2 className="text-base font-bold">AI 추천 학습 레벨 진단</h2>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          단어와 숙어 실력을 따로 확인해요. 문제는 정답에 따라 쉬워지거나 어려워지며, 진단 결과가 매일 추천 난이도에 반영돼요.
+          단어와 숙어 문제를 한 번에 번갈아 풀어요. 총 18문항을 마치면 단어와 숙어 레벨을 각각 산출해 추천 난이도에 반영해요.
         </p>
       </div>
 
-      {!question && !result && (
+      {!session && (
         <>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-muted/50 p-3">
@@ -143,26 +174,29 @@ export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSu
             <AssessmentResult label="최근 단어 진단" result={summary.latestWordAssessment} />
             <AssessmentResult label="최근 숙어 진단" result={summary.latestIdiomAssessment} />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <HapticButton type="button" disabled={isPending} onClick={() => start("word")} className="rounded-xl bg-primary px-3 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">
-              {isPending && lexicalType === "word" ? "준비 중…" : "단어 진단"}
-            </HapticButton>
-            <HapticButton type="button" disabled={isPending} onClick={() => start("idiom")} className="rounded-xl bg-primary px-3 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">
-              {isPending && lexicalType === "idiom" ? "준비 중…" : "숙어 진단"}
-            </HapticButton>
-          </div>
-          <p className="text-[11px] text-muted-foreground">각 진단은 최대 18문항이며, 중간에 나가도 다음에 이어서 할 수 있어요.</p>
+          <HapticButton type="button" disabled={isPending} onClick={start} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">
+            {isPending ? "진단 준비 중…" : "단어 + 숙어 통합 레벨테스트 시작"}
+          </HapticButton>
+          <p className="text-[11px] text-muted-foreground">단어 9문항과 숙어 9문항을 번갈아 풀어요. 중간에 나가도 다음에 이어서 할 수 있어요.</p>
         </>
       )}
 
-      {question && (
+      {session && !completed && question && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{lexicalType === "word" ? "단어" : "숙어"} 진단</span>
-            <span>{question.number} / {question.total}</span>
+            <span>통합 진단 · {activeType === "word" ? "단어" : "숙어"} 문제</span>
+            <span>{overallNumber} / 18</span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: ((question.number - 1) / question.total * 100) + "%" }} />
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: ((overallNumber - 1) / 18 * 100) + "%" }} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className={`rounded-lg px-3 py-2 text-center text-xs font-semibold ${activeType === "word" ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground"}`}>
+              단어 {wordAnswered}/9 {wordDone ? "✓" : ""}
+            </div>
+            <div className={`rounded-lg px-3 py-2 text-center text-xs font-semibold ${activeType === "idiom" ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground"}`}>
+              숙어 {idiomAnswered}/9 {idiomDone ? "✓" : ""}
+            </div>
           </div>
           <div className="rounded-xl bg-muted/40 px-4 py-7 text-center">
             <p className="text-xs text-muted-foreground">다음 영어 표현의 뜻을 골라 주세요.</p>
@@ -180,15 +214,20 @@ export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSu
         </div>
       )}
 
-      {result && (
+      {session && completed && (
         <div className="space-y-3 rounded-xl bg-muted/40 p-4 text-center">
-          <p className="text-sm font-semibold">진단을 마쳤어요!</p>
-          <p className="text-3xl font-black">{result.level}</p>
-          <p className="text-sm font-semibold">{LEVEL_LABELS[result.level] ?? ""}</p>
-          <p className="text-sm text-muted-foreground">{result.correctCount} / {result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"}</p>
-          <p className="text-xs leading-relaxed text-muted-foreground">새 레벨이 추천 학습 설정에 반영됐어요. 부모님은 관리 화면에서 결과를 확인하고 레벨을 직접 조정할 수 있어요.</p>
-          <HapticButton type="button" onClick={reset} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">다른 진단 하기</HapticButton>
+          <p className="text-sm font-semibold">통합 레벨테스트를 마쳤어요!</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ResultCard label="단어 레벨" result={session.word.result!} />
+            <ResultCard label="숙어 레벨" result={session.idiom.result!} />
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">두 결과가 각각 저장되어 추천 학습 난이도에 반영됐어요. 부모님은 관리 화면에서 각 레벨을 확인하고 직접 조정할 수 있어요.</p>
+          <HapticButton type="button" onClick={reset} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">다시 진단하기</HapticButton>
         </div>
+      )}
+
+      {session && !completed && !question && (
+        <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">다음 문제를 준비하고 있어요. 화면을 새로고침하거나 다시 시작해 주세요.</p>
       )}
 
       {error && <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
