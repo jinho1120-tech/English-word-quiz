@@ -14,6 +14,10 @@ type FlashcardWord = {
   example: string | null
   disambiguation?: string | null
   lexicalType?: string
+  sourceName?: string | null
+  sourceEntryUrl?: string | null
+  licenseName?: string | null
+  licenseUrl?: string | null
   aiBundleItemId?: string
 }
 
@@ -21,7 +25,7 @@ type FlashcardSubject = { id: string; name: string; color: string }
 type AiBundle = {
   id: string
   status: string
-  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; sourceName: string | null; sourceEntryUrl: string | null; licenseName: string | null; licenseUrl: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
 }
 
 export function WordFlashcards({
@@ -63,6 +67,10 @@ export function WordFlashcards({
       example: item.exampleSnapshot,
       disambiguation: item.disambiguationSnapshot,
       lexicalType: item.lexicalType,
+      sourceName: item.sourceName,
+      sourceEntryUrl: item.sourceEntryUrl,
+      licenseName: item.licenseName,
+      licenseUrl: item.licenseUrl,
       aiBundleItemId: item.id,
     })), [aiBundle])
   const visibleWordbook = useMemo(() => words.filter((item) =>
