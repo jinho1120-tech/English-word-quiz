@@ -256,6 +256,39 @@ export const childSubjects = pgTable("child_subjects", {
   childSortIdx: index("child_subjects_child_sort_idx").on(table.childProfileId, table.sortOrder),
 }))
 
+export const vocabularyCandidates = pgTable("vocabulary_candidates", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  expression: varchar("expression", { length: 120 }).notNull(),
+  normalizedExpression: varchar("normalized_expression", { length: 120 }).notNull(),
+  lexicalType: varchar("lexical_type", { length: 24 }).notNull(),
+  partOfSpeech: varchar("part_of_speech", { length: 40 }).default("phrase").notNull(),
+  senseKey: varchar("sense_key", { length: 120 }).notNull(),
+  definitionEn: text("definition_en").notNull(),
+  meaningKo: varchar("meaning_ko", { length: 200 }),
+  exampleSentence: text("example_sentence"),
+  cefrLevel: varchar("cefr_level", { length: 4 }),
+  childLevel: varchar("child_level", { length: 2 }),
+  domain: varchar("domain", { length: 40 }),
+  register: varchar("register", { length: 24 }),
+  frequencyRank: integer("frequency_rank"),
+  difficultyVerified: boolean("difficulty_verified").default(false).notNull(),
+  verificationStatus: varchar("verification_status", { length: 20 }).default("pending").notNull(),
+  sourceName: varchar("source_name", { length: 60 }).default("FreeDictionaryAPI.com").notNull(),
+  sourceEntryUrl: text("source_entry_url"),
+  licenseName: varchar("license_name", { length: 40 }).default("CC BY-SA 4.0").notNull(),
+  licenseUrl: text("license_url"),
+  sourcePayload: jsonb("source_payload").$type<Record<string, unknown>>().default({}).notNull(),
+  dictionaryFetchedAt: timestamp("dictionary_fetched_at"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  senseUnique: uniqueIndex("vocabulary_candidates_sense_unique").on(table.normalizedExpression, table.lexicalType, table.partOfSpeech, table.senseKey),
+  typeStatusIdx: index("vocabulary_candidates_type_status_idx").on(table.lexicalType, table.verificationStatus),
+  childLevelIdx: index("vocabulary_candidates_child_level_idx").on(table.childLevel, table.lexicalType),
+  cefrLevelIdx: index("vocabulary_candidates_cefr_level_idx").on(table.cefrLevel, table.lexicalType),
+}))
+
 export const wordEntries = pgTable("word_entries", {
   id: serial("id").primaryKey(),
   // Kept as an ownership boundary; this must match the parent who owns childProfileId.
@@ -271,6 +304,9 @@ export const wordEntries = pgTable("word_entries", {
   word: varchar("word", { length: 100 }).notNull(),
   meaning: varchar("meaning", { length: 200 }).notNull(),
   example: text("example"),
+  lexicalType: varchar("lexical_type", { length: 24 }).default("word").notNull(),
+  disambiguation: varchar("disambiguation", { length: 100 }),
+  vocabularyCandidateId: uuid("vocabulary_candidate_id").references(() => vocabularyCandidates.id, { onDelete: "set null" }),
   wrongCount: integer("wrong_count").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
@@ -279,6 +315,108 @@ export const wordEntries = pgTable("word_entries", {
   childDateIdx: index("word_entries_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childWrongIdx: index("word_entries_child_wrong_idx").on(table.childProfileId, table.wrongCount),
   subjectIdx: index("word_entries_subject_idx").on(table.subjectId, table.assignmentDate),
+}))
+
+
+/** Per-child AI vocabulary schedule and publishing preferences. */
+export const aiVocabularySettings = pgTable("ai_vocabulary_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  enabled: boolean("enabled").default(false).notNull(),
+  wordsPerDay: integer("words_per_day").default(5).notNull(),
+  idiomsPerDay: integer("idioms_per_day").default(5).notNull(),
+  wordLevel: varchar("word_level", { length: 2 }).default("L1").notNull(),
+  idiomLevel: varchar("idiom_level", { length: 2 }).default("L1").notNull(),
+  activeDays: jsonb("active_days").$type<number[]>().default([0, 1, 2, 3, 4, 5, 6]).notNull(),
+  publishMode: varchar("publish_mode", { length: 16 }).default("manual").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  childUnique: uniqueIndex("ai_vocabulary_settings_child_unique").on(table.childProfileId),
+}))
+
+/** One recommendation batch per child and Seoul calendar date. */
+export const aiVocabularyBundles = pgTable("ai_vocabulary_bundles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  studyDate: varchar("study_date", { length: 10 }).notNull(),
+  status: varchar("status", { length: 24 }).default("draft").notNull(),
+  publishedAt: timestamp("published_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  childDateUnique: uniqueIndex("ai_vocabulary_bundles_child_date_unique").on(table.childProfileId, table.studyDate),
+  childStatusIdx: index("ai_vocabulary_bundles_child_status_idx").on(table.childProfileId, table.status),
+}))
+
+/** Snapshot items keep a published daily set stable if a candidate is later edited. */
+export const aiVocabularyBundleItems = pgTable("ai_vocabulary_bundle_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  bundleId: uuid("bundle_id").notNull().references(() => aiVocabularyBundles.id, { onDelete: "cascade" }),
+  candidateId: uuid("candidate_id").references(() => vocabularyCandidates.id, { onDelete: "set null" }),
+  wordEntryId: integer("word_entry_id").references(() => wordEntries.id, { onDelete: "set null" }),
+  sourceWordEntryId: integer("source_word_entry_id").references(() => wordEntries.id, { onDelete: "set null" }),
+  sourceType: varchar("source_type", { length: 20 }).notNull(),
+  lexicalType: varchar("lexical_type", { length: 24 }).notNull(),
+  expressionSnapshot: varchar("expression_snapshot", { length: 100 }).notNull(),
+  meaningSnapshot: varchar("meaning_snapshot", { length: 200 }).notNull(),
+  exampleSnapshot: text("example_snapshot"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  frontViewedAt: timestamp("front_viewed_at"),
+  backViewedAt: timestamp("back_viewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  bundleOrderUnique: uniqueIndex("ai_vocabulary_bundle_items_order_unique").on(table.bundleId, table.sortOrder),
+  bundleWordUnique: uniqueIndex("ai_vocabulary_bundle_items_word_unique").on(table.bundleId, table.wordEntryId),
+  candidateIdx: index("ai_vocabulary_bundle_items_candidate_idx").on(table.candidateId),
+}))
+
+/** Child-only bookmarks. Removing a bookmark never removes the source word. */
+export const childWordFavorites = pgTable("child_word_favorites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  wordEntryId: integer("word_entry_id").notNull().references(() => wordEntries.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  childWordUnique: uniqueIndex("child_word_favorites_child_word_unique").on(table.childProfileId, table.wordEntryId),
+  childCreatedIdx: index("child_word_favorites_child_created_idx").on(table.childProfileId, table.createdAt),
+}))
+
+/** Separate adaptive placement results for vocabulary and idioms. */
+export const aiVocabularyLevelAssessments = pgTable("ai_vocabulary_level_assessments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  lexicalType: varchar("lexical_type", { length: 24 }).notNull(),
+  startingLevel: varchar("starting_level", { length: 2 }).notNull(),
+  assignedLevel: varchar("assigned_level", { length: 2 }).notNull(),
+  questionCount: integer("question_count").notNull(),
+  correctCount: integer("correct_count").notNull(),
+  confidence: varchar("confidence", { length: 16 }).notNull(),
+  assessmentData: jsonb("assessment_data").$type<Record<string, unknown>>().default({}).notNull(),
+  completedAt: timestamp("completed_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  childTypeCompletedIdx: index("ai_vocabulary_assessments_child_type_completed_idx").on(table.childProfileId, table.lexicalType, table.completedAt),
+}))
+
+/** Words submitted by a child remain hidden until dictionary validation and parent review. */
+export const childWordSubmissions = pgTable("child_word_submissions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  childProfileId: uuid("child_profile_id").notNull().references(() => childProfiles.id, { onDelete: "cascade" }),
+  expression: varchar("expression", { length: 120 }).notNull(),
+  normalizedExpression: varchar("normalized_expression", { length: 120 }).notNull(),
+  lexicalType: varchar("lexical_type", { length: 24 }).default("word").notNull(),
+  meaning: varchar("meaning", { length: 200 }).notNull(),
+  example: text("example"),
+  validationStatus: varchar("validation_status", { length: 20 }).default("pending").notNull(),
+  dictionaryCheckedAt: timestamp("dictionary_checked_at"),
+  reviewedByUserId: text("reviewed_by_user_id"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdWordEntryId: integer("created_word_entry_id").references(() => wordEntries.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  childStatusCreatedIdx: index("child_word_submissions_child_status_created_idx").on(table.childProfileId, table.validationStatus, table.createdAt),
 }))
 
 /** Durable audit trail for privileged support changes; intentionally not FK-cascaded with families. */
