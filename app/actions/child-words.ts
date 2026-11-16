@@ -490,6 +490,8 @@ export async function answerChildAiVocabularyAssessment(assessmentId: string, se
       return { complete: true as const, correct, questionNumber: answers.length, result: { level: estimate.level, confidence: "low", correctCount, questionCount: answers.length } }
     }
 
+    if (!next) throw new Error("다음 진단 문제를 준비하지 못했어요.")
+
     if (complete) {
       const estimate = finalAssessmentLevel(answers)
       await tx.update(aiVocabularyLevelAssessments).set({
