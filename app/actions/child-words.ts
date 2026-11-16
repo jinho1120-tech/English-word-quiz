@@ -9,7 +9,7 @@ import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
-import { lookupFreeDictionaryCached, } from "@/lib/free-dictionary-cache"
+import { lookupFreeDictionaryCached } from "@/lib/free-dictionary-cache"
 import { normalizeDictionaryExpression } from "@/lib/free-dictionary-api"
 import { notifyFamilyParents } from "@/lib/notifications"
 
