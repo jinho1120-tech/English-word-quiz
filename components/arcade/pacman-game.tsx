@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { HapticButton } from "@/components/haptic-button";
 import { drawBlueOwl } from "@/components/arcade/owl-art";
-import { drawArcadeMonster } from "@/components/arcade/monster-art";
+import { ARCADE_MONSTER_COLORS, drawArcadeMonster } from "@/components/arcade/monster-art";
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding";
 
 const COLS = 15;
@@ -191,10 +191,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const ghostAscensionsRef = useRef<Array<{ x: number; y: number; word: string; startedAt: number }>>([]);
 
   const ghostsRef = useRef<Ghost[]>([
-    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
-    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
-    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
+    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[4], isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
   ]);
 
   const mapRef = useRef<number[][]>(INITIAL_MAP.map((r) => [...r]));
