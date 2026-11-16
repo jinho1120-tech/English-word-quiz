@@ -1,5 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { HapticButton } from "@/components/haptic-button";
+import { drawBlueOwl } from "@/components/arcade/owl-art";
+import { ARCADE_MONSTER_COLORS, drawArcadeMonster } from "@/components/arcade/monster-art";
+import { OWL_GAME_NAME } from "@/components/arcade/game-branding";
+import { BlueOwlIcon } from "@/components/arcade/owl-icon";
+import { MonsterAvatar } from "@/components/arcade/monster-avatar";
 
 const COLS = 15;
 const ROWS = 15;
@@ -10,7 +15,8 @@ const BASE_PACMAN_SPEED = 4.6;
 const BASE_GHOST_SPEED = 3.8;
 const GHOST_FRIGHTENED_SPEED = 2.4;
 
-// 1: 벽, 2: 일반 점, 3: 파워 펠릿, 0: 빈 통로
+// 1: 벽, 2: 일반 점, 3: 책 아이템, 0: 빈 통로
+const PENCIL_SPAWN = { x: 1, y: 8 };
 const INITIAL_MAP = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 3, 2, 2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 3, 1],
@@ -20,9 +26,9 @@ const INITIAL_MAP = [
   [1, 1, 2, 1, 2, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1], // (7, 5): 소굴 문 밖 출구
   [0, 0, 2, 1, 2, 1, 0, 0, 0, 1, 2, 1, 2, 0, 0], // (6..8, 6): 소굴 안
   [1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (7, 8): 🍒 보너스 체리 스폰 위치
+  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (1, 8): ✏️ 보너스 연필 스폰 위치
   [1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1],
-  [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 보카맨 스폰 지점
+  [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 부엉이 시작 지점
   [1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1],
   [1, 3, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 3, 1],
   [1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1],
@@ -41,11 +47,11 @@ const STAGE_WALL_ADDITIONS: Array<Array<[number, number]>> = [
 ];
 
 const STAGE_THEMES = [
-  { name: "클래식 미로", background: "#020617", wall: "#1e3a8a", stroke: "#3b82f6", dot: "#fef08a", power: "#facc15" },
-  { name: "바다 미로", background: "#031b2f", wall: "#0e7490", stroke: "#22d3ee", dot: "#a5f3fc", power: "#67e8f9" },
-  { name: "수정 동굴", background: "#160b2e", wall: "#6d28d9", stroke: "#c4b5fd", dot: "#ddd6fe", power: "#a78bfa" },
-  { name: "화산 미로", background: "#2a1008", wall: "#9a3412", stroke: "#fb923c", dot: "#fed7aa", power: "#f97316" },
-  { name: "우주 미로", background: "#07152d", wall: "#047857", stroke: "#34d399", dot: "#bbf7d0", power: "#a3e635" },
+  { name: "도서관 미로", background: "#020617", wall: "#1e3a8a", stroke: "#3b82f6", dot: "#fef08a", power: "#facc15" },
+  { name: "바닷속 서재", background: "#031b2f", wall: "#0e7490", stroke: "#22d3ee", dot: "#a5f3fc", power: "#67e8f9" },
+  { name: "수정 도서관", background: "#160b2e", wall: "#6d28d9", stroke: "#c4b5fd", dot: "#ddd6fe", power: "#a78bfa" },
+  { name: "화산 연구실", background: "#2a1008", wall: "#9a3412", stroke: "#fb923c", dot: "#fed7aa", power: "#f97316" },
+  { name: "우주 도서관", background: "#07152d", wall: "#047857", stroke: "#34d399", dot: "#bbf7d0", power: "#a3e635" },
 ];
 
 function createStageMap(stage: number): number[][] {
@@ -188,10 +194,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   const ghostAscensionsRef = useRef<Array<{ x: number; y: number; word: string; startedAt: number }>>([]);
 
   const ghostsRef = useRef<Ghost[]>([
-    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
-    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
-    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
+    { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+    { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[2], isFrightened: false, releaseDelayMs: 2500, isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+    { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: 5000, isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+    { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: 7500, isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
   ]);
 
   const mapRef = useRef<number[][]>(INITIAL_MAP.map((r) => [...r]));
@@ -217,10 +223,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       mouthDir: 1,
     };
     ghostsRef.current = [
-      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: "#ef4444", isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
-      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: "#f472b6", isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
-      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: "#38bdf8", isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
-      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: "#fb923c", isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
+      { id: "red", x: 7.0, y: 5.0, dirX: 1, dirY: 0, color: ARCADE_MONSTER_COLORS[0], isFrightened: false, releaseDelayMs: 0, isInHouse: false, lastDecisionTile: "", word: words[0] ?? null },
+      { id: "pink", x: 7.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[2], isFrightened: false, releaseDelayMs: releaseDelays[1], isInHouse: true, lastDecisionTile: "", word: words[1 % Math.max(1, words.length)] ?? null },
+      { id: "blue", x: 6.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[1], isFrightened: false, releaseDelayMs: releaseDelays[2], isInHouse: true, lastDecisionTile: "", word: words[2 % Math.max(1, words.length)] ?? null },
+      { id: "orange", x: 8.0, y: 6.0, dirX: 0, dirY: -1, color: ARCADE_MONSTER_COLORS[3], isFrightened: false, releaseDelayMs: releaseDelays[3], isInHouse: true, lastDecisionTile: "", word: words[3 % Math.max(1, words.length)] ?? null },
     ];
     gameStartTimeRef.current = Date.now();
     lastTimeRef.current = performance.now();
@@ -489,7 +495,9 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
     const expected = doctorChallenge.words[doctorChallenge.index]?.word ?? "";
     const normalized = value.trim().toLocaleLowerCase().replace(/\s+/g, "");
     const target = expected.toLocaleLowerCase().replace(/\s+/g, "");
-    if (!target.startsWith(normalized)) {
+    // 입력 도중에는 오타를 수정할 수 있도록 즉시 실패 처리하지 않는다.
+    // 정답과 같은 길이까지 입력했는데도 일치하지 않으면 오답으로 종료한다.
+    if (normalized.length >= target.length && normalized !== target) {
       doctorChallengeActiveRef.current = false;
       setDoctorChallenge(null);
       setDefenseTyped("");
@@ -562,7 +570,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       // 스테이지 클리어 대기 중이거나 READY 상태면 물리 연산 정지
       if (!isReady && !isStageClear && !defenseEncounter && !doctorChallenge) {
         // ==========================================
-        // 1. 보카맨 부드러운 코너링 및 전진
+        // 1. 부엉이 부드러운 코너링 및 전진
         // ==========================================
         const curTileX = Math.round(pac.x);
         const curTileY = Math.round(pac.y);
@@ -612,7 +620,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             setDotsLeft((d) => {
               const next = d - 1;
 
-              // 🍒 도트를 절반 먹었을 때 체리 출현 (스테이지당 1회)
+              // ⭐ 별을 절반 정도 먹었을 때 연필 출현 (스테이지당 1회)
               if (!cherrySpawnedRef.current && next <= totalDotsCountRef.current * 0.55) {
                 cherrySpawnedRef.current = true;
                 setCherryVisible(true);
@@ -644,8 +652,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           }
         }
 
-        // 🍒 체리 획득 판정 (7, 8 위치)
-        if (cherryVisible && Math.hypot(pac.x - 7, pac.y - 8) < 0.6) {
+        // ✏️ 연필 획득 판정 (미로에서 접근 가능한 위치)
+        if (cherryVisible && Math.hypot(pac.x - PENCIL_SPAWN.x, pac.y - PENCIL_SPAWN.y) < 0.6) {
           setCherryVisible(false);
           setScore((s) => s + 100);
           setCherryPopup("+100");
@@ -713,7 +721,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               let chosen = validDirs[Math.floor(Math.random() * validDirs.length)];
 
               if (doctorModeActiveRef.current) {
-                // 박사 보카맨이 된 동안 유령은 보카맨에게서 가장 멀어지는 길을 선택한다.
+                // 박사 모드인 동안 유령은 부엉이에게서 가장 멀어지는 길을 선택한다.
                 validDirs.sort(
                   (a, b) =>
                     Math.hypot(gTileX + b.x - pac.x, gTileY + b.y - pac.y) -
@@ -785,7 +793,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         }
       }
 
-      // 보카맨 입 뻐끔 애니메이션
+      // 부엉이 이동 애니메이션
       const isMoving = pac.dirX !== 0 || pac.dirY !== 0;
       if (isMoving && !isReady && !isStageClear) {
         pac.mouthAngle += 2.2 * dt * pac.mouthDir;
@@ -819,156 +827,142 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           } else if (val === 2) {
             ctx.fillStyle = currentTheme.dot;
             ctx.beginPath();
-            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 2.5, 0, Math.PI * 2);
-            ctx.fill();
-          } else if (val === 3) {
-            ctx.fillStyle = currentTheme.power;
+            ctx.save();
+            ctx.translate(px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillStyle = currentTheme.dot;
             ctx.beginPath();
-            ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 5.5, 0, Math.PI * 2);
+            for (let point = 0; point < 10; point++) {
+              const radius = point % 2 === 0 ? 4 : 1.8;
+              const angle = (Math.PI * point) / 5;
+              const x = Math.cos(angle) * radius;
+              const y = Math.sin(angle) * radius;
+              if (point === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
             ctx.fill();
+            ctx.restore();
+          } else if (val === 3) {
+            // 펼쳐진 책 모양: 파란 표지, 흰 양쪽 페이지, 중앙 책등과 글줄
+            ctx.save();
+            ctx.translate(px + CELL_SIZE / 2, py + CELL_SIZE / 2);
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 1.2;
+            ctx.fillStyle = "#1d4ed8";
+            ctx.strokeStyle = "#1e3a8a";
+            ctx.beginPath();
+            ctx.moveTo(-7, -5);
+            ctx.quadraticCurveTo(-3, -7, 0, -4);
+            ctx.quadraticCurveTo(3, -7, 7, -5);
+            ctx.lineTo(7, 5);
+            ctx.quadraticCurveTo(3, 3, 0, 6);
+            ctx.quadraticCurveTo(-3, 3, -7, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#fffdf2";
+            ctx.beginPath();
+            ctx.moveTo(-5.5, -3.8);
+            ctx.quadraticCurveTo(-2.5, -5, -0.8, -3.2);
+            ctx.lineTo(-0.8, 4.1);
+            ctx.quadraticCurveTo(-3, 2.5, -5.5, 3.4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(0.8, -3.2);
+            ctx.quadraticCurveTo(2.5, -5, 5.5, -3.8);
+            ctx.lineTo(5.5, 3.4);
+            ctx.quadraticCurveTo(3, 2.5, 0.8, 4.1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#93c5fd";
+            ctx.lineWidth = 0.65;
+            ctx.beginPath();
+            ctx.moveTo(0, -3.8);
+            ctx.lineTo(0, 4.5);
+            ctx.moveTo(-4.5, -1.5); ctx.lineTo(-2, -1);
+            ctx.moveTo(2, -1); ctx.lineTo(4.5, -1.5);
+            ctx.stroke();
+            ctx.restore();
           }
         }
       }
 
-      // 🍒 보너스 체리 그리기 (7, 8 위치)
+      // ✏️ 보너스 연필: 눈에 띄는 크기와 후광/반짝임으로 표시
       if (cherryVisible) {
-        ctx.font = "14px sans-serif";
+        const pencilX = PENCIL_SPAWN.x * CELL_SIZE + CELL_SIZE / 2;
+        const pencilY = PENCIL_SPAWN.y * CELL_SIZE + CELL_SIZE / 2;
+        const pulse = 1 + Math.sin(nowMs / 150) * 0.1;
+        ctx.save();
+        ctx.translate(pencilX, pencilY);
+        ctx.scale(pulse, pulse);
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "rgba(255, 248, 190, 0.92)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = "#f59e0b";
+        ctx.strokeStyle = "#92400e";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(-2.5, -6.5, 5, 13, 1.2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fda4af";
+        ctx.fillRect(-2.5, -6.5, 5, 2.5);
+        ctx.fillStyle = "#fde68a";
+        ctx.fillRect(-2.5, 3.5, 5, 2);
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        ctx.moveTo(-2.5, 6.5);
+        ctx.lineTo(2.5, 6.5);
+        ctx.lineTo(0, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 8px sans-serif";
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("🍒", 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE + CELL_SIZE / 2);
+        ctx.fillText("✦", pencilX + 8, pencilY - 8);
       }
 
-      // 🍒 체리 획득 +100 팝업 텍스트
+      // ✏️ 연필 획득 +100 팝업 텍스트
       if (cherryPopup) {
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 11px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(cherryPopup, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE);
+        ctx.fillText(cherryPopup, PENCIL_SPAWN.x * CELL_SIZE + CELL_SIZE / 2, PENCIL_SPAWN.y * CELL_SIZE);
       }
 
       // 박사 모드 제한 시간 종료
       if (doctorModeActiveRef.current && nowMs >= doctorModeUntil) doctorModeActiveRef.current = false;
 
-      // 보카맨 그리기
-      const shouldDrawPacman = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
-      if (shouldDrawPacman) {
+      // 부엉이 캐릭터: 좌우는 옆모습, 위는 뒷모습, 아래는 정면.
+      const shouldDrawOwl = !isInvulnerable || Math.floor(nowMs / 140) % 2 === 0;
+      if (shouldDrawOwl) {
         const centerX = pac.x * CELL_SIZE + CELL_SIZE / 2;
         const centerY = pac.y * CELL_SIZE + CELL_SIZE / 2;
-        const doctorVertical = doctorModeActiveRef.current && pac.dirY !== 0;
-        let angleOffset = 0;
-        if (pac.dirX === 1) angleOffset = 0;
-        else if (pac.dirX === -1) angleOffset = Math.PI;
-        else if (pac.dirY === 1) angleOffset = Math.PI / 2;
-        else if (pac.dirY === -1) angleOffset = (Math.PI * 3) / 2;
-
-        // 박사 모드의 상하 이동은 입이 없는 둥근 얼굴로, 좌우 이동은 기존 측면 입 모양으로 표현한다.
-        ctx.fillStyle = "#facc15";
-        ctx.beginPath();
-        if (doctorVertical) {
-          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1, 0, Math.PI * 2);
-        } else {
-          ctx.arc(centerX, centerY, CELL_SIZE / 2 - 1,
-            angleOffset + pac.mouthAngle * Math.PI,
-            angleOffset + (2 - pac.mouthAngle) * Math.PI);
-          ctx.lineTo(centerX, centerY);
-        }
-        ctx.fill();
-
+        const direction = pac.dirX < 0 ? "left" : pac.dirX > 0 ? "right" : pac.dirY < 0 ? "up" : "down";
         if (doctorModeActiveRef.current) {
-          ctx.save();
-          const facingX = pac.dirX !== 0 ? pac.dirX : 0;
-          const facingY = pac.dirY !== 0 ? pac.dirY : 0;
-          const idleFacingX = facingX === 0 && facingY === 0 ? 1 : facingX;
-          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 28 + Math.sin(nowMs / 90) * 3);
-          aura.addColorStop(0, "rgba(250,204,21,0.62)");
-          aura.addColorStop(1, "rgba(250,204,21,0)");
+          const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 25 + Math.sin(nowMs / 90) * 3);
+          aura.addColorStop(0, "rgba(59,130,246,0.42)");
+          aura.addColorStop(1, "rgba(59,130,246,0)");
           ctx.fillStyle = aura;
-          ctx.beginPath(); ctx.arc(centerX, centerY, 32, 0, Math.PI * 2); ctx.fill();
-
-          // 아래 이동: 정면 얼굴 + 정면 안경. 입은 그리지 않는다.
-          if (pac.dirY > 0) {
-            ctx.fillStyle = "#713f12";
-            ctx.beginPath();
-            ctx.ellipse(centerX - 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
-            ctx.ellipse(centerX + 4, centerY - 2, 1.5, 3, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "#172033";
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.roundRect(centerX - 8, centerY - 5, 7, 7, 2);
-            ctx.roundRect(centerX + 1, centerY - 5, 7, 7, 2);
-            ctx.moveTo(centerX - 1, centerY - 2);
-            ctx.lineTo(centerX + 1, centerY - 2);
-            ctx.stroke();
-          } else if (pac.dirY < 0) {
-            // 위 이동: 뒤통수만 보여 안경·눈·입은 모두 숨긴다.
-            ctx.fillStyle = "#eab308";
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            // 좌우 이동은 기존 측면 모습과 방향에 맞춘 안경을 유지한다.
-            const glassesX = centerX + idleFacingX * 5;
-            const glassesY = centerY - 3;
-            ctx.strokeStyle = "#172033";
-            ctx.lineWidth = 1.6;
-            ctx.beginPath();
-            ctx.roundRect(glassesX - 3, glassesY - 3, 7, 6, 2);
-            ctx.moveTo(glassesX + idleFacingX * 4, glassesY);
-            ctx.lineTo(glassesX + idleFacingX * 7, glassesY + 1);
-            ctx.stroke();
-          }
-
-          // 학사모는 모든 방향에서 유지한다.
-          ctx.fillStyle = "#1e293b";
           ctx.beginPath();
-          ctx.moveTo(centerX - 10, centerY - 9);
-          ctx.lineTo(centerX + 10, centerY - 9);
-          ctx.lineTo(centerX + 4, centerY - 14);
-          ctx.lineTo(centerX - 4, centerY - 14);
-          ctx.closePath();
+          ctx.arc(centerX, centerY, 27, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillStyle = "#334155";
-          ctx.beginPath();
-          ctx.moveTo(centerX - 13, centerY - 14);
-          ctx.lineTo(centerX, centerY - 20);
-          ctx.lineTo(centerX + 13, centerY - 14);
-          ctx.lineTo(centerX, centerY - 10);
-          ctx.closePath();
-          ctx.fill();
-          ctx.strokeStyle = "#facc15";
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(centerX - idleFacingX * 10, centerY - 14);
-          ctx.lineTo(centerX - idleFacingX * 13, centerY - 7);
-          ctx.stroke();
-          ctx.restore();
         }
+        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 9, direction, doctorModeActiveRef.current, nowMs / 120, pac.dirX !== 0 || pac.dirY !== 0);
       }
 
-      // 유령 그리기
+      // 두 게임이 공유하는 컬러 영단어 몬스터.
       ghostsRef.current.forEach((g) => {
         const gx = g.x * CELL_SIZE + CELL_SIZE / 2;
         const gy = g.y * CELL_SIZE + CELL_SIZE / 2;
-        ctx.fillStyle = doctorModeActiveRef.current ? "#cbd5e1" : g.isFrightened ? "#2563eb" : g.color;
-        ctx.beginPath();
-        ctx.arc(gx, gy - 2, CELL_SIZE / 2 - 2, Math.PI, 0, false);
-        ctx.lineTo(gx + CELL_SIZE / 2 - 2, gy + CELL_SIZE / 2 - 2);
-        ctx.lineTo(gx - CELL_SIZE / 2 + 2, gy + CELL_SIZE / 2 - 2);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(gx - 3, gy - 3, 2, 0, Math.PI * 2);
-        ctx.arc(gx + 3, gy - 3, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#000000";
-        ctx.beginPath();
-        ctx.arc(gx - 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
-        ctx.arc(gx + 3 + g.dirX, gy - 3 + g.dirY, 1, 0, Math.PI * 2);
-        ctx.fill();
-
+        drawArcadeMonster(ctx, gx, gy, CELL_SIZE / 2 - 1, nowMs / 150 + Number(g.id.length), false, "mischievous", doctorModeActiveRef.current ? "#9ca3af" : g.isFrightened ? "#38bdf8" : g.color);
       });
 
       // 정답을 맞힌 유령은 단어를 남기며 위로 승천한 뒤 소굴에서 다시 등장한다.
@@ -1041,7 +1035,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   return (
     <div className={isFullscreen ? "fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col items-center overflow-y-auto bg-slate-950 px-2 pb-3 pt-[max(12px,env(safe-area-inset-top))] text-white" : "relative mx-auto flex w-full max-w-4xl flex-col items-center px-1 select-none sm:px-3"}>
       <div className={isFullscreen ? "mb-2 flex w-full max-w-5xl items-center justify-between" : "mb-2 flex w-full justify-end"}>
-        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">PAC-MAN · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
+        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">{OWL_GAME_NAME} · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
         {isFullscreen ? <button type="button" aria-label="큰 화면 닫기" onClick={() => setIsFullscreen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white shadow-lg">×</button> : <HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton>}
       </div>
       {/* 점수 & 스테이지 & 목숨 표시 바 */}
@@ -1055,16 +1049,16 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 text-sm" title={`남은 목숨: ${lives}개`}>
-            {"🟡".repeat(lives)}
+            {Array.from({ length: lives }, (_, index) => <BlueOwlIcon key={index} size={17} />)}
             {"⚪".repeat(Math.max(0, 3 - lives))}
           </div>
           <span className="text-[11px] font-bold text-muted-foreground">
-            도트: <b className="text-primary">{dotsLeft}</b>
+            별: <b className="text-primary">{dotsLeft}</b>
           </span>
         </div>
       </div>
 
-      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label="보카맨 조작 설정">
+      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label={`${OWL_GAME_NAME} 조작 설정`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black text-foreground">조작 방법</p>
@@ -1093,7 +1087,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         <p className="mt-2 text-[11px] text-muted-foreground">기울기 조작은 센서가 있는 휴대폰에서 사용할 수 있어요. PC에서는 키보드 방향키를 사용하세요.</p>
       </section>}
 
-      {/* 보카맨 캔버스 미로 */}
+      {/* 부엉이 미로 */}
       <div className={isFullscreen ? "relative flex min-h-0 w-full max-w-5xl flex-1 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 p-1.5 ring-2 ring-white/20 shadow-2xl" : "relative rounded-2xl overflow-hidden ring-2 ring-border/80 bg-slate-950 p-1.5 shadow-md"} style={{ borderColor: stageTheme.wall, boxShadow: "0 0 14px " + stageTheme.stroke + "55" }}>
         <canvas
           ref={canvasRef}
@@ -1143,24 +1137,80 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       {doctorChallenge && (
         <div className="fixed inset-0 z-[170] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/95 px-5 py-6 text-center text-white">
           <div className="mb-4 text-5xl">🎓</div>
-          <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR VOCA-MAN CHALLENGE</p>
-          <h2 className="mt-2 text-2xl font-black">박사 보카맨에 도전!</h2>
+          <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR OWL CHALLENGE</p>
+          <h2 className="mt-2 text-2xl font-black">박사 부엉이에 도전!</h2>
           <p className="mt-2 text-sm text-slate-300">시간제한 없이 영어 단어 3개를 연속으로 맞혀 보세요.</p>
           <div className="relative my-5 flex h-40 w-40 items-center justify-center">
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
-            <div className="relative h-28 w-28 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="박사 보카맨 얼굴">
-                <ellipse cx="39" cy="43" rx="5" ry="9" fill="#713f12" />
-                <ellipse cx="73" cy="43" rx="5" ry="9" fill="#713f12" />
-                <path d="M31 68 Q56 91 81 68" fill="none" stroke="#713f12" strokeWidth="6" strokeLinecap="round" />
-                {doctorChallenge.index >= 2 && <g fill="none" stroke="#172033" strokeWidth="5">
-                  <rect x="13" y="39" width="38" height="29" rx="12" />
-                  <rect x="61" y="39" width="38" height="29" rx="12" />
-                  <path d="M51 52 H61" />
-                </g>}
+            <div className="relative flex h-40 w-40 items-center justify-center">
+              {doctorChallenge.index >= 1 && (
+                <>
+                  <div className="absolute inset-1 rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.48)_0%,rgba(59,130,246,0.22)_48%,transparent_72%)] blur-sm" />
+                  <div className="absolute inset-0 animate-pulse text-amber-200">
+                    <span className="absolute left-2 top-7 text-xl">✦</span>
+                    <span className="absolute right-3 top-5 text-lg">✧</span>
+                    <span className="absolute bottom-5 left-4 text-lg">✧</span>
+                    <span className="absolute bottom-4 right-3 text-xl">✦</span>
+                    <span className="absolute left-1/2 top-0 -translate-x-1/2 text-sm">✧</span>
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-sm">✦</span>
+                  </div>
+                </>
+              )}
+              <svg viewBox="0 0 220 220" className="relative z-10 h-full w-full overflow-visible drop-shadow-[0_8px_10px_rgba(37,99,235,0.3)]" role="img" aria-label={doctorChallenge.index >= 3 ? "후광과 안경, 학사모를 쓴 박사 부엉이" : doctorChallenge.index >= 2 ? "안경을 쓴 부엉이" : "안경과 학사모가 없는 부엉이"}>
+                {doctorChallenge.index >= 1 && <ellipse cx="110" cy="112" rx="104" ry="104" fill="none" stroke="#60a5fa" strokeWidth="3" opacity=".45" />}
+                {/* 몸통과 머리 */}
+                <path d="M36 112 C20 76 31 42 49 29 C69 44 82 47 110 44 C138 47 151 44 171 29 C189 42 200 76 184 112 C207 145 190 193 157 199 L63 199 C30 193 13 145 36 112Z" fill="#3290f5" stroke="#124b9b" strokeWidth="6" strokeLinejoin="round"/>
+                {/* 귀깃 */}
+                <path d="M45 62 C26 51 20 27 28 12 C48 20 62 34 76 48Z" fill="#3290f5" stroke="#124b9b" strokeWidth="5" strokeLinejoin="round"/>
+                <path d="M175 62 C194 51 200 27 192 12 C172 20 158 34 144 48Z" fill="#3290f5" stroke="#124b9b" strokeWidth="5" strokeLinejoin="round"/>
+                {/* 날개 */}
+                <path d="M42 128 C17 141 15 179 31 190 C43 197 55 184 61 169 L67 148Z" fill="#2782e8" stroke="#124b9b" strokeWidth="5"/>
+                <path d="M178 128 C203 141 205 179 189 190 C177 197 165 184 159 169 L153 148Z" fill="#2782e8" stroke="#124b9b" strokeWidth="5"/>
+                {/* 얼굴과 가슴 */}
+                <path d="M47 80 C53 55 82 48 110 60 C138 48 167 55 173 80 C185 119 164 145 110 151 C56 145 35 119 47 80Z" fill="#f8fbff"/>
+                <path d="M58 139 C40 155 45 190 75 197 L145 197 C175 190 180 155 162 139 C146 127 127 130 110 139 C93 130 74 127 58 139Z" fill="#eff6ff"/>
+                {/* 눈 */}
+                <ellipse cx="82" cy="96" rx="11" ry="16" fill="#172554"/>
+                <ellipse cx="138" cy="96" rx="11" ry="16" fill="#172554"/>
+                <circle cx="78" cy="90" r="4" fill="#fff"/>
+                <circle cx="134" cy="90" r="4" fill="#fff"/>
+                {/* 부리 */}
+                <path d="M99 111 Q110 103 121 111 Q119 129 110 134 Q101 129 99 111Z" fill="#fbbf24" stroke="#a85c08" strokeWidth="2"/>
+                {/* 가슴 깃털 */}
+                <g fill="#60a5fa" opacity=".9">
+                  <path d="M83 151 Q70 150 72 169 Q82 172 83 151Z"/>
+                  <path d="M110 150 Q101 151 107 171 Q116 172 110 150Z"/>
+                  <path d="M137 151 Q150 150 148 169 Q138 172 137 151Z"/>
+                  <path d="M94 174 Q83 176 88 190 Q98 190 94 174Z"/>
+                  <path d="M126 174 Q137 176 132 190 Q122 190 126 174Z"/>
+                </g>
+                {/* 발 */}
+                <g fill="#f7b51b" stroke="#a85c08" strokeWidth="3" strokeLinejoin="round">
+                  <path d="M73 192 Q61 196 65 207 Q78 214 96 205 L98 197Z"/>
+                  <path d="M147 192 Q159 196 155 207 Q142 214 124 205 L122 197Z"/>
+                  <path d="M71 201 L91 205 M149 201 L129 205" fill="none"/>
+                </g>
+                {/* 두 번째 정답부터 안경 */}
+                {doctorChallenge.index >= 2 && (
+                  <g fill="none" stroke="#172033" strokeWidth="5">
+                    <circle cx="82" cy="96" r="25"/>
+                    <circle cx="138" cy="96" r="25"/>
+                    <path d="M107 95 Q110 91 113 95 M57 94 H46 M163 94 H174"/>
+                  </g>
+                )}
+                {/* 세 번째 정답 후 학사모 */}
+                {doctorChallenge.index >= 3 && (
+                  <g stroke="#10234f" strokeWidth="4" strokeLinejoin="round">
+                    <path d="M36 38 L110 5 L184 38 L110 72Z" fill="#172554"/>
+                    <path d="M54 40 L110 16 L166 40 L110 62Z" fill="#263b70" stroke="none"/>
+                    <path d="M66 43 H154 V57 Q110 78 66 57Z" fill="#1e315f"/>
+                    <path d="M171 39 L185 88" fill="none" stroke="#a16207" strokeWidth="5"/>
+                    <path d="M180 82 Q194 77 197 91 L205 112 Q197 121 187 112 L178 94Z" fill="#fbbf24" stroke="#a16207" strokeWidth="3"/>
+                    <circle cx="179" cy="85" r="7" fill="#fbbf24" stroke="#a16207"/>
+                  </g>
+                )}
               </svg>
-              {doctorChallenge.index >= 3 && <div className="absolute -top-5 left-1/2 z-20 -translate-x-1/2 text-5xl drop-shadow-[0_0_12px_rgba(250,204,21,0.9)]">🎓</div>}
             </div>
           </div>
           <div className="my-1 flex gap-3">{[0,1,2].map((step) => <span key={step} className={`flex h-10 w-10 items-center justify-center rounded-full border-2 text-lg font-black ${step < doctorChallenge.index ? "border-amber-300 bg-amber-300 text-slate-950" : step === doctorChallenge.index ? "border-amber-300 text-amber-200" : "border-white/20 text-slate-500"}`}>{step < doctorChallenge.index ? "✓" : step + 1}</span>)}</div>
@@ -1168,10 +1218,10 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             {doctorChallenge.index < 3 ? <>
               <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
               <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
-              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
-            </> : <><p className="text-xl font-black text-amber-200">박사 보카맨 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
+              <input autoFocus value={defenseTyped} maxLength={doctorChallenge.words[doctorChallenge.index]?.word.length ?? 100} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 부엉이 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+            </> : <><p className="text-xl font-black text-amber-200">박사 부엉이 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
-          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
+          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 책 아이템의 기회는 사라집니다.</p>
         </div>
       )}
 
@@ -1180,7 +1230,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(30,64,175,0.34),transparent_58%)]" />
           <div className="relative z-10 flex w-full max-w-xl flex-1 flex-col justify-between gap-2 py-1">
             <div className="shrink-0">
-              <p className="text-[10px] font-black tracking-[0.2em] text-amber-300">VOCA-MAN WORD SHIELD</p>
+              <p className="text-[10px] font-black tracking-[0.2em] text-amber-300">WORD MONSTER ALERT</p>
               <h2 className="mt-1 text-xl font-black sm:text-3xl">몬스터가 다가오고 있어요!</h2>
               <p className="mt-1 text-xs text-slate-300">뜻을 보고 영어 단어를 한 번만 정확히 입력하세요.</p>
             </div>
@@ -1192,12 +1242,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 {defenseEncounter.word.meaning}
               </div>
               <div className="absolute bottom-9 transition-all duration-75" style={{ left: (12 + (1 - defenseRemainingMs / defenseEncounter.durationMs) * 68) + "%", transform: "translateX(-50%)" }}>
-                <div className="relative h-24 w-20 rounded-t-[48%] rounded-b-[22%] shadow-[0_0_34px_rgba(255,255,255,0.2)]" style={{ backgroundColor: defenseEncounter.ghostColor }}>
-                  <div className="absolute left-[22%] top-[32%] flex w-[56%] justify-between">
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                  </div>
-                </div>
+                <MonsterAvatar color={defenseEncounter.ghostColor} className="h-24 w-20 drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]" />
               </div>
               <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
             </div>
@@ -1216,7 +1261,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               className="h-12 w-full shrink-0 rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
               style={{ borderColor: defenseEncounter.ghostColor }}
             />
-            <p className="shrink-0 text-[10px] text-slate-400">정답을 한 번 입력하면 바로 보카맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+            <p className="shrink-0 text-[10px] text-slate-400">정답을 한 번 입력하면 바로 미로로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
           </div>
         </div>
       )}
@@ -1253,7 +1298,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             ➡️
           </HapticButton>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">도트 절반을 먹으면 보너스 체리(🍒)가 나타나요!</p>
+        <p className="text-[10px] text-muted-foreground mt-1">별을 절반 모으면 보너스 연필(✏️)이 나타나요!</p>
       </div>
     </div>
   );
