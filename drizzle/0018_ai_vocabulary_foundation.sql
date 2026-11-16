@@ -1,3 +1,6 @@
+ALTER TABLE "vocabulary_candidates"
+  ADD COLUMN "reviewed_by_user_id" text;
+
 CREATE TABLE "dictionary_lookup_cache" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "normalized_expression" varchar(120) NOT NULL,
