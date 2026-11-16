@@ -79,7 +79,7 @@ export function WordFlashcards({
   const isFavorite = current ? favoriteIds.has(current.id) : false
 
   useEffect(() => {
-    if (cardScope !== "today-ai" || viewMode !== "card" || !aiBundle || !current?.aiBundleItemId) return
+    if (cardScope !== "today-ai" || viewMode !== "card" || !aiBundle || aiBundle.status === "completed" || !current?.aiBundleItemId) return
     const side = isFlipped ? "back" : "front"
     const key = aiBundle.id + ":" + current.aiBundleItemId + ":" + side
     if (recordedSides.current.has(key)) return
