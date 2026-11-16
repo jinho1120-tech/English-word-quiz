@@ -190,22 +190,23 @@ export function drawBlueOwl(
       ctx.beginPath(); ctx.moveTo(0, -h * 0.09); ctx.quadraticCurveTo(h * 0.16, h * 0.04, 0, h * 0.15); ctx.quadraticCurveTo(-h * 0.16, h * 0.04, 0, -h * 0.09); ctx.fill(); ctx.restore();
     }
 
-    // Wings are drawn over the sides of the white body.
+    // Keep the wings tucked along the outer sides so they frame, rather than cover,
+    // the white face and belly (as in the supplied front-view reference).
     outline("#3999f2");
     ctx.beginPath();
-    ctx.moveTo(-h * 0.68, -h * 0.08);
-    ctx.quadraticCurveTo(-h * 0.98, -h * 0.2, -h * 0.92, h * 0.48);
-    ctx.quadraticCurveTo(-h * 0.88, h * 0.84, -h * 0.7, h * 0.7);
-    ctx.quadraticCurveTo(-h * 0.54, h * 0.88, -h * 0.5, h * 0.65);
-    ctx.quadraticCurveTo(-h * 0.39, h * 0.84, -h * 0.34, h * 0.6);
-    ctx.lineTo(-h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.moveTo(-h * 0.69, -h * 0.06);
+    ctx.quadraticCurveTo(-h * 0.98, -h * 0.18, -h * 0.94, h * 0.47);
+    ctx.quadraticCurveTo(-h * 0.9, h * 0.79, -h * 0.77, h * 0.7);
+    ctx.quadraticCurveTo(-h * 0.65, h * 0.82, -h * 0.61, h * 0.62);
+    ctx.quadraticCurveTo(-h * 0.53, h * 0.78, -h * 0.52, h * 0.56);
+    ctx.lineTo(-h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(h * 0.68, -h * 0.08);
-    ctx.quadraticCurveTo(h * 0.98, -h * 0.2, h * 0.92, h * 0.48);
-    ctx.quadraticCurveTo(h * 0.88, h * 0.84, h * 0.7, h * 0.7);
-    ctx.quadraticCurveTo(h * 0.54, h * 0.88, h * 0.5, h * 0.65);
-    ctx.quadraticCurveTo(h * 0.39, h * 0.84, h * 0.34, h * 0.6);
-    ctx.lineTo(h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.moveTo(h * 0.69, -h * 0.06);
+    ctx.quadraticCurveTo(h * 0.98, -h * 0.18, h * 0.94, h * 0.47);
+    ctx.quadraticCurveTo(h * 0.9, h * 0.79, h * 0.77, h * 0.7);
+    ctx.quadraticCurveTo(h * 0.65, h * 0.82, h * 0.61, h * 0.62);
+    ctx.quadraticCurveTo(h * 0.53, h * 0.78, h * 0.52, h * 0.56);
+    ctx.lineTo(h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
     drawFeet("front");
 
     if (doctorMode) {
