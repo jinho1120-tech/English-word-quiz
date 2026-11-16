@@ -14,14 +14,14 @@ type AssessmentSummary = {
     questionCount: number
     correctCount: number
     confidence: string
-    completedAt: Date
+    completedAt: Date | null
   } | null
   latestIdiomAssessment: {
     assignedLevel: string
     questionCount: number
     correctCount: number
     confidence: string
-    completedAt: Date
+    completedAt: Date | null
   } | null
 }
 type Question = {
