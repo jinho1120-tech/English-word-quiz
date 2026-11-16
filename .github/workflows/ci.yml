@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - feature/public-user-platform
+      - feature/ai-vocabulary-learning
   pull_request:
     branches:
       - main
       - feature/public-user-platform
+      - feature/ai-vocabulary-learning
 
 jobs:
   verify:
