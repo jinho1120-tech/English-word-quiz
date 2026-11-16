@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { handleSchedule } from "@vercel/schedules"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
@@ -8,11 +8,10 @@ import { generateAiVocabularyBundleForChild } from "@/lib/ai-vocabulary-engine"
 export const runtime = "nodejs"
 
 /**
- * Private Vercel Schedule target.
- * The schedule/v1beta trigger makes this function callable only by Vercel's
- * scheduling infrastructure. Never add a public GET/POST route for this task.
+ * Private Vercel Schedules handler.
+ * handleSchedule validates the signed schedule dispatch before running the job.
  */
-export async function POST() {
+export const POST = handleSchedule(async (metadata) => {
   const enabledChildren = await db.select({
     childProfileId: aiVocabularySettings.childProfileId,
   }).from(aiVocabularySettings)
@@ -34,9 +33,10 @@ export async function POST() {
 
   revalidatePath("/parent")
   revalidatePath("/child")
-  return NextResponse.json({
-    success: results.every((item) => item.status !== "error"),
+  console.info("[ai-vocabulary-schedule]", JSON.stringify({
+    schedule: metadata.name,
+    scheduledAt: metadata.scheduledAt.toISOString(),
     processed: results.length,
-    results,
-  })
-}
+    failed: results.filter((item) => item.status === "error").length,
+  }))
+})
