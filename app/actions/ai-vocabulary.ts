@@ -1,7 +1,7 @@
 "use server"
 
 import { createHash } from "node:crypto"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, desc, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -218,4 +218,94 @@ export async function lookupAndStageVocabularyCandidate(expressionInput: string,
     licenseName: lookup.licenseName,
     licenseUrl: lookup.licenseUrl,
   }
+}
+
+
+const CEFR_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"])
+const VOCABULARY_DOMAINS = new Set([
+  "general", "advanced", "business", "academic", "professional",
+  "medical", "biology", "chemistry", "engineering", "law",
+])
+
+export async function getParentVocabularyCandidateQueue() {
+  await requireParentFamily()
+  return db.select({
+    id: vocabularyCandidates.id,
+    expression: vocabularyCandidates.expression,
+    lexicalType: vocabularyCandidates.lexicalType,
+    partOfSpeech: vocabularyCandidates.partOfSpeech,
+    definitionEn: vocabularyCandidates.definitionEn,
+    exampleSentence: vocabularyCandidates.exampleSentence,
+    sourceName: vocabularyCandidates.sourceName,
+    sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
+    licenseName: vocabularyCandidates.licenseName,
+    licenseUrl: vocabularyCandidates.licenseUrl,
+    createdAt: vocabularyCandidates.createdAt,
+  }).from(vocabularyCandidates)
+    .where(eq(vocabularyCandidates.verificationStatus, "dictionary_found"))
+    .orderBy(desc(vocabularyCandidates.createdAt))
+    .limit(50)
+}
+
+/** Parent curation is explicit; only reviewed candidates with an assigned level may enter recommendation selection. */
+export async function reviewVocabularyCandidate(input: {
+  candidateId: string
+  decision: "approve" | "reject"
+  meaningKo?: string
+  childLevel?: string
+  cefrLevel?: string
+  domain?: string
+  difficultyVerified?: boolean
+}) {
+  const { userId } = await requireParentFamily()
+  if (typeof input?.candidateId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.candidateId) ||
+      !["approve", "reject"].includes(input.decision)) {
+    throw new Error("어휘 후보 검토 정보가 올바르지 않습니다.")
+  }
+
+  const now = new Date()
+  const changes = input.decision === "reject"
+    ? {
+        verificationStatus: "rejected",
+        difficultyVerified: false,
+        reviewedByUserId: userId,
+        verifiedAt: now,
+        updatedAt: now,
+      }
+    : (() => {
+        const meaningKo = typeof input.meaningKo === "string" ? input.meaningKo.trim() : ""
+        const childLevel = input.childLevel?.trim() ?? ""
+        const cefrLevel = input.cefrLevel?.trim() ?? ""
+        const domain = input.domain?.trim() ?? ""
+        const difficultyVerified = input.difficultyVerified === true
+        if (!meaningKo || meaningKo.length > 200 ||
+            (childLevel && !LEVELS.has(childLevel)) ||
+            (cefrLevel && !CEFR_LEVELS.has(cefrLevel)) ||
+            (domain && !VOCABULARY_DOMAINS.has(domain)) ||
+            (difficultyVerified && !childLevel && !cefrLevel)) {
+          throw new Error("한국어 뜻과 난이도 검토 정보를 확인해 주세요.")
+        }
+        return {
+          verificationStatus: "approved",
+          meaningKo,
+          childLevel: childLevel || null,
+          cefrLevel: cefrLevel || null,
+          domain: domain || null,
+          difficultyVerified,
+          reviewedByUserId: userId,
+          verifiedAt: now,
+          updatedAt: now,
+        }
+      })()
+
+  const [updated] = await db.update(vocabularyCandidates).set(changes)
+    .where(and(
+      eq(vocabularyCandidates.id, input.candidateId),
+      eq(vocabularyCandidates.verificationStatus, "dictionary_found"),
+    ))
+    .returning({ id: vocabularyCandidates.id })
+  if (!updated) throw new Error("이미 검토했거나 어휘 후보를 찾을 수 없습니다.")
+
+  revalidatePath("/parent")
+  return { success: true, decision: input.decision }
 }
