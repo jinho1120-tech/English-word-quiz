@@ -276,6 +276,7 @@ export async function reviewParentChildWordSubmission(input: {
       example: submission.example,
       lexicalType: submission.lexicalType,
     }).returning({ id: wordEntries.id })
+    if (!word) throw new Error("단어를 등록하지 못했습니다.")
     await tx.update(childWordSubmissions).set({
       validationStatus: "approved",
       reviewedByUserId: child.userId,
