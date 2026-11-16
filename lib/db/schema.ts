@@ -431,7 +431,7 @@ export const childWordSubmissions = pgTable("child_word_submissions", {
   lexicalType: varchar("lexical_type", { length: 24 }).default("word").notNull(),
   meaning: varchar("meaning", { length: 200 }).notNull(),
   example: text("example"),
-  validationStatus: varchar("validation_status", { length: 20 }).default("pending").notNull(),
+  validationStatus: varchar("validation_status", { length: 32 }).default("pending").notNull(),
   dictionaryCheckedAt: timestamp("dictionary_checked_at"),
   reviewedByUserId: text("reviewed_by_user_id"),
   reviewedAt: timestamp("reviewed_at"),
