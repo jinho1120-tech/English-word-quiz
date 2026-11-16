@@ -1217,7 +1217,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               className="h-12 w-full shrink-0 rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
               style={{ borderColor: defenseEncounter.ghostColor }}
             />
-            <p className="shrink-0 text-[10px] text-slate-400">정답을 입력하면 바로 {VOCAB_OWL_NAME}(으)로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+            <p className="shrink-0 text-[10px] text-slate-400">정답을 입력하면 바로 {VOCAB_OWL_NAME}으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
           </div>
         </div>
       )}
