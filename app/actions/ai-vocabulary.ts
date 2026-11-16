@@ -502,6 +502,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
             lexicalType: word.lexicalType,
             expression: word.word,
             meaning: word.meaning,
+            disambiguation: word.disambiguation,
             example: word.example,
           })
         }
