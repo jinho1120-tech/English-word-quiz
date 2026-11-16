@@ -1,6 +1,6 @@
 "use server"
 
-import { randomInt } from "node:crypto"
+import { randomInt, randomUUID } from "node:crypto"
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
@@ -231,6 +231,7 @@ type AssessmentAnswerState = {
 }
 
 type AssessmentProgress = {
+  combinedSessionId?: string
   currentLevel: string
   consecutiveCorrect: number
   askedCandidateIds: string[]
@@ -238,7 +239,7 @@ type AssessmentProgress = {
   currentQuestion: AssessmentQuestionState | null
 }
 
-const ASSESSMENT_QUESTION_COUNT = 18
+const ASSESSMENT_QUESTION_COUNT = 9
 const ASSESSMENT_START_LEVEL = "L3"
 
 function shuffleAssessmentItems<T>(items: T[]) {
@@ -330,6 +331,7 @@ function createAssessmentQuestion(
 function assessmentProgress(value: Record<string, unknown>): AssessmentProgress {
   const current = value as Partial<AssessmentProgress>
   return {
+    combinedSessionId: typeof current.combinedSessionId === "string" ? current.combinedSessionId : undefined,
     currentLevel: typeof current.currentLevel === "string" ? current.currentLevel : ASSESSMENT_START_LEVEL,
     consecutiveCorrect: Number.isInteger(current.consecutiveCorrect) ? current.consecutiveCorrect! : 0,
     askedCandidateIds: Array.isArray(current.askedCandidateIds) ? current.askedCandidateIds.filter((id): id is string => typeof id === "string") : [],
@@ -386,7 +388,7 @@ export async function startChildAiVocabularyAssessment(lexicalType: "word" | "id
   const candidates = await loadAssessmentCandidates(lexicalType)
   const usableQuestionCount = candidates.filter((candidate) => hasFourAssessmentOptions(candidate, candidates)).length
   if (usableQuestionCount < ASSESSMENT_QUESTION_COUNT) {
-    throw new Error("진단 문제 데이터가 아직 충분하지 않아요. 서로 다른 뜻의 검증된 후보가 최소 18개 필요해요. 부모님이 단어·숙어 후보를 더 등록해 주세요.")
+    throw new Error("진단 문제 데이터가 아직 충분하지 않아요. 서로 다른 뜻의 검증된 후보가 최소 9개 필요해요. 부모님이 해당 유형의 후보를 더 등록해 주세요.")
   }
 
   if (existing) {
@@ -426,6 +428,100 @@ export async function startChildAiVocabularyAssessment(lexicalType: "word" | "id
     },
   }).returning({ id: aiVocabularyLevelAssessments.id })
   return { assessmentId: created.id, question: first.publicQuestion }
+}
+
+export async function startChildAiVocabularyCombinedAssessment() {
+  const child = await requireChild()
+  const [settings] = await db.select().from(aiVocabularySettings)
+    .where(eq(aiVocabularySettings.childProfileId, child.childProfileId)).limit(1)
+  if (!settings?.enabled) throw new Error("부모님이 AI 추천 학습을 켜야 레벨 진단을 시작할 수 있어요.")
+
+  const rows = await db.select().from(aiVocabularyLevelAssessments).where(and(
+    eq(aiVocabularyLevelAssessments.childProfileId, child.childProfileId),
+    inArray(aiVocabularyLevelAssessments.lexicalType, ["word", "idiom"]),
+  )).orderBy(desc(aiVocabularyLevelAssessments.startedAt))
+
+  const grouped = new Map<string, Map<"word" | "idiom", typeof rows[number]>>()
+  for (const row of rows) {
+    const data = row.assessmentData as Record<string, unknown>
+    const sessionId = typeof data.combinedSessionId === "string" ? data.combinedSessionId : ""
+    if (!sessionId) continue
+    const type = row.lexicalType as "word" | "idiom"
+    const group = grouped.get(sessionId) ?? new Map<"word" | "idiom", typeof rows[number]>()
+    if (!group.has(type)) group.set(type, row)
+    grouped.set(sessionId, group)
+  }
+
+  let combinedSessionId = ""
+  for (const [sessionId, group] of grouped) {
+    if ([...group.values()].some((row) => row.status === "in_progress")) {
+      combinedSessionId = sessionId
+      break
+    }
+  }
+
+  if (!combinedSessionId) {
+    const wordCandidates = await loadAssessmentCandidates("word")
+    const idiomCandidates = await loadAssessmentCandidates("idiom")
+    const wordUsable = wordCandidates.filter((candidate) => hasFourAssessmentOptions(candidate, wordCandidates)).length
+    const idiomUsable = idiomCandidates.filter((candidate) => hasFourAssessmentOptions(candidate, idiomCandidates)).length
+    if (wordUsable < ASSESSMENT_QUESTION_COUNT || idiomUsable < ASSESSMENT_QUESTION_COUNT) {
+      const missing = [
+        wordUsable < ASSESSMENT_QUESTION_COUNT ? "단어" : "",
+        idiomUsable < ASSESSMENT_QUESTION_COUNT ? "숙어" : "",
+      ].filter(Boolean).join("와 ")
+      throw new Error(`${missing} 문제 데이터가 부족해요. 각 유형에 서로 다른 뜻의 검증된 후보가 최소 9개 필요해요.`)
+    }
+
+    combinedSessionId = randomUUID()
+    const [wordStart, idiomStart] = await Promise.all([
+      startChildAiVocabularyAssessment("word"),
+      startChildAiVocabularyAssessment("idiom"),
+    ])
+    for (const [type, start] of [["word", wordStart], ["idiom", idiomStart]] as const) {
+      const [row] = await db.select({ assessmentData: aiVocabularyLevelAssessments.assessmentData })
+        .from(aiVocabularyLevelAssessments).where(eq(aiVocabularyLevelAssessments.id, start.assessmentId)).limit(1)
+      if (!row) throw new Error("통합 진단 진행 정보를 저장하지 못했어요.")
+      await db.update(aiVocabularyLevelAssessments).set({
+        assessmentData: { ...(row.assessmentData as Record<string, unknown>), combinedSessionId },
+      }).where(eq(aiVocabularyLevelAssessments.id, start.assessmentId))
+    }
+    return {
+      word: { assessmentId: wordStart.assessmentId, question: wordStart.question, result: null },
+      idiom: { assessmentId: idiomStart.assessmentId, question: idiomStart.question, result: null },
+    }
+  }
+
+  const group = grouped.get(combinedSessionId) ?? new Map<"word" | "idiom", typeof rows[number]>()
+  const restore = async (type: "word" | "idiom") => {
+    const row = group.get(type)
+    if (row?.status === "completed") {
+      return {
+        assessmentId: row.id,
+        question: null,
+        result: {
+          level: row.assignedLevel,
+          confidence: row.confidence,
+          correctCount: row.correctCount,
+          questionCount: row.questionCount,
+        },
+      }
+    }
+    const started = await startChildAiVocabularyAssessment(type)
+    const [latest] = await db.select({ assessmentData: aiVocabularyLevelAssessments.assessmentData })
+      .from(aiVocabularyLevelAssessments).where(eq(aiVocabularyLevelAssessments.id, started.assessmentId)).limit(1)
+    if (latest) {
+      const data = latest.assessmentData as Record<string, unknown>
+      if (data.combinedSessionId !== combinedSessionId) {
+        await db.update(aiVocabularyLevelAssessments).set({
+          assessmentData: { ...data, combinedSessionId },
+        }).where(eq(aiVocabularyLevelAssessments.id, started.assessmentId))
+      }
+    }
+    return { assessmentId: started.assessmentId, question: started.question, result: null }
+  }
+  const [word, idiom] = await Promise.all([restore("word"), restore("idiom")])
+  return { word, idiom }
 }
 
 export async function answerChildAiVocabularyAssessment(assessmentId: string, selectedOptionId: string) {
@@ -522,6 +618,7 @@ export async function answerChildAiVocabularyAssessment(assessmentId: string, se
     if (!next) throw new Error("다음 진단 문제를 준비하지 못했어요.")
 
     const nextProgress: AssessmentProgress = {
+      combinedSessionId: progress.combinedSessionId,
       currentLevel,
       consecutiveCorrect,
       askedCandidateIds,
