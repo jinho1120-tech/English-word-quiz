@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { WordStorageCalendar } from "@/components/word-storage-calendar"
 import { WordQuiz, type QuizWord } from "@/components/word-quiz"
 import { WordFlashcards } from "@/components/word-flashcards"
+import { ChildAiVocabularyAssessment } from "@/components/child-ai-vocabulary-assessment"
 import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
 import { WordDefenseGame } from "@/components/arcade/word-defense-game"
@@ -34,6 +35,7 @@ export function ChildLearning({
   childName,
   favoriteWordIds,
   todayAiBundle,
+  aiVocabularyAssessment,
   subjects,
   initialWords,
   allWords,
@@ -45,6 +47,12 @@ export function ChildLearning({
   childName: string
   favoriteWordIds: number[]
   todayAiBundle: TodayAiBundle
+  aiVocabularyAssessment: {
+    wordLevel: string
+    idiomLevel: string
+    latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
+    latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
+  } | null
   subjects: Subject[]
   initialStorage: { date: string; subjectId: string | null; subject: string }[]
   initialWords: Word[]
@@ -305,6 +313,7 @@ export function ChildLearning({
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)] lg:items-start lg:gap-5">
       <section className="space-y-2 sm:space-y-3 lg:col-start-1 lg:row-start-1">
         <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
+        <ChildAiVocabularyAssessment summary={aiVocabularyAssessment} />
         <div className="grid grid-cols-4 gap-1 rounded-2xl border border-border bg-muted/50 p-1 sm:gap-1.5 sm:p-1.5">
           <HapticButton
             hapticLabel="날짜별 퀴즈 탭"
