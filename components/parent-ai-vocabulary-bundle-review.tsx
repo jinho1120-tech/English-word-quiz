@@ -15,6 +15,16 @@ type Bundle = {
   status: string
   createdAt: Date
   itemCount: number
+  items: {
+    id: string
+    sourceType: string
+    lexicalType: string
+    expression: string
+    meaning: string
+    disambiguation: string | null
+    example: string | null
+    sortOrder: number
+  }[]
 }
 
 export function ParentAiVocabularyBundleReview({ children, bundles }: { children: ChildOption[]; bundles: Bundle[] }) {
@@ -89,6 +99,18 @@ export function ParentAiVocabularyBundleReview({ children, bundles }: { children
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{bundle.childName} · {bundle.studyDate}</span>
                 <span className="text-xs text-muted-foreground">{bundle.itemCount}개</span>
+              </div>
+              <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl bg-muted/35 p-3">
+                {bundle.items.map((item) => (
+                  <div key={item.id} className="border-b border-border/70 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold">{item.expression}</p>
+                      <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-[10px] text-muted-foreground">{item.sourceType === "candidate" ? "검증 후보" : "오답 복습"}</span>
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{item.meaning}{item.disambiguation ? " (" + item.disambiguation + ")" : ""}</p>
+                    {item.example && <p className="mt-1 text-xs italic text-muted-foreground">{item.example}</p>}
+                  </div>
+                ))}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <HapticButton type="button" disabled={isPending} onClick={() => decide(bundle, "publish")} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"><Check className="size-4" /> 게시 승인</HapticButton>
