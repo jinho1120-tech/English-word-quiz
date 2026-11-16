@@ -278,11 +278,12 @@ export async function reviewVocabularyCandidate(input: {
       }
     : (() => {
         const meaningKo = typeof input.meaningKo === "string" ? input.meaningKo.trim() : ""
+        const disambiguation = input.disambiguation?.trim() ?? ""
         const childLevel = input.childLevel?.trim() ?? ""
         const cefrLevel = input.cefrLevel?.trim() ?? ""
         const domain = input.domain?.trim() ?? ""
         const difficultyVerified = input.difficultyVerified === true
-        if (!meaningKo || meaningKo.length > 200 ||
+        if (!meaningKo || meaningKo.length > 200 || disambiguation.length > 100 ||
             (childLevel && !LEVELS.has(childLevel)) ||
             (cefrLevel && !CEFR_LEVELS.has(cefrLevel)) ||
             (domain && !VOCABULARY_DOMAINS.has(domain)) ||
@@ -292,6 +293,7 @@ export async function reviewVocabularyCandidate(input: {
         return {
           verificationStatus: "approved",
           meaningKo,
+          disambiguation: disambiguation || null,
           childLevel: childLevel || null,
           cefrLevel: cefrLevel || null,
           domain: domain || null,
@@ -479,6 +481,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
           lexicalType: candidate.lexicalType,
           expression: candidate.expression,
           meaning: candidate.meaningKo!,
+          disambiguation: candidate.disambiguation,
           example: candidate.exampleSentence,
         })
       }
@@ -531,6 +534,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
       lexicalType: item.lexicalType,
       expressionSnapshot: item.expression,
       meaningSnapshot: item.meaning,
+      disambiguationSnapshot: item.disambiguation,
       exampleSnapshot: item.example,
       sortOrder: index,
     }))
@@ -546,6 +550,7 @@ export async function generateParentAiVocabularyBundle(childProfileId: string) {
         subject: aiSubject.name,
         word: item.expression,
         meaning: item.meaning,
+        disambiguation: item.disambiguation,
         example: item.example,
         lexicalType: item.lexicalType,
         vocabularyCandidateId: item.candidateId,
@@ -629,6 +634,7 @@ export async function reviewParentAiVocabularyBundle(input: {
       subject: subject.name,
       word: item.expressionSnapshot,
       meaning: item.meaningSnapshot,
+      disambiguation: item.disambiguationSnapshot,
       example: item.exampleSnapshot,
       lexicalType: item.lexicalType,
       vocabularyCandidateId: item.candidateId,
