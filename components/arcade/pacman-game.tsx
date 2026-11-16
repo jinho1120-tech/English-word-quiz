@@ -885,7 +885,6 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         const centerX = pac.x * CELL_SIZE + CELL_SIZE / 2;
         const centerY = pac.y * CELL_SIZE + CELL_SIZE / 2;
         const direction = pac.dirX < 0 ? "left" : pac.dirX > 0 ? "right" : pac.dirY < 0 ? "up" : "down";
-        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 3, direction, doctorModeActiveRef.current, nowMs / 120);
         if (doctorModeActiveRef.current) {
           const aura = ctx.createRadialGradient(centerX, centerY, 4, centerX, centerY, 25 + Math.sin(nowMs / 90) * 3);
           aura.addColorStop(0, "rgba(59,130,246,0.42)");
@@ -895,6 +894,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.arc(centerX, centerY, 27, 0, Math.PI * 2);
           ctx.fill();
         }
+        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 3, direction, doctorModeActiveRef.current, nowMs / 120);
       }
 
       // 두 게임이 공유하는 컬러 영단어 몬스터.
@@ -1108,7 +1108,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 부엉이 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
             </> : <><p className="text-xl font-black text-amber-200">박사 부엉이 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
-          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
+          <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 책 아이템의 기회는 사라집니다.</p>
         </div>
       )}
 
@@ -1185,7 +1185,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             ➡️
           </HapticButton>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">도트 절반을 먹으면 보너스 체리(🍒)가 나타나요!</p>
+        <p className="text-[10px] text-muted-foreground mt-1">별을 절반 모으면 보너스 연필(✏️)이 나타나요!</p>
       </div>
     </div>
   );
