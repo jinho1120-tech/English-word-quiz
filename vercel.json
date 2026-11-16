@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "schedules": {
+    "daily-ai-vocabulary": {
+      "schedule": "0 8 * * *",
+      "function": "app/api/cron/ai-vocabulary/route.ts",
+      "timezone": "Asia/Seoul"
+    }
+  },
+  "functions": {
+    "app/api/cron/ai-vocabulary/route.ts": {
+      "experimentalTriggers": [
+        { "type": "schedule/v1beta" }
+      ]
+    }
+  }
+}
