@@ -243,12 +243,12 @@ export function WordFlashcards({
       {cardScope === "today-ai" && bundleCardsComplete && aiBundle?.status !== "completed" && (
         <div className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
           {quizPromptDismissed ? (
-            <HapticButton type="button" onClick={onStartAiQuiz} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">오늘의 확인 퀴즈 시작</HapticButton>
+            <HapticButton type="button" onClick={onStartAiQuiz} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">{aiBundle?.status === "quiz_in_progress" ? "오늘의 확인 퀴즈 이어하기" : "오늘의 확인 퀴즈 시작"}</HapticButton>
           ) : (
             <>
-              <p className="text-sm font-bold">오늘의 단어 카드 학습 완료! 이제 간단한 확인 퀴즈를 풀어볼까요? 퀴즈까지 마치면 오늘의 학습이 완료돼요.</p>
+              <p className="text-sm font-bold">{aiBundle?.status === "quiz_in_progress" ? "아직 끝나지 않은 오늘의 확인 퀴즈가 있어요. 이어서 풀어볼까요?" : "오늘의 단어 카드 학습 완료! 이제 간단한 확인 퀴즈를 풀어볼까요? 퀴즈까지 마치면 오늘의 학습이 완료돼요."}</p>
               <div className="grid grid-cols-2 gap-2">
-                <HapticButton type="button" onClick={onStartAiQuiz} className="rounded-xl bg-primary px-3 py-3 text-sm font-bold text-primary-foreground">오늘의 확인 퀴즈 시작</HapticButton>
+                <HapticButton type="button" onClick={onStartAiQuiz} className="rounded-xl bg-primary px-3 py-3 text-sm font-bold text-primary-foreground">{aiBundle?.status === "quiz_in_progress" ? "퀴즈 이어하기" : "오늘의 확인 퀴즈 시작"}</HapticButton>
                 <HapticButton type="button" onClick={() => setQuizPromptDismissed(true)} className="rounded-xl border border-border px-3 py-3 text-sm font-semibold text-muted-foreground">나중에 풀기</HapticButton>
               </div>
             </>
