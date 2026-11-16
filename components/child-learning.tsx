@@ -97,6 +97,8 @@ export function ChildLearning({
   const wordDefenseStartWords = filteredDayWords.length > 0 ? filteredDayWords : initialWords.length > 0 ? initialWords : allWords
   const [calendarRefreshVersion, setCalendarRefreshVersion] = useState(0)
   const [aiBundleCompleted, setAiBundleCompleted] = useState(todayAiBundle?.status === "completed")
+  const [aiQuizSessionId, setAiQuizSessionId] = useState<string | null>(null)
+  const [aiQuizAnsweredWordIds, setAiQuizAnsweredWordIds] = useState<number[]>([])
   const [isPending, startTransition] = useTransition()
 
   const todayAiQuizWords: QuizWord[] = (todayAiBundle?.items ?? [])
@@ -109,11 +111,23 @@ export function ChildLearning({
       subject: "AI 추천 어휘",
     }))
 
+  const remainingTodayAiQuizWords = todayAiQuizWords.filter(
+    (item) => !aiQuizAnsweredWordIds.includes(item.id),
+  )
+
   async function startTodayAiQuiz() {
     if (!todayAiBundle) return
     setError("")
     try {
-      await startChildAiVocabularyQuiz(todayAiBundle.id)
+      const session = await startChildAiVocabularyQuiz(todayAiBundle.id)
+      setAiQuizSessionId(session.quizSessionId)
+      setAiQuizAnsweredWordIds(session.answeredWordIds)
+      if (session.completed) {
+        setAiBundleCompleted(true)
+        setActiveTab("ai-quiz")
+        router.refresh()
+        return
+      }
       setAiBundleCompleted(false)
       setActiveTab("ai-quiz")
     } catch (cause) {
@@ -416,12 +430,13 @@ export function ChildLearning({
               <p className="mt-1 text-sm text-muted-foreground">단어 카드와 확인 퀴즈까지 모두 마쳤어요.</p>
               <HapticButton type="button" onClick={() => setActiveTab("cards")} className="mt-4 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground">단어 카드로 돌아가기</HapticButton>
             </div>
-          ) : todayAiQuizWords.length > 0 ? (
+          ) : remainingTodayAiQuizWords.length > 0 && aiQuizSessionId ? (
             <WordQuiz
-              key={"ai-vocabulary-" + todayAiBundle.id}
-              words={todayAiQuizWords}
+              key={"ai-vocabulary-" + todayAiBundle.id + "-" + aiQuizSessionId}
+              words={remainingTodayAiQuizWords}
               accent="var(--child-accent, #2563eb)"
               childName={childName}
+              initialSessionId={aiQuizSessionId}
               onSessionComplete={finishTodayAiQuiz}
             />
           ) : (
