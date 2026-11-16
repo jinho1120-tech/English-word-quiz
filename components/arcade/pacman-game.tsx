@@ -14,7 +14,8 @@ const BASE_PACMAN_SPEED = 4.6;
 const BASE_GHOST_SPEED = 3.8;
 const GHOST_FRIGHTENED_SPEED = 2.4;
 
-// 1: 벽, 2: 일반 점, 3: 파워 펠릿, 0: 빈 통로
+// 1: 벽, 2: 일반 점, 3: 책 아이템, 0: 빈 통로
+const PENCIL_SPAWN = { x: 1, y: 8 };
 const INITIAL_MAP = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
   [1, 3, 2, 2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 3, 1],
@@ -24,7 +25,7 @@ const INITIAL_MAP = [
   [1, 1, 2, 1, 2, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1], // (7, 5): 소굴 문 밖 출구
   [0, 0, 2, 1, 2, 1, 0, 0, 0, 1, 2, 1, 2, 0, 0], // (6..8, 6): 소굴 안
   [1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1],
-  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (7, 8): 🍒 보너스 체리 스폰 위치
+  [1, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 1], // (1, 8): ✏️ 보너스 연필 스폰 위치
   [1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1],
   [1, 2, 2, 1, 2, 2, 2, 0, 2, 2, 2, 1, 2, 2, 1], // (7, 10): 부엉이 시작 지점
   [1, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 1],
@@ -616,7 +617,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             setDotsLeft((d) => {
               const next = d - 1;
 
-              // 🍒 도트를 절반 먹었을 때 체리 출현 (스테이지당 1회)
+              // ⭐ 별을 절반 정도 먹었을 때 연필 출현 (스테이지당 1회)
               if (!cherrySpawnedRef.current && next <= totalDotsCountRef.current * 0.55) {
                 cherrySpawnedRef.current = true;
                 setCherryVisible(true);
@@ -648,8 +649,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           }
         }
 
-        // 🍒 체리 획득 판정 (7, 8 위치)
-        if (cherryVisible && Math.hypot(pac.x - 7, pac.y - 8) < 0.6) {
+        // ✏️ 연필 획득 판정 (미로에서 접근 가능한 위치)
+        if (cherryVisible && Math.hypot(pac.x - PENCIL_SPAWN.x, pac.y - PENCIL_SPAWN.y) < 0.6) {
           setCherryVisible(false);
           setScore((s) => s + 100);
           setCherryPopup("+100");
@@ -839,41 +840,98 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             ctx.fill();
             ctx.restore();
           } else if (val === 3) {
-            ctx.fillStyle = currentTheme.power;
-            ctx.beginPath();
+            // 펼쳐진 책 모양: 파란 표지, 흰 양쪽 페이지, 중앙 책등과 글줄
             ctx.save();
             ctx.translate(px + CELL_SIZE / 2, py + CELL_SIZE / 2);
-            ctx.fillStyle = currentTheme.power;
-            ctx.strokeStyle = "#ffffff";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.roundRect(-5, -5, 10, 10, 2);
-            ctx.fill();
-            ctx.stroke();
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 1.2;
+            ctx.fillStyle = "#1d4ed8";
             ctx.strokeStyle = "#1e3a8a";
             ctx.beginPath();
-            ctx.moveTo(0, -4); ctx.lineTo(0, 4);
-            ctx.moveTo(-4, -2); ctx.lineTo(0, -1); ctx.lineTo(4, -2);
+            ctx.moveTo(-7, -5);
+            ctx.quadraticCurveTo(-3, -7, 0, -4);
+            ctx.quadraticCurveTo(3, -7, 7, -5);
+            ctx.lineTo(7, 5);
+            ctx.quadraticCurveTo(3, 3, 0, 6);
+            ctx.quadraticCurveTo(-3, 3, -7, 5);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = "#fffdf2";
+            ctx.beginPath();
+            ctx.moveTo(-5.5, -3.8);
+            ctx.quadraticCurveTo(-2.5, -5, -0.8, -3.2);
+            ctx.lineTo(-0.8, 4.1);
+            ctx.quadraticCurveTo(-3, 2.5, -5.5, 3.4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(0.8, -3.2);
+            ctx.quadraticCurveTo(2.5, -5, 5.5, -3.8);
+            ctx.lineTo(5.5, 3.4);
+            ctx.quadraticCurveTo(3, 2.5, 0.8, 4.1);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#93c5fd";
+            ctx.lineWidth = 0.65;
+            ctx.beginPath();
+            ctx.moveTo(0, -3.8);
+            ctx.lineTo(0, 4.5);
+            ctx.moveTo(-4.5, -1.5); ctx.lineTo(-2, -1);
+            ctx.moveTo(2, -1); ctx.lineTo(4.5, -1.5);
             ctx.stroke();
             ctx.restore();
           }
         }
       }
 
-      // 🍒 보너스 체리 그리기 (7, 8 위치)
+      // ✏️ 보너스 연필: 눈에 띄는 크기와 후광/반짝임으로 표시
       if (cherryVisible) {
-        ctx.font = "14px sans-serif";
+        const pencilX = PENCIL_SPAWN.x * CELL_SIZE + CELL_SIZE / 2;
+        const pencilY = PENCIL_SPAWN.y * CELL_SIZE + CELL_SIZE / 2;
+        const pulse = 1 + Math.sin(nowMs / 150) * 0.1;
+        ctx.save();
+        ctx.translate(pencilX, pencilY);
+        ctx.scale(pulse, pulse);
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = "rgba(255, 248, 190, 0.92)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = "#f59e0b";
+        ctx.strokeStyle = "#92400e";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(-2.5, -6.5, 5, 13, 1.2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fda4af";
+        ctx.fillRect(-2.5, -6.5, 5, 2.5);
+        ctx.fillStyle = "#fde68a";
+        ctx.fillRect(-2.5, 3.5, 5, 2);
+        ctx.fillStyle = "#334155";
+        ctx.beginPath();
+        ctx.moveTo(-2.5, 6.5);
+        ctx.lineTo(2.5, 6.5);
+        ctx.lineTo(0, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = "#facc15";
+        ctx.font = "bold 8px sans-serif";
         ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("✏️", 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE + CELL_SIZE / 2);
+        ctx.fillText("✦", pencilX + 8, pencilY - 8);
       }
 
-      // 🍒 체리 획득 +100 팝업 텍스트
+      // ✏️ 연필 획득 +100 팝업 텍스트
       if (cherryPopup) {
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 11px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(cherryPopup, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE);
+        ctx.fillText(cherryPopup, PENCIL_SPAWN.x * CELL_SIZE + CELL_SIZE / 2, PENCIL_SPAWN.y * CELL_SIZE);
       }
 
       // 박사 모드 제한 시간 종료
