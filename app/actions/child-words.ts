@@ -252,6 +252,16 @@ function assessmentOptionLabel(candidate: AssessmentCandidate) {
     : ""
 }
 
+function hasFourAssessmentOptions(prompt: AssessmentCandidate, candidates: AssessmentCandidate[]) {
+  const labels = new Set<string>()
+  for (const candidate of candidates) {
+    if (candidate.lexicalType !== prompt.lexicalType) continue
+    const label = assessmentOptionLabel(candidate).toLocaleLowerCase()
+    if (label) labels.add(label)
+  }
+  return labels.size >= 4
+}
+
 function createAssessmentQuestion(
   candidates: AssessmentCandidate[],
   targetLevel: string,
@@ -260,14 +270,14 @@ function createAssessmentQuestion(
 ) {
   const asked = new Set(askedCandidateIds)
   const levelCandidates = shuffleAssessmentItems(candidates.filter((candidate) =>
-    candidate.childLevel === targetLevel && !asked.has(candidate.id),
+    candidate.childLevel === targetLevel && !asked.has(candidate.id) && hasFourAssessmentOptions(candidate, candidates),
   ))
   const levels = ["L1", "L2", "L3", "L4", "L5", "L6"]
     .sort((a, b) => Math.abs(assessmentLevelNumber(a) - assessmentLevelNumber(targetLevel)) - Math.abs(assessmentLevelNumber(b) - assessmentLevelNumber(targetLevel)))
   const orderedCandidates = [
     ...levelCandidates,
     ...levels.filter((level) => level !== targetLevel).flatMap((level) =>
-      shuffleAssessmentItems(candidates.filter((candidate) => candidate.childLevel === level && !asked.has(candidate.id))),
+      shuffleAssessmentItems(candidates.filter((candidate) => candidate.childLevel === level && !asked.has(candidate.id) && hasFourAssessmentOptions(candidate, candidates))),
     ),
   ]
 
@@ -365,8 +375,9 @@ export async function startChildAiVocabularyAssessment(lexicalType: "word" | "id
   )).orderBy(desc(aiVocabularyLevelAssessments.startedAt)).limit(1)
 
   const candidates = await loadAssessmentCandidates(lexicalType)
-  if (candidates.length < ASSESSMENT_QUESTION_COUNT) {
-    throw new Error("진단 문제 데이터가 아직 충분하지 않아요. 부모님이 검증된 단어·숙어 후보를 더 등록해 주세요.")
+  const usableQuestionCount = candidates.filter((candidate) => hasFourAssessmentOptions(candidate, candidates)).length
+  if (usableQuestionCount < ASSESSMENT_QUESTION_COUNT) {
+    throw new Error("진단 문제 데이터가 아직 충분하지 않아요. 서로 다른 뜻의 검증된 후보가 최소 18개 필요해요. 부모님이 단어·숙어 후보를 더 등록해 주세요.")
   }
 
   if (existing) {
@@ -433,10 +444,13 @@ export async function answerChildAiVocabularyAssessment(assessmentId: string, se
       correct,
     }]
     const askedCandidateIds = [...progress.askedCandidateIds, question.candidateId]
-    const consecutiveCorrect = correct ? progress.consecutiveCorrect + 1 : 0
+    let consecutiveCorrect = correct ? progress.consecutiveCorrect + 1 : 0
     let currentLevelNumber = assessmentLevelNumber(progress.currentLevel)
     if (!correct) currentLevelNumber = Math.max(1, currentLevelNumber - 1)
-    else if (consecutiveCorrect >= 2) currentLevelNumber = Math.min(6, currentLevelNumber + 1)
+    else if (consecutiveCorrect >= 2) {
+      currentLevelNumber = Math.min(6, currentLevelNumber + 1)
+      consecutiveCorrect = 0
+    }
     const currentLevel = "L" + currentLevelNumber
     const correctCount = answers.filter((answer) => answer.correct).length
     const candidates = await tx.select({
