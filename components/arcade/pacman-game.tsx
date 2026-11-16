@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { HapticButton } from "@/components/haptic-button";
+import { VOCAB_OWL_NAME } from "@/lib/game-branding";
 
 const COLS = 15;
 const ROWS = 15;
@@ -1041,7 +1042,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
   return (
     <div className={isFullscreen ? "fixed inset-0 z-[100] flex h-[100dvh] w-screen flex-col items-center overflow-y-auto bg-slate-950 px-2 pb-3 pt-[max(12px,env(safe-area-inset-top))] text-white" : "relative mx-auto flex w-full max-w-4xl flex-col items-center px-1 select-none sm:px-3"}>
       <div className={isFullscreen ? "mb-2 flex w-full max-w-5xl items-center justify-between" : "mb-2 flex w-full justify-end"}>
-        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">PAC-MAN · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
+        {isFullscreen ? <span className="text-sm font-black tracking-wide text-amber-300">{VOCAB_OWL_NAME} · ST.{stage}</span> : <button type="button" onClick={() => setIsFullscreen(true)} className="rounded-full border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-bold text-primary">크게 보기 ⛶</button>}
         {isFullscreen ? <button type="button" aria-label="큰 화면 닫기" onClick={() => setIsFullscreen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/10 text-2xl font-bold text-white shadow-lg">×</button> : <HapticButton type="button" onClick={onClose} className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground">게임 나가기 ✕</HapticButton>}
       </div>
       {/* 점수 & 스테이지 & 목숨 표시 바 */}
@@ -1059,12 +1060,12 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             {"⚪".repeat(Math.max(0, 3 - lives))}
           </div>
           <span className="text-[11px] font-bold text-muted-foreground">
-            도트: <b className="text-primary">{dotsLeft}</b>
+            별: <b className="text-primary">{dotsLeft}</b>
           </span>
         </div>
       </div>
 
-      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label="보카맨 조작 설정">
+      {!isFullscreen && <section className="mb-3 w-full rounded-2xl border border-border bg-card p-3 sm:p-4" aria-label={`${VOCAB_OWL_NAME} 조작 설정`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black text-foreground">조작 방법</p>
@@ -1143,14 +1144,14 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       {doctorChallenge && (
         <div className="fixed inset-0 z-[170] flex flex-col items-center justify-center overflow-y-auto bg-slate-950/95 px-5 py-6 text-center text-white">
           <div className="mb-4 text-5xl">🎓</div>
-          <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR VOCA-MAN CHALLENGE</p>
-          <h2 className="mt-2 text-2xl font-black">박사 보카맨에 도전!</h2>
+          <p className="text-xs font-black tracking-[0.22em] text-amber-300">DOCTOR OWL CHALLENGE</p>
+          <h2 className="mt-2 text-2xl font-black">박사 {VOCAB_OWL_NAME}에 도전!</h2>
           <p className="mt-2 text-sm text-slate-300">시간제한 없이 영어 단어 3개를 연속으로 맞혀 보세요.</p>
           <div className="relative my-5 flex h-40 w-40 items-center justify-center">
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse rounded-full bg-[radial-gradient(circle,rgba(250,204,21,0.55),transparent_70%)]" />}
             {doctorChallenge.index >= 1 && <div className="absolute inset-0 animate-pulse text-amber-200"><span className="absolute left-2 top-5">✦</span><span className="absolute right-3 top-8">✧</span><span className="absolute bottom-4 left-5">✧</span><span className="absolute bottom-3 right-4">✦</span></div>}
             <div className="relative h-28 w-28 rounded-full bg-amber-400 shadow-[0_0_30px_rgba(250,204,21,0.45)]">
-              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label="박사 보카맨 얼굴">
+              <svg viewBox="0 0 112 112" className="h-full w-full" role="img" aria-label={`박사 ${VOCAB_OWL_NAME} 얼굴`}>
                 <ellipse cx="39" cy="43" rx="5" ry="9" fill="#713f12" />
                 <ellipse cx="73" cy="43" rx="5" ry="9" fill="#713f12" />
                 <path d="M31 68 Q56 91 81 68" fill="none" stroke="#713f12" strokeWidth="6" strokeLinecap="round" />
@@ -1168,8 +1169,8 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             {doctorChallenge.index < 3 ? <>
               <p className="text-xs font-bold text-amber-200">다음 뜻에 해당하는 영어 단어</p>
               <p className="mt-3 text-3xl font-black">{doctorChallenge.words[doctorChallenge.index]?.meaning}</p>
-              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label="박사 보카맨 도전 영어 단어 입력" placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
-            </> : <><p className="text-xl font-black text-amber-200">박사 보카맨 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
+              <input autoFocus value={defenseTyped} onChange={(event) => { setDefenseTyped(event.target.value); handleDoctorTyping(event.target.value); }} autoCapitalize="off" autoCorrect="off" spellCheck={false} aria-label={`박사 ${VOCAB_OWL_NAME} 도전 영어 단어 입력`} placeholder="영어 단어 입력" className="mt-5 h-14 w-full rounded-2xl border-2 border-amber-300 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400" />
+            </> : <><p className="text-xl font-black text-amber-200">박사 {VOCAB_OWL_NAME} 완성!</p><p className="mt-2 text-sm text-slate-300">잠시 후 미로로 돌아갑니다.</p></>}
           </div>
           <p className="mt-4 text-xs text-slate-400">한 문제라도 틀리면 도전은 종료되고, 이 굵은 도트의 기회는 사라집니다.</p>
         </div>
@@ -1180,7 +1181,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(30,64,175,0.34),transparent_58%)]" />
           <div className="relative z-10 flex w-full max-w-xl flex-1 flex-col justify-between gap-2 py-1">
             <div className="shrink-0">
-              <p className="text-[10px] font-black tracking-[0.2em] text-amber-300">VOCA-MAN WORD SHIELD</p>
+              <p className="text-[10px] font-black tracking-[0.2em] text-amber-300">WORD MONSTER CHALLENGE</p>
               <h2 className="mt-1 text-xl font-black sm:text-3xl">몬스터가 다가오고 있어요!</h2>
               <p className="mt-1 text-xs text-slate-300">뜻을 보고 영어 단어를 한 번만 정확히 입력하세요.</p>
             </div>
@@ -1216,7 +1217,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
               className="h-12 w-full shrink-0 rounded-2xl border-2 bg-white px-4 text-center text-xl font-black text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-300"
               style={{ borderColor: defenseEncounter.ghostColor }}
             />
-            <p className="shrink-0 text-[10px] text-slate-400">정답을 한 번 입력하면 바로 보카맨으로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
+            <p className="shrink-0 text-[10px] text-slate-400">정답을 입력하면 바로 {VOCAB_OWL_NAME}(으)로 돌아가요. 시간이 끝나면 라이프가 하나 줄어요.</p>
           </div>
         </div>
       )}
@@ -1253,7 +1254,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
             ➡️
           </HapticButton>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1">도트 절반을 먹으면 보너스 체리(🍒)가 나타나요!</p>
+        <p className="text-[10px] text-muted-foreground mt-1">별을 절반 모으면 보너스 연필(✏️)이 나타나요!</p>
       </div>
     </div>
   );
