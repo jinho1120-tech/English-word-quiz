@@ -8,7 +8,7 @@
     }
   },
   "functions": {
-    "app/api/cron/ai-vocabulary/route.ts": {
+    "app/api/cron/ai-vocabulary/route": {
       "experimentalTriggers": [
         { "type": "schedule/v1beta" }
       ]
