@@ -167,3 +167,10 @@ CREATE TABLE "child_word_submissions" (
 );
 CREATE INDEX "child_word_submissions_child_status_created_idx"
   ON "child_word_submissions" ("child_profile_id", "validation_status", "created_at");
+
+ALTER TABLE "vocabulary_candidates"
+  ADD COLUMN "disambiguation" varchar(100);
+
+ALTER TABLE "ai_vocabulary_bundle_items"
+  ADD COLUMN "disambiguation_snapshot" varchar(100);
+
