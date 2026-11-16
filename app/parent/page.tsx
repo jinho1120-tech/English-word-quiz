@@ -12,6 +12,7 @@ import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { HelpCenter } from "@/components/help-center"
 import { getParentAiVocabularySettings } from "@/app/actions/ai-vocabulary"
 import { ParentAiVocabularySettings } from "@/components/parent-ai-vocabulary-settings"
+import { VocabularyCandidateImporter } from "@/components/vocabulary-candidate-importer"
 
 export const dynamic = "force-dynamic"
 
@@ -39,6 +40,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
       <ParentNotifications initialData={notificationData} />
       <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} arcadeSettings={dashboard.arcadeSettings} gameUsage={dashboard.gameUsage} coupons={dashboard.coupons} couponSettings={dashboard.couponSettings} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} familyTerms={dashboard.familyTerms} />
       <ParentAiVocabularySettings settings={aiVocabularySettings} />
+      <VocabularyCandidateImporter />
       <AccountWithdrawal />
     </main>
   )
