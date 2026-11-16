@@ -9,6 +9,7 @@ import { HapticButton } from "@/components/haptic-button"
 import { PacmanGame } from "@/components/arcade/pacman-game"
 import { WordDefenseGame } from "@/components/arcade/word-defense-game"
 import { OWL_GAME_NAME, OWL_GAME_TITLE } from "@/components/arcade/game-branding"
+import { BlueOwlIcon } from "@/components/arcade/owl-icon"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame } from "@/app/actions/child-words"
 
 type Subject = { id: string; name: string; color: string }
@@ -375,7 +376,7 @@ export function ChildLearning({
           {allWords.length === 0 && <p className="text-xs text-muted-foreground">{OWL_GAME_NAME}과 단어 디펜스를 시작하려면 먼저 단어를 등록해 주세요.</p>}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {pacmanStatus.showPacman && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { if (await reservePacmanPlay()) setIsPacmanOpen(true) }} className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white shadow-sm transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-violet-700 dark:hover:bg-violet-600">
-              {OWL_GAME_NAME} 🦉
+              {OWL_GAME_NAME} <BlueOwlIcon size={22} className="inline-block align-[-5px]" />
             </HapticButton>}
             {pacmanStatus.showWordDefense && <HapticButton type="button" disabled={!pacmanStatus.eligible || pacmanRemainingPlays <= 0 || allWords.length === 0} onClick={async () => { try { const result = await startChildPacmanGame("word_defense"); setPacmanRemainingPlays(result.remainingPlays); setPacmanError(""); setIsWordDefenseOpen(true) } catch (err) { setPacmanError(err instanceof Error ? err.message : "게임을 시작하지 못했어요.") } }} className="w-full rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-700">
               영단어 몬스터 디펜스 👾
