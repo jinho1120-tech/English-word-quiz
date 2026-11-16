@@ -952,14 +952,14 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
           ctx.arc(centerX, centerY, 27, 0, Math.PI * 2);
           ctx.fill();
         }
-        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 3, direction, doctorModeActiveRef.current, nowMs / 120, pac.dirX !== 0 || pac.dirY !== 0);
+        drawBlueOwl(ctx, centerX, centerY, CELL_SIZE + 9, direction, doctorModeActiveRef.current, nowMs / 120, pac.dirX !== 0 || pac.dirY !== 0);
       }
 
       // 두 게임이 공유하는 컬러 영단어 몬스터.
       ghostsRef.current.forEach((g) => {
         const gx = g.x * CELL_SIZE + CELL_SIZE / 2;
         const gy = g.y * CELL_SIZE + CELL_SIZE / 2;
-        drawArcadeMonster(ctx, gx, gy, CELL_SIZE / 2 - 1, nowMs / 150 + Number(g.id.length), g.isFrightened && doctorModeActiveRef.current, "mischievous", g.isFrightened ? "#38bdf8" : g.color);
+        drawArcadeMonster(ctx, gx, gy, CELL_SIZE / 2 - 1, nowMs / 150 + Number(g.id.length), false, "mischievous", doctorModeActiveRef.current ? "#9ca3af" : g.isFrightened ? "#38bdf8" : g.color);
       });
 
       // 정답을 맞힌 유령은 단어를 남기며 위로 승천한 뒤 소굴에서 다시 등장한다.
