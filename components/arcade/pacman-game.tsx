@@ -831,7 +831,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
         drawPencilBonus(ctx, 7 * CELL_SIZE + CELL_SIZE / 2, 8 * CELL_SIZE + CELL_SIZE / 2, 14);
       }
 
-      // ✏️ 체리 획득 +100 팝업 텍스트
+      // 연필 획득 +100 팝업 텍스트
       if (cherryPopup) {
         ctx.fillStyle = "#f43f5e";
         ctx.font = "bold 11px sans-serif";
@@ -847,7 +847,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
       if (shouldDrawOwl) {
         const centerX = pac.x * CELL_SIZE + CELL_SIZE / 2;
         const centerY = pac.y * CELL_SIZE + CELL_SIZE / 2;
-        const direction = pac.dirY < 0 ? "up" : pac.dirY > 0 ? "down" : pac.dirX < 0 ? "left" : "right";
+        const direction = pac.dirY < 0 ? "up" : pac.dirY > 0 ? "down" : pac.dirX < 0 ? "left" : pac.dirX > 0 ? "right" : "down";
         drawOwl(ctx, centerX, centerY, CELL_SIZE / 2 - 1, direction, doctorModeActiveRef.current, nowMs / 1000);
       }
 
@@ -1081,12 +1081,14 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 {defenseEncounter.word.meaning}
               </div>
               <div className="absolute bottom-9 transition-all duration-75" style={{ left: (12 + (1 - defenseRemainingMs / defenseEncounter.durationMs) * 68) + "%", transform: "translateX(-50%)" }}>
-                <div className="relative h-24 w-20 rounded-t-[48%] rounded-b-[22%] shadow-[0_0_34px_rgba(255,255,255,0.2)]" style={{ backgroundColor: defenseEncounter.ghostColor }}>
-                  <div className="absolute left-[22%] top-[32%] flex w-[56%] justify-between">
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                  </div>
-                </div>
+                <svg viewBox="0 0 100 100" role="img" aria-label="영단어 몬스터" className="h-24 w-20 overflow-visible" style={{ filter: `drop-shadow(0 0 18px ${defenseEncounter.ghostColor}88)` }}>
+                  <path d="M10 72 L12 36 Q12 18 31 13 L39 7 Q48 9 51 14 Q61 6 72 12 L67 17 Q88 21 89 39 L90 72 Q76 60 65 72 Q50 87 35 72 Q22 60 10 72Z" fill={defenseEncounter.ghostColor} stroke="rgba(15,23,42,0.65)" strokeWidth="3" strokeLinejoin="round" />
+                  <ellipse cx="35" cy="47" rx="10" ry="13" fill="white" />
+                  <ellipse cx="65" cy="47" rx="10" ry="13" fill="white" />
+                  <ellipse cx="37" cy="50" rx="4.5" ry="7" fill="#172033" />
+                  <ellipse cx="67" cy="50" rx="4.5" ry="7" fill="#172033" />
+                  <path d="M44 68 Q50 73 56 68" fill="none" stroke="#172033" strokeWidth="3" strokeLinecap="round" />
+                </svg>
               </div>
               <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
             </div>
