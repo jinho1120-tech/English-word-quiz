@@ -5,7 +5,7 @@ import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding"
-import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -113,13 +113,15 @@ export async function getChildLearningData(date: string) {
     if (item.isCorrect) current.correct += 1
     subjectStats.set(item.subjectName, current)
   }
+  const favoriteRows = await db.select({ wordEntryId: childWordFavorites.wordEntryId }).from(childWordFavorites)
+    .where(eq(childWordFavorites.childProfileId, child.childProfileId))
   const stats = {
     total: attempts.length,
     correct: correctCount,
     accuracy: attempts.length ? Math.round(correctCount / attempts.length * 100) : 0,
     subjects: Array.from(subjectStats.entries()).map(([name, value]) => ({ name, ...value, accuracy: Math.round(value.correct / value.total * 100) })),
   }
-  return { childName: child.childName, subjects, words, allWords, wrongWords, stats }
+  return { childName: child.childName, subjects, words, allWords, wrongWords, favoriteWordIds: favoriteRows.map((row) => row.wordEntryId), stats }
 }
 
 const CALENDAR_COLORS = new Set(["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"])
@@ -705,4 +707,43 @@ export async function startChildPacmanGame(game: "pacman" | "word_defense" = "pa
     dailyPlayLimit,
     unlimitedPlays: dailyPlayLimit === 0,
   }
+}
+
+
+/** Toggle a private bookmark without changing the wordbook or learning history. */
+export async function toggleChildWordFavorite(wordEntryId: number) {
+  const child = await requireChild()
+  if (!Number.isInteger(wordEntryId) || wordEntryId < 1) throw new Error("단어 정보가 올바르지 않습니다.")
+
+  const [word] = await db.select({ id: wordEntries.id }).from(wordEntries)
+    .where(and(
+      eq(wordEntries.id, wordEntryId),
+      eq(wordEntries.userId, child.ownerUserId),
+      eq(wordEntries.childProfileId, child.childProfileId),
+    ))
+    .limit(1)
+  if (!word) throw new Error("이 자녀의 단어장에서 해당 표현을 찾을 수 없습니다.")
+
+  const [favorite] = await db.select({ id: childWordFavorites.id }).from(childWordFavorites)
+    .where(and(
+      eq(childWordFavorites.childProfileId, child.childProfileId),
+      eq(childWordFavorites.wordEntryId, wordEntryId),
+    ))
+    .limit(1)
+
+  if (favorite) {
+    await db.delete(childWordFavorites).where(and(
+      eq(childWordFavorites.id, favorite.id),
+      eq(childWordFavorites.childProfileId, child.childProfileId),
+    ))
+    revalidatePath("/child")
+    return { isFavorite: false }
+  }
+
+  await db.insert(childWordFavorites).values({
+    childProfileId: child.childProfileId,
+    wordEntryId,
+  }).onConflictDoNothing()
+  revalidatePath("/child")
+  return { isFavorite: true }
 }
