@@ -5,7 +5,7 @@ import { and, asc, desc, eq, gt, gte, inArray, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding"
-import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions, aiVocabularyBundles, aiVocabularyBundleItems } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions, aiVocabularyBundles, aiVocabularyBundleItems, vocabularyCandidates } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
@@ -85,12 +85,33 @@ export async function getChildLearningData(date: string) {
       eq(wordEntries.assignmentDate, date),
     ))
     .orderBy(asc(wordEntries.createdAt))
-  const allWords = await db.select().from(wordEntries)
+  const allWordsRaw = await db.select().from(wordEntries)
     .where(and(
       eq(wordEntries.userId, child.ownerUserId),
       eq(wordEntries.childProfileId, child.childProfileId),
     ))
     .orderBy(asc(wordEntries.createdAt))
+  const candidateIds = [...new Set(allWordsRaw
+    .map((word) => word.vocabularyCandidateId)
+    .filter((id): id is string => Boolean(id)))]
+  const candidateSources = candidateIds.length
+    ? await db.select({
+        id: vocabularyCandidates.id,
+        sourceName: vocabularyCandidates.sourceName,
+        sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
+        licenseName: vocabularyCandidates.licenseName,
+        licenseUrl: vocabularyCandidates.licenseUrl,
+      }).from(vocabularyCandidates)
+        .where(inArray(vocabularyCandidates.id, candidateIds))
+    : []
+  const sourceByCandidateId = new Map(candidateSources.map((source) => [source.id, source]))
+  const allWords = allWordsRaw.map((word) => ({
+    ...word,
+    sourceName: word.vocabularyCandidateId ? sourceByCandidateId.get(word.vocabularyCandidateId)?.sourceName ?? null : null,
+    sourceEntryUrl: word.vocabularyCandidateId ? sourceByCandidateId.get(word.vocabularyCandidateId)?.sourceEntryUrl ?? null : null,
+    licenseName: word.vocabularyCandidateId ? sourceByCandidateId.get(word.vocabularyCandidateId)?.licenseName ?? null : null,
+    licenseUrl: word.vocabularyCandidateId ? sourceByCandidateId.get(word.vocabularyCandidateId)?.licenseUrl ?? null : null,
+  }))
   const wrongWords = await db.select().from(wordEntries)
     .where(and(
       eq(wordEntries.userId, child.ownerUserId),
@@ -125,7 +146,27 @@ export async function getChildLearningData(date: string) {
     aiBundle = todayBundle ?? null
   }
   const aiBundleItems = aiBundle
-    ? await db.select().from(aiVocabularyBundleItems)
+    ? await db.select({
+        id: aiVocabularyBundleItems.id,
+        bundleId: aiVocabularyBundleItems.bundleId,
+        candidateId: aiVocabularyBundleItems.candidateId,
+        wordEntryId: aiVocabularyBundleItems.wordEntryId,
+        sourceWordEntryId: aiVocabularyBundleItems.sourceWordEntryId,
+        sourceType: aiVocabularyBundleItems.sourceType,
+        lexicalType: aiVocabularyBundleItems.lexicalType,
+        expressionSnapshot: aiVocabularyBundleItems.expressionSnapshot,
+        meaningSnapshot: aiVocabularyBundleItems.meaningSnapshot,
+        disambiguationSnapshot: aiVocabularyBundleItems.disambiguationSnapshot,
+        exampleSnapshot: aiVocabularyBundleItems.exampleSnapshot,
+        sortOrder: aiVocabularyBundleItems.sortOrder,
+        frontViewedAt: aiVocabularyBundleItems.frontViewedAt,
+        backViewedAt: aiVocabularyBundleItems.backViewedAt,
+        sourceName: vocabularyCandidates.sourceName,
+        sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
+        licenseName: vocabularyCandidates.licenseName,
+        licenseUrl: vocabularyCandidates.licenseUrl,
+      }).from(aiVocabularyBundleItems)
+      .leftJoin(vocabularyCandidates, eq(aiVocabularyBundleItems.candidateId, vocabularyCandidates.id))
       .where(eq(aiVocabularyBundleItems.bundleId, aiBundle.id))
       .orderBy(asc(aiVocabularyBundleItems.sortOrder))
     : []
