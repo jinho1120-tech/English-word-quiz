@@ -249,6 +249,7 @@ export const childSubjects = pgTable("child_subjects", {
   calendarColor: varchar("calendar_color", { length: 7 }).default("#2563EB").notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   isArchived: boolean("is_archived").default(false).notNull(),
+  isAiVocabulary: boolean("is_ai_vocabulary").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
@@ -315,6 +316,7 @@ export const wordEntries = pgTable("word_entries", {
   childDateIdx: index("word_entries_child_date_idx").on(table.childProfileId, table.assignmentDate),
   childWrongIdx: index("word_entries_child_wrong_idx").on(table.childProfileId, table.wrongCount),
   subjectIdx: index("word_entries_subject_idx").on(table.subjectId, table.assignmentDate),
+  candidateIdx: index("word_entries_vocabulary_candidate_idx").on(table.vocabularyCandidateId),
 }))
 
 
