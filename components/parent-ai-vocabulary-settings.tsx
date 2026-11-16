@@ -16,6 +16,8 @@ type ChildSetting = {
   idiomLevel: string
   activeDays: number[]
   publishMode: "manual" | "automatic"
+  latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
+  latestIdiomAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date } | null
 }
 
 const DAYS = [
@@ -137,6 +139,27 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
                       {LEVELS.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
                     </select>
                   </label>
+                </div>
+                <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs font-semibold text-muted-foreground">최근 레벨 진단 결과</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { label: "단어", result: selected.latestWordAssessment },
+                      { label: "숙어", result: selected.latestIdiomAssessment },
+                    ]).map(({ label, result }) => (
+                      <div key={label} className="rounded-lg bg-background p-2.5">
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                        {result ? (
+                          <>
+                            <p className="mt-1 text-sm font-bold">{result.assignedLevel}</p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">{result.correctCount}/{result.questionCount} 정답 · 신뢰도 {result.confidence === "high" ? "높음" : result.confidence === "medium" ? "보통" : "낮음"}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">{new Date(result.completedAt).toLocaleDateString("ko-KR")}</p>
+                          </>
+                        ) : <p className="mt-1 text-xs text-muted-foreground">진단 기록 없음</p>}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">진단을 마치면 레벨이 자동 반영됩니다. 아래 레벨 선택을 저장하면 부모가 직접 조정할 수도 있어요.</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-foreground">학습 요일</p>
