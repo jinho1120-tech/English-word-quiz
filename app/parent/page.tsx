@@ -10,10 +10,11 @@ import { ChildProfileSettings } from "@/components/child-profile-settings"
 import { AccountWithdrawal } from "@/components/account-withdrawal"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { HelpCenter } from "@/components/help-center"
-import { getParentAiVocabularySettings } from "@/app/actions/ai-vocabulary"
+import { getParentAiVocabularySettings, getParentVocabularyCandidateQueue } from "@/app/actions/ai-vocabulary"
 import { ParentAiVocabularySettings } from "@/components/parent-ai-vocabulary-settings"
 import { VocabularyCandidateImporter } from "@/components/vocabulary-candidate-importer"
 import { ParentChildWordSubmissionReview } from "@/components/parent-child-word-submission-review"
+import { VocabularyCandidateReview } from "@/components/vocabulary-candidate-review"
 
 export const dynamic = "force-dynamic"
 
@@ -24,10 +25,11 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
   const params = await searchParams
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) redirect("/login")
-  const [dashboard, notificationData, aiVocabularySettings] = await Promise.all([
+  const [dashboard, notificationData, aiVocabularySettings, vocabularyCandidates] = await Promise.all([
     getParentFamilyDashboard(),
     getParentNotificationData(),
     getParentAiVocabularySettings(),
+    getParentVocabularyCandidateQueue(),
   ])
 
   return (
@@ -43,6 +45,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
       <ParentChildWordSubmissionReview children={dashboard.children.filter((child) => child.isActive).map((child) => ({ id: child.id, displayName: child.displayName }))} />
       <ParentAiVocabularySettings settings={aiVocabularySettings} />
       <VocabularyCandidateImporter />
+      <VocabularyCandidateReview candidates={vocabularyCandidates} />
       <AccountWithdrawal />
     </main>
   )
