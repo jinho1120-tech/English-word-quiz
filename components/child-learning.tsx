@@ -19,7 +19,7 @@ type TodayAiBundle = {
   id: string
   status: string
   studyDate: string
-  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
 } | null
 
 const TTS_VOICES = [
