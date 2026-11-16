@@ -161,6 +161,8 @@ export function drawBlueOwl(
     ctx.moveTo(h * 0.62, -h * 0.62);
     ctx.quadraticCurveTo(h * 1.12, -h * 1.1, h * 0.38, -h * 0.83);
     ctx.quadraticCurveTo(h * 0.18, -h * 0.7, h * 0.62, -h * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
     // Draw wings behind the white belly so their blue edges remain visible at the sides without covering the chest.
     outline("#3999f2");
     ctx.beginPath();
@@ -177,7 +179,6 @@ export function drawBlueOwl(
     ctx.quadraticCurveTo(h * 0.65, h * 0.82, h * 0.61, h * 0.62);
     ctx.quadraticCurveTo(h * 0.53, h * 0.78, h * 0.52, h * 0.56);
     ctx.lineTo(h * 0.55, h * 0.03); ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.closePath(); ctx.fill(); ctx.stroke();
 
     ctx.fillStyle = "#fff";
     ctx.beginPath();
