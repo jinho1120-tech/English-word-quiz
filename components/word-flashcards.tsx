@@ -21,7 +21,7 @@ type FlashcardSubject = { id: string; name: string; color: string }
 type AiBundle = {
   id: string
   status: string
-  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
+  items: { id: string; wordEntryId: number | null; lexicalType: string; expressionSnapshot: string; meaningSnapshot: string; disambiguationSnapshot: string | null; exampleSnapshot: string | null; frontViewedAt: Date | null; backViewedAt: Date | null }[]
 }
 
 export function WordFlashcards({
@@ -61,7 +61,7 @@ export function WordFlashcards({
       word: item.expressionSnapshot,
       meaning: item.meaningSnapshot,
       example: item.exampleSnapshot,
-      disambiguation: null,
+      disambiguation: item.disambiguationSnapshot,
       lexicalType: item.lexicalType,
       aiBundleItemId: item.id,
     })), [aiBundle])
