@@ -5,10 +5,12 @@ import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding"
-import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites } from "@/lib/db/schema"
+import { childPacmanDailyPlays, childProfiles, childGamePlays, childQuizAttempts, childSubjects, couponRewards, couponTypes, childCouponSettings, familyArcadeSettings, wordEntries, childWordFavorites, childWordSubmissions } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 import { getChildDeviceSession } from "@/lib/child-auth"
+import { lookupFreeDictionaryCached, } from "@/lib/free-dictionary-cache"
+import { normalizeDictionaryExpression } from "@/lib/free-dictionary-api"
 import { notifyFamilyParents } from "@/lib/notifications"
 
 const SUBJECT_CALENDAR_COLORS = ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#A855F7", "#EC4899", "#0D9488", "#64748B"]
@@ -175,6 +177,25 @@ export async function addChildWord(input: {
   const example = input.example?.trim() || null
   if (!word || word.length > 100 || !meaning || meaning.length > 200 || (example && example.length > 2000)) throw new Error("단어, 뜻 또는 예문 길이를 확인해 주세요.")
   const subject = await requireOwnedSubject(child.childProfileId, input.subjectId)
+  const dictionary = await lookupFreeDictionaryCached(word)
+  if (dictionary.status !== "found") {
+    await db.insert(childWordSubmissions).values({
+      childProfileId: child.childProfileId,
+      expression: word,
+      normalizedExpression: normalizeDictionaryExpression(word),
+      lexicalType: "word",
+      meaning,
+      example,
+      validationStatus: dictionary.status === "not_found" ? "pending_review" : "verification_unavailable",
+      dictionaryCheckedAt: dictionary.status === "not_found" ? new Date() : null,
+    })
+    revalidatePath("/child")
+    return {
+      status: "pending_review" as const,
+      reason: dictionary.status === "not_found" ? "not_found" as const : dictionary.reason,
+    }
+  }
+
   await db.insert(wordEntries).values({
     userId: child.ownerUserId,
     childProfileId: child.childProfileId,
@@ -185,8 +206,10 @@ export async function addChildWord(input: {
     word,
     meaning,
     example,
+    lexicalType: "word",
   })
   revalidatePath("/child")
+  return { status: "added" as const }
 }
 
 export async function updateChildWord(id: number, input: {
@@ -497,11 +520,51 @@ export async function addChildWordsBulk(input: { date: string; subjectId: string
     if (!item || typeof item.word !== "string" || typeof item.meaning !== "string" || (item.example != null && typeof item.example !== "string")) throw new Error("단어 데이터가 올바르지 않습니다.")
     const word = item.word.trim(), meaning = item.meaning.trim(), example = item.example?.trim() || null
     if (!word || word.length > 100 || !meaning || meaning.length > 200 || (example && example.length > 2000)) throw new Error("단어, 뜻 또는 예문 길이를 확인해 주세요.")
-    return { userId: child.ownerUserId, childProfileId: child.childProfileId, profile: child.childName, assignmentDate: input.date, subjectId: subject.id, subject: subject.name, word, meaning, example }
+    return { word, meaning, example, normalizedExpression: normalizeDictionaryExpression(word) }
   })
-  await db.insert(wordEntries).values(rows)
+
+  const lookups = await Promise.all(rows.map((item) => lookupFreeDictionaryCached(item.word)))
+  const accepted: typeof rows = []
+  const pending: typeof rows = []
+  const pendingStatuses: ("pending_review" | "verification_unavailable")[] = []
+  for (let index = 0; index < rows.length; index += 1) {
+    const lookup = lookups[index]
+    if (lookup.status === "found") {
+      accepted.push(rows[index])
+    } else {
+      pending.push(rows[index])
+      pendingStatuses.push(lookup.status === "not_found" ? "pending_review" : "verification_unavailable")
+    }
+  }
+
+  if (accepted.length) {
+    await db.insert(wordEntries).values(accepted.map((item) => ({
+      userId: child.ownerUserId,
+      childProfileId: child.childProfileId,
+      profile: child.childName,
+      assignmentDate: input.date,
+      subjectId: subject.id,
+      subject: subject.name,
+      word: item.word,
+      meaning: item.meaning,
+      example: item.example,
+      lexicalType: "word",
+    })))
+  }
+  if (pending.length) {
+    await db.insert(childWordSubmissions).values(pending.map((item, index) => ({
+      childProfileId: child.childProfileId,
+      expression: item.word,
+      normalizedExpression: item.normalizedExpression,
+      lexicalType: "word",
+      meaning: item.meaning,
+      example: item.example,
+      validationStatus: pendingStatuses[index],
+      dictionaryCheckedAt: pendingStatuses[index] === "pending_review" ? new Date() : null,
+    })))
+  }
   revalidatePath("/child")
-  return { count: rows.length }
+  return { count: accepted.length, pendingCount: pending.length }
 }
 
 
