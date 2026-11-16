@@ -256,7 +256,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
             speed: (0.026 + Math.min(0.022, progressScore / 30000)) * mode.speedMultiplier,
             phase: Math.random() * Math.PI * 2,
             mood: (["mischievous", "angry", "surprised", "worried", "sleepy"] as GhostMood[])[Math.floor(Math.random() * 5)],
-            color: ARCADE_MONSTER_COLORS[(nextIdRef.current - 1) % ARCADE_MONSTER_COLORS.length],
+            color: ARCADE_MONSTER_COLORS[(nextIdRef.current - 1) % ARCADE_MONSTER_COLORS.length] ?? ARCADE_MONSTER_COLORS[0],
           })
         }
         lastSpawnRef.current = time
