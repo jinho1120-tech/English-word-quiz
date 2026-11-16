@@ -10,6 +10,8 @@ import { ChildProfileSettings } from "@/components/child-profile-settings"
 import { AccountWithdrawal } from "@/components/account-withdrawal"
 import { PwaInstallGuide } from "@/components/pwa-install-guide"
 import { HelpCenter } from "@/components/help-center"
+import { getParentAiVocabularySettings } from "@/app/actions/ai-vocabulary"
+import { ParentAiVocabularySettings } from "@/components/parent-ai-vocabulary-settings"
 
 export const dynamic = "force-dynamic"
 
@@ -20,8 +22,11 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
   const params = await searchParams
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) redirect("/login")
-  const dashboard = await getParentFamilyDashboard()
-  const notificationData = await getParentNotificationData()
+  const [dashboard, notificationData, aiVocabularySettings] = await Promise.all([
+    getParentFamilyDashboard(),
+    getParentNotificationData(),
+    getParentAiVocabularySettings(),
+  ])
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-xl space-y-6 px-4 py-8">
@@ -33,6 +38,7 @@ export default async function ParentPage({ searchParams }: { searchParams: Promi
       {params.invited === "success" ? <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">가족 공동관리자 초대가 성공적으로 수락되었습니다.</p> : params.invited === "already_member" ? <p role="status" className="rounded-xl border border-border bg-muted p-3 text-sm font-semibold">이미 이 가족의 공동관리자로 참여하고 있습니다.</p> : null}
       <ParentNotifications initialData={notificationData} />
       <ParentDashboard children={dashboard.children} devices={dashboard.devices} members={dashboard.members} invitations={dashboard.invitations} arcadeSettings={dashboard.arcadeSettings} gameUsage={dashboard.gameUsage} coupons={dashboard.coupons} couponSettings={dashboard.couponSettings} rewards={dashboard.rewards} parentRole={dashboard.parentRole} currentUserId={dashboard.currentUserId} ownerUserId={dashboard.ownerUserId} familyTerms={dashboard.familyTerms} />
+      <ParentAiVocabularySettings settings={aiVocabularySettings} />
       <AccountWithdrawal />
     </main>
   )
