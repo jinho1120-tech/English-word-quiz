@@ -1,5 +1,6 @@
-import { VOCAB_OWL_NAME } from "@/lib/game-branding"
 "use server"
+
+import { VOCAB_OWL_NAME } from "@/lib/game-branding"
 
 import { randomInt } from "node:crypto"
 import { and, asc, desc, eq, gt, gte, lte, or, sql } from "drizzle-orm"
