@@ -9,6 +9,7 @@ type Candidate = {
   id: string
   expression: string
   lexicalType: string
+  disambiguation: string | null
   partOfSpeech: string
   definitionEn: string
   exampleSentence: string | null
@@ -49,6 +50,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onReviewed: (id: string) => void }) {
   const [meaningKo, setMeaningKo] = useState("")
+  const [disambiguation, setDisambiguation] = useState(candidate.disambiguation ?? "")
   const [childLevel, setChildLevel] = useState("")
   const [cefrLevel, setCefrLevel] = useState("")
   const [domain, setDomain] = useState("general")
@@ -64,6 +66,7 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
           candidateId: candidate.id,
           decision,
           meaningKo,
+          disambiguation,
           childLevel,
           cefrLevel,
           domain,
@@ -97,6 +100,10 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">한국어 뜻</span>
         <input value={meaningKo} onChange={(event) => setMeaningKo(event.target.value)} maxLength={200} placeholder="이 의미에 맞는 자연스러운 한국어 뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+      </label>
+      <label className="block space-y-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">같은 한국어 뜻 안에서 구분 설명 (선택)</span>
+        <input value={disambiguation} onChange={(event) => setDisambiguation(event.target.value)} maxLength={100} placeholder="예: 불에 / 탈것을" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1.5">
