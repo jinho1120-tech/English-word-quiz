@@ -103,19 +103,9 @@ export async function saveParentAiVocabularySettings(input: {
   }
 
   const activeDays = [...input.activeDays].sort((a, b) => a - b)
-  await db.insert(aiVocabularySettings).values({
-    childProfileId: child.id,
-    enabled: input.enabled,
-    wordsPerDay: input.wordsPerDay,
-    idiomsPerDay: input.idiomsPerDay,
-    wordLevel: input.wordLevel,
-    idiomLevel: input.idiomLevel,
-    activeDays,
-    publishMode: input.publishMode,
-    updatedAt: new Date(),
-  }).onConflictDoUpdate({
-    target: aiVocabularySettings.childProfileId,
-    set: {
+  await db.transaction(async (tx) => {
+    await tx.insert(aiVocabularySettings).values({
+      childProfileId: child.id,
       enabled: input.enabled,
       wordsPerDay: input.wordsPerDay,
       idiomsPerDay: input.idiomsPerDay,
@@ -124,40 +114,52 @@ export async function saveParentAiVocabularySettings(input: {
       activeDays,
       publishMode: input.publishMode,
       updatedAt: new Date(),
-    },
-  })
+    }).onConflictDoUpdate({
+      target: aiVocabularySettings.childProfileId,
+      set: {
+        enabled: input.enabled,
+        wordsPerDay: input.wordsPerDay,
+        idiomsPerDay: input.idiomsPerDay,
+        wordLevel: input.wordLevel,
+        idiomLevel: input.idiomLevel,
+        activeDays,
+        publishMode: input.publishMode,
+        updatedAt: new Date(),
+      },
+    })
 
-  if (input.enabled) {
-    const [aiSubject] = await db.select({ id: childSubjects.id }).from(childSubjects)
-      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true)))
-      .limit(1)
+    if (input.enabled) {
+      const [aiSubject] = await tx.select({ id: childSubjects.id }).from(childSubjects)
+        .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true)))
+        .limit(1)
 
-    if (aiSubject) {
-      await db.update(childSubjects).set({ isArchived: false, updatedAt: new Date() })
-        .where(and(eq(childSubjects.id, aiSubject.id), eq(childSubjects.childProfileId, child.id)))
-    } else {
-      const currentSubjects = await db.select({ name: childSubjects.name, sortOrder: childSubjects.sortOrder }).from(childSubjects)
-        .where(eq(childSubjects.childProfileId, child.id))
-      const usedNames = new Set(currentSubjects.map((item) => item.name))
-      let subjectName = "AI 추천 어휘"
-      let suffix = 0
-      while (usedNames.has(subjectName)) {
-        suffix += 1
-        subjectName = `AI 추천 어휘 (추천 ${suffix})`
+      if (aiSubject) {
+        await tx.update(childSubjects).set({ isArchived: false, updatedAt: new Date() })
+          .where(and(eq(childSubjects.id, aiSubject.id), eq(childSubjects.childProfileId, child.id)))
+      } else {
+        const currentSubjects = await tx.select({ name: childSubjects.name, sortOrder: childSubjects.sortOrder }).from(childSubjects)
+          .where(eq(childSubjects.childProfileId, child.id))
+        const usedNames = new Set(currentSubjects.map((item) => item.name))
+        let subjectName = "AI 추천 어휘"
+        let suffix = 0
+        while (usedNames.has(subjectName)) {
+          suffix += 1
+          subjectName = `AI 추천 어휘 (추천 ${suffix})`
+        }
+        const sortOrder = currentSubjects.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
+        await tx.insert(childSubjects).values({
+          childProfileId: child.id,
+          name: subjectName,
+          sortOrder,
+          calendarColor: "#0D9488",
+          isAiVocabulary: true,
+        })
       }
-      const sortOrder = currentSubjects.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1
-      await db.insert(childSubjects).values({
-        childProfileId: child.id,
-        name: subjectName,
-        sortOrder,
-        calendarColor: "#0D9488",
-        isAiVocabulary: true,
-      })
+    } else {
+      await tx.update(childSubjects).set({ isArchived: true, updatedAt: new Date() })
+        .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true), eq(childSubjects.isArchived, false)))
     }
-  } else {
-    await db.update(childSubjects).set({ isArchived: true, updatedAt: new Date() })
-      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isAiVocabulary, true), eq(childSubjects.isArchived, false)))
-  }
+  })
 
   revalidatePath("/parent")
   revalidatePath("/child")
