@@ -3,6 +3,7 @@ import { HapticButton } from "@/components/haptic-button";
 import { drawBlueOwl } from "@/components/arcade/owl-art";
 import { ARCADE_MONSTER_COLORS, drawArcadeMonster } from "@/components/arcade/monster-art";
 import { OWL_GAME_NAME } from "@/components/arcade/game-branding";
+import { MonsterAvatar } from "@/components/arcade/monster-avatar";
 
 const COLS = 15;
 const ROWS = 15;
@@ -1128,12 +1129,7 @@ export function PacmanGame({ words = [], extraPlaysLeft, dailyPlayLimit, unlimit
                 {defenseEncounter.word.meaning}
               </div>
               <div className="absolute bottom-9 transition-all duration-75" style={{ left: (12 + (1 - defenseRemainingMs / defenseEncounter.durationMs) * 68) + "%", transform: "translateX(-50%)" }}>
-                <div className="relative h-24 w-20 rounded-t-[48%] rounded-b-[22%] shadow-[0_0_34px_rgba(255,255,255,0.2)]" style={{ backgroundColor: defenseEncounter.ghostColor }}>
-                  <div className="absolute left-[22%] top-[32%] flex w-[56%] justify-between">
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                    <span className="h-4 w-3 rounded-full bg-white"><i className="mx-auto mt-1 block h-2 w-1 rounded-full bg-slate-900" /></span>
-                  </div>
-                </div>
+                <MonsterAvatar color={defenseEncounter.ghostColor} className="h-24 w-20 drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]" />
               </div>
               <span className="absolute bottom-2 right-4 text-[10px] font-bold text-slate-400">접근 중</span>
             </div>
