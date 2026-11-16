@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Heart, RotateCcw, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
+import { ARCADE_MONSTER_COLORS, drawArcadeMonster, type ArcadeMonsterMood } from "@/lib/arcade-art"
 
 type DefenseWord = { id: number; word: string; meaning: string }
 
-type GhostMood = "mischievous" | "angry" | "surprised" | "worried" | "sleepy"
+type GhostMood = ArcadeMonsterMood
 
 type Monster = {
   id: number
@@ -16,6 +17,7 @@ type Monster = {
   speed: number
   phase: number
   mood: GhostMood
+  color: string
 }
 
 type DefeatEffect = {
@@ -26,6 +28,7 @@ type DefeatEffect = {
   age: number
   phase: number
   mood: GhostMood
+  color: string
 }
 
 type Difficulty = "easy" | "normal" | "hard"
@@ -106,78 +109,6 @@ const LANES = [-0.96, -0.48, 0, 0.48, 0.96]
 
 function normalizeWord(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[’‘`]/g, "'").replace(/\s+/g, "")
-}
-
-function drawGhost(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number, wobble: number, flash: boolean, mood: GhostMood) {
-  const r = radius
-  ctx.save()
-  ctx.translate(x, y)
-  ctx.rotate(Math.sin(wobble) * 0.07)
-  ctx.shadowColor = flash ? "#ffffff" : "#93c5fd"
-  ctx.shadowBlur = flash ? 24 : 10
-  ctx.fillStyle = flash ? "#ffffff" : "#f8fbff"
-  ctx.beginPath()
-  ctx.moveTo(-r, r * 0.72)
-  ctx.lineTo(-r, -r * 0.12)
-  ctx.bezierCurveTo(-r, -r * 1.25, r, -r * 1.25, r, -r * 0.12)
-  ctx.lineTo(r, r * 0.72)
-  ctx.quadraticCurveTo(r * 0.65, r * 0.42, r * 0.32, r * 0.72)
-  ctx.quadraticCurveTo(0, r * 1.12, -r * 0.32, r * 0.72)
-  ctx.quadraticCurveTo(-r * 0.65, r * 0.42, -r, r * 0.72)
-  ctx.closePath()
-  ctx.fill()
-  ctx.shadowBlur = 0
-  ctx.fillStyle = "#26324b"
-
-  const eyeY = mood === "surprised" ? -r * 0.12 : -r * 0.08
-  if (mood === "sleepy") {
-    ctx.lineWidth = Math.max(1.8, r * 0.09)
-    ctx.strokeStyle = "#26324b"
-    ctx.beginPath()
-    ctx.moveTo(-r * 0.48, eyeY)
-    ctx.quadraticCurveTo(-r * 0.34, eyeY + r * 0.1, -r * 0.2, eyeY)
-    ctx.moveTo(r * 0.2, eyeY)
-    ctx.quadraticCurveTo(r * 0.34, eyeY + r * 0.1, r * 0.48, eyeY)
-    ctx.stroke()
-  } else {
-    const eyeHeight = mood === "surprised" ? r * 0.25 : mood === "worried" ? r * 0.14 : r * 0.2
-    ctx.beginPath()
-    ctx.ellipse(-r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
-    ctx.ellipse(r * 0.34, eyeY, r * 0.12, eyeHeight, 0, 0, Math.PI * 2)
-    ctx.fill()
-  }
-
-  ctx.strokeStyle = "#26324b"
-  ctx.fillStyle = "#26324b"
-  ctx.lineWidth = Math.max(1.5, r * 0.07)
-  ctx.lineCap = "round"
-  ctx.beginPath()
-  if (mood === "angry") {
-    ctx.moveTo(-r * 0.5, -r * 0.38)
-    ctx.lineTo(-r * 0.2, -r * 0.25)
-    ctx.moveTo(r * 0.5, -r * 0.38)
-    ctx.lineTo(r * 0.2, -r * 0.25)
-    ctx.moveTo(-r * 0.18, r * 0.34)
-    ctx.lineTo(r * 0.18, r * 0.34)
-    ctx.stroke()
-  } else if (mood === "surprised") {
-    ctx.beginPath()
-    ctx.ellipse(0, r * 0.31, r * 0.13, r * 0.19, 0, 0, Math.PI * 2)
-    ctx.fill()
-  } else if (mood === "worried") {
-    ctx.moveTo(-r * 0.18, r * 0.42)
-    ctx.quadraticCurveTo(0, r * 0.18, r * 0.18, r * 0.42)
-    ctx.stroke()
-  } else if (mood === "sleepy") {
-    ctx.moveTo(-r * 0.12, r * 0.3)
-    ctx.lineTo(r * 0.12, r * 0.3)
-    ctx.stroke()
-  } else {
-    ctx.moveTo(-r * 0.2, r * 0.2)
-    ctx.quadraticCurveTo(-r * 0.02, r * 0.48, r * 0.2, r * 0.2)
-    ctx.stroke()
-  }
-  ctx.restore()
 }
 
 export function WordDefenseGame({ words, subjectWords, allWords, onClose }: WordDefenseGameProps) {
@@ -316,14 +247,16 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         if (deckIndex >= 0) {
           const [selected] = wordDeckRef.current.splice(deckIndex, 1)
           lastDeckWordRef.current = normalizeWord(selected.word)
+          const monsterId = nextIdRef.current++
           monstersRef.current.push({
-            id: nextIdRef.current++,
+            id: monsterId,
             word: selected,
             lane,
             depth: 0,
             speed: (0.026 + Math.min(0.022, progressScore / 30000)) * mode.speedMultiplier,
             phase: Math.random() * Math.PI * 2,
             mood: (["mischievous", "angry", "surprised", "worried", "sleepy"] as GhostMood[])[Math.floor(Math.random() * 5)],
+            color: ARCADE_MONSTER_COLORS[(monsterId - 1) % ARCADE_MONSTER_COLORS.length],
           })
         }
         lastSpawnRef.current = time
@@ -397,7 +330,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         const labelFont = 16 + perspective * 9
         const label = monster.word.meaning
         const prefixMatch = typed.length > 0 && normalizeWord(monster.word.word).startsWith(normalizeWord(typed))
-        drawGhost(ctx, x, y, radius, monster.phase, prefixMatch, monster.mood)
+        drawArcadeMonster(ctx, x, y, radius, monster.phase, prefixMatch, monster.mood, monster.color)
         ctx.font = `bold ${labelFont}px sans-serif`
         const maxTextWidth = 250
         const lines: string[] = []
@@ -471,7 +404,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
           ctx.globalAlpha = 1 - ghostProgress
           ctx.translate(startX, startY - ghostProgress * 16)
           ctx.rotate(ghostProgress * Math.PI * 2.2)
-          drawGhost(ctx, 0, 0, radius, effect.phase + effect.age * 12, true, effect.mood)
+          drawArcadeMonster(ctx, 0, 0, radius, effect.phase + effect.age * 12, true, effect.mood, effect.color)
           ctx.restore()
         }
 
@@ -547,6 +480,7 @@ export function WordDefenseGame({ words, subjectWords, allWords, onClose }: Word
         age: 0,
         phase: defeated.phase,
         mood: defeated.mood,
+        color: defeated.color,
       })
       const basePoints = 10 + Math.round(defeated.depth * 15)
       progressScoreRef.current += basePoints
