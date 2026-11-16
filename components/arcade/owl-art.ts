@@ -1,8 +1,9 @@
 export type OwlDirection = "left" | "right" | "up" | "down";
 
 /**
- * Shared directional character renderer for the maze owl.
- * Doctor mode adds glasses and a graduation cap to the same base owl.
+ * Directional artwork follows the supplied eight-pose character sheet:
+ * row one is the plain owl, row two adds glasses and the graduation cap.
+ * The same body proportions are used in all four directions.
  */
 export function drawBlueOwl(
   ctx: CanvasRenderingContext2D,
@@ -14,245 +15,266 @@ export function drawBlueOwl(
   frame: number,
   isMoving = false,
 ) {
-  const half = size / 2;
-  const bob = isMoving ? Math.sin(frame * 0.8) * size * 0.025 : 0;
-  const stroke = Math.max(0.8, size * 0.035);
-  const sideView = direction === "left" || direction === "right";
-  const step = isMoving ? Math.sin(frame * 1.7) : 0;
+  const s = size;
+  const h = s / 2;
+  const line = Math.max(0.9, s * 0.045);
+  const phase = isMoving ? Math.sin(frame * 1.7) : 0;
+  const bob = isMoving ? Math.abs(Math.cos(frame * 1.7)) * s * 0.025 : 0;
+  const side = direction === "left" || direction === "right";
 
   ctx.save();
   ctx.translate(x, y + bob);
-
-  // Draw a right-facing profile and mirror it for left movement.
-  // The white face and beak are at the front; the feather tufts are at the back.
   if (direction === "left") ctx.scale(-1, 1);
 
-  const fillBody = () => {
-    ctx.fillStyle = "#3290f5";
-    ctx.strokeStyle = "#124b9b";
-    ctx.lineWidth = stroke;
+  const outline = (fill: string, stroke = "#124b9b", width = line) => {
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+  };
+
+  const drawFeet = (axis: "front" | "side" | "back") => {
+    const liftA = isMoving ? Math.max(0, phase) * h * 0.22 : 0;
+    const liftB = isMoving ? Math.max(0, -phase) * h * 0.22 : 0;
+    const strideA = isMoving ? phase * h * 0.13 : 0;
+    const strideB = -strideA;
+    outline("#f8b51b", "#a85c08", Math.max(0.8, s * 0.025));
     ctx.beginPath();
-    ctx.moveTo(-half * 0.76, -half * 0.28);
-    ctx.quadraticCurveTo(-half * 0.82, -half * 0.92, -half * 0.22, -half * 0.9);
-    ctx.quadraticCurveTo(half * 0.62, -half * 1.02, half * 0.86, -half * 0.34);
-    ctx.quadraticCurveTo(half * 1.08, half * 0.48, half * 0.36, half * 0.83);
-    ctx.quadraticCurveTo(-half * 0.56, half * 1.02, -half * 0.78, half * 0.34);
-    ctx.closePath();
+    if (axis === "side") {
+      ctx.ellipse(-h * 0.12 + strideA, h * 0.77 - liftA, h * 0.22, h * 0.085, -0.08 - phase * 0.12, 0, Math.PI * 2);
+      ctx.ellipse(h * 0.35 + strideB, h * 0.77 - liftB, h * 0.22, h * 0.085, 0.08 + phase * 0.12, 0, Math.PI * 2);
+    } else {
+      ctx.ellipse(-h * 0.28 + strideA, h * 0.79 - liftA, h * 0.19, h * 0.075, axis === "back" ? -phase * 0.08 : 0, 0, Math.PI * 2);
+      ctx.ellipse(h * 0.28 + strideB, h * 0.79 - liftB, h * 0.19, h * 0.075, axis === "back" ? phase * 0.08 : 0, 0, Math.PI * 2);
+    }
     ctx.fill();
+    ctx.stroke();
+    // Three short toe marks make the yellow shapes read clearly as feet.
+    ctx.strokeStyle = "#a85c08";
+    ctx.lineWidth = Math.max(0.65, s * 0.018);
+    ctx.beginPath();
+    if (axis === "side") {
+      ctx.moveTo(-h * 0.2 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.2 + strideA, h * 0.84 - liftA);
+      ctx.moveTo(-h * 0.08 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.08 + strideA, h * 0.84 - liftA);
+      ctx.moveTo(h * 0.28 + strideB, h * 0.77 - liftB); ctx.lineTo(h * 0.28 + strideB, h * 0.84 - liftB);
+    } else {
+      ctx.moveTo(-h * 0.33 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.33 + strideA, h * 0.83 - liftA);
+      ctx.moveTo(-h * 0.25 + strideA, h * 0.77 - liftA); ctx.lineTo(-h * 0.25 + strideA, h * 0.83 - liftA);
+      ctx.moveTo(h * 0.23 + strideB, h * 0.77 - liftB); ctx.lineTo(h * 0.23 + strideB, h * 0.83 - liftB);
+    }
     ctx.stroke();
   };
 
-  fillBody();
+  if (side) {
+    // Side profile: round blue body, prominent white facial disk, one eye and beak.
+    outline("#3299f5");
+    ctx.beginPath();
+    ctx.ellipse(0, 0, h * 0.91, h * 0.94, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
 
-  if (direction === "up") {
-    // Rear view: blue head/back, paired wings and a small layered tail.
-    ctx.fillStyle = "#1d4ed8";
+    // Two swept-back feather tufts, like the reference's distinct owl ears.
+    outline("#3299f5");
     ctx.beginPath();
-    ctx.ellipse(0, -half * 0.02, half * 0.43, half * 0.53, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(-h * 0.48, -h * 0.64);
+    ctx.lineTo(-h * 0.88, -h * 1.13);
+    ctx.quadraticCurveTo(-h * 0.42, -h * 1.02, -h * 0.12, -h * 0.86);
+    ctx.quadraticCurveTo(-h * 0.02, -h * 0.7, -h * 0.48, -h * 0.64);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.28, -h * 0.68);
+    ctx.quadraticCurveTo(-h * 0.12, -h * 0.92, h * 0.1, -h * 0.78);
+    ctx.quadraticCurveTo(h * 0.02, -h * 0.58, -h * 0.28, -h * 0.68);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
 
-    ctx.fillStyle = "#3b82f6";
+    // Large white face patch with the characteristic inward notch near the beak.
+    ctx.fillStyle = "#fff";
     ctx.beginPath();
-    ctx.ellipse(-half * 0.57, half * 0.25, half * 0.22, half * 0.43, -0.28, 0, Math.PI * 2);
-    ctx.ellipse(half * 0.57, half * 0.25, half * 0.22, half * 0.43, 0.28, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#1e40af";
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.24, half * 0.53);
-    ctx.quadraticCurveTo(0, half * 0.38, half * 0.24, half * 0.53);
-    ctx.lineTo(0, half * 0.83);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "#93c5fd";
-    ctx.lineWidth = stroke;
-    ctx.beginPath();
-    ctx.moveTo(0, -half * 0.28);
-    ctx.lineTo(0, half * 0.42);
-    ctx.stroke();
-  } else if (sideView) {
-    // Owl ear tufts: two distinct swept-back feather points, visible in normal mode.
-    ctx.fillStyle = "#2782e8";
-    ctx.strokeStyle = "#124b9b";
-    ctx.lineWidth = stroke;
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.48, -half * 0.62);
-    ctx.quadraticCurveTo(-half * 0.78, -half * 1.02, -half * 0.12, -half * 0.83);
-    ctx.quadraticCurveTo(-half * 0.02, -half * 0.98, half * 0.06, -half * 0.91);
-    ctx.quadraticCurveTo(-half * 0.12, -half * 0.56, -half * 0.48, -half * 0.62);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.42, -half * 0.58);
-    ctx.quadraticCurveTo(-half * 0.2, -half * 0.9, half * 0.18, -half * 0.72);
-    ctx.quadraticCurveTo(half * 0.04, -half * 0.48, -half * 0.42, -half * 0.58);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // White facial disk, large single eye, and projecting golden beak.
-    ctx.fillStyle = "#f8fbff";
-    ctx.beginPath();
-    ctx.ellipse(half * 0.43, -half * 0.08, half * 0.43, half * 0.51, -0.08, 0, Math.PI * 2);
+    ctx.moveTo(-h * 0.88, -h * 0.47);
+    ctx.quadraticCurveTo(-h * 0.58, -h * 0.9, -h * 0.04, -h * 0.68);
+    ctx.quadraticCurveTo(h * 0.55, -h * 0.66, h * 0.67, -h * 0.1);
+    ctx.quadraticCurveTo(h * 0.72, h * 0.47, h * 0.2, h * 0.78);
+    ctx.lineTo(-h * 0.42, h * 0.74);
+    ctx.quadraticCurveTo(-h * 0.08, h * 0.55, -h * 0.3, h * 0.31);
+    ctx.quadraticCurveTo(-h * 0.64, h * 0.13, -h * 0.88, -h * 0.47);
     ctx.fill();
 
-    ctx.fillStyle = "#ffffff";
+    // One large glossy eye.
+    ctx.fillStyle = "#123f86";
+    ctx.beginPath(); ctx.ellipse(-h * 0.58, -h * 0.13, h * 0.12, h * 0.19, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-h * 0.62, -h * 0.2, h * 0.045, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-h * 0.55, -h * 0.08, h * 0.022, 0, Math.PI * 2); ctx.fill();
+
+    // Golden beak protrudes from the front edge.
+    outline("#f8b51b", "#a85c08", Math.max(0.8, s * 0.025));
     ctx.beginPath();
-    ctx.ellipse(half * 0.43, -half * 0.12, half * 0.24, half * 0.32, 0, 0, Math.PI * 2);
+    ctx.moveTo(-h * 0.96, -h * 0.02);
+    ctx.quadraticCurveTo(-h * 1.22, h * 0.02, -h * 1.13, h * 0.2);
+    ctx.quadraticCurveTo(-h * 1.02, h * 0.32, -h * 0.88, h * 0.2);
+    ctx.lineTo(-h * 0.87, h * 0.02);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Folded wing with a scalloped feather edge.
+    outline("#3999f2");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.04, h * 0.15);
+    ctx.quadraticCurveTo(h * 0.42, h * 0.02, h * 0.67, h * 0.35);
+    ctx.quadraticCurveTo(h * 0.84, h * 0.62, h * 0.56, h * 0.76);
+    ctx.quadraticCurveTo(h * 0.3, h * 0.86, h * 0.13, h * 0.68);
+    ctx.quadraticCurveTo(-h * 0.12, h * 0.67, -h * 0.04, h * 0.15);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#124b9b"; ctx.lineWidth = Math.max(0.7, s * 0.022);
+    ctx.beginPath(); ctx.moveTo(h * 0.15, h * 0.49); ctx.quadraticCurveTo(h * 0.38, h * 0.63, h * 0.55, h * 0.49); ctx.stroke();
+
+    // Two little tail feathers at the back.
+    outline("#3299f5");
+    ctx.beginPath();
+    ctx.moveTo(h * 0.67, h * 0.43);
+    ctx.quadraticCurveTo(h * 1.05, h * 0.28, h * 1.1, h * 0.48);
+    ctx.quadraticCurveTo(h * 0.97, h * 0.65, h * 0.73, h * 0.6);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.69, h * 0.55);
+    ctx.quadraticCurveTo(h * 1.03, h * 0.57, h * 0.96, h * 0.75);
+    ctx.quadraticCurveTo(h * 0.77, h * 0.81, h * 0.63, h * 0.66);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    drawFeet("side");
+    if (doctorMode) {
+      // Side-view round lens and temple arm.
+      ctx.strokeStyle = "#172554"; ctx.lineWidth = Math.max(0.9, s * 0.045);
+      ctx.beginPath(); ctx.ellipse(-h * 0.58, -h * 0.13, h * 0.2, h * 0.27, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-h * 0.4, -h * 0.12); ctx.lineTo(-h * 0.17, -h * 0.1); ctx.stroke();
+    }
+  } else if (direction === "down") {
+    // Front view: twin feather ears, round owl face, belly feathers and both wings.
+    outline("#3299f5");
+    ctx.beginPath(); ctx.ellipse(0, 0, h * 0.9, h * 0.94, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    outline("#3299f5");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.62, -h * 0.62);
+    ctx.quadraticCurveTo(-h * 1.12, -h * 1.1, -h * 0.38, -h * 0.83);
+    ctx.quadraticCurveTo(-h * 0.18, -h * 0.7, -h * 0.62, -h * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.62, -h * 0.62);
+    ctx.quadraticCurveTo(h * 1.12, -h * 1.1, h * 0.38, -h * 0.83);
+    ctx.quadraticCurveTo(h * 0.18, -h * 0.7, h * 0.62, -h * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.78, -h * 0.38);
+    ctx.quadraticCurveTo(-h * 0.5, -h * 0.82, 0, -h * 0.56);
+    ctx.quadraticCurveTo(h * 0.5, -h * 0.82, h * 0.78, -h * 0.38);
+    ctx.quadraticCurveTo(h * 0.9, h * 0.42, 0, h * 0.68);
+    ctx.quadraticCurveTo(-h * 0.9, h * 0.42, -h * 0.78, -h * 0.38);
     ctx.fill();
-    ctx.strokeStyle = "#123f86";
-    ctx.lineWidth = Math.max(1, size * 0.055);
-    ctx.stroke();
 
     ctx.fillStyle = "#123f86";
     ctx.beginPath();
-    ctx.ellipse(half * 0.48, -half * 0.14, half * 0.105, half * 0.17, 0, 0, Math.PI * 2);
+    ctx.ellipse(-h * 0.3, -h * 0.08, h * 0.13, h * 0.19, 0, 0, Math.PI * 2);
+    ctx.ellipse(h * 0.3, -h * 0.08, h * 0.13, h * 0.19, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(half * 0.45, -half * 0.21, half * 0.035, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(-h * 0.34, -h * 0.15, h * 0.05, 0, Math.PI * 2); ctx.arc(h * 0.26, -h * 0.15, h * 0.05, 0, Math.PI * 2); ctx.fill();
 
-    ctx.fillStyle = "#f8b51b";
-    ctx.strokeStyle = "#a85c08";
-    ctx.lineWidth = Math.max(0.8, size * 0.025);
-    ctx.beginPath();
-    ctx.moveTo(half * 0.78, -half * 0.01);
-    ctx.quadraticCurveTo(half * 1.18, half * 0.02, half * 1.03, half * 0.24);
-    ctx.quadraticCurveTo(half * 0.9, half * 0.34, half * 0.72, half * 0.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    outline("#f8b51b", "#a85c08", Math.max(0.8, s * 0.025));
+    ctx.beginPath(); ctx.moveTo(-h * 0.13, h * 0.04); ctx.quadraticCurveTo(0, -h * 0.03, h * 0.13, h * 0.04); ctx.lineTo(0, h * 0.31); ctx.closePath(); ctx.fill(); ctx.stroke();
 
-    // Folded wing and three feather scallops.
-    ctx.fillStyle = "#3c9af5";
-    ctx.strokeStyle = "#124b9b";
-    ctx.lineWidth = stroke;
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.18, half * 0.22);
-    ctx.quadraticCurveTo(half * 0.26, half * 0.12, half * 0.53, half * 0.4);
-    ctx.quadraticCurveTo(half * 0.83, half * 0.72, half * 0.44, half * 0.72);
-    ctx.quadraticCurveTo(half * 0.23, half * 0.82, half * 0.05, half * 0.65);
-    ctx.quadraticCurveTo(-half * 0.3, half * 0.66, -half * 0.18, half * 0.22);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Two tail feathers extend behind the body.
-    ctx.fillStyle = "#2782e8";
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.62, half * 0.43);
-    ctx.quadraticCurveTo(-half * 1.05, half * 0.48, -half * 0.9, half * 0.72);
-    ctx.quadraticCurveTo(-half * 0.56, half * 0.73, -half * 0.36, half * 0.6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-  } else {
-    // Front view: two bright eyes, a white heart-shaped face and orange beak.
-    ctx.fillStyle = "#eff6ff";
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.56, -half * 0.18);
-    ctx.quadraticCurveTo(-half * 0.52, -half * 0.65, 0, -half * 0.38);
-    ctx.quadraticCurveTo(half * 0.52, -half * 0.65, half * 0.56, -half * 0.18);
-    ctx.quadraticCurveTo(half * 0.65, half * 0.55, 0, half * 0.67);
-    ctx.quadraticCurveTo(-half * 0.65, half * 0.55, -half * 0.56, -half * 0.18);
-    ctx.fill();
-
-    ctx.fillStyle = "#172554";
-    ctx.beginPath();
-    ctx.ellipse(-half * 0.25, -half * 0.12, half * 0.085, half * 0.13, 0, 0, Math.PI * 2);
-    ctx.ellipse(half * 0.25, -half * 0.12, half * 0.085, half * 0.13, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(-half * 0.27, -half * 0.17, half * 0.025, 0, Math.PI * 2);
-    ctx.arc(half * 0.23, -half * 0.17, half * 0.025, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#f59e0b";
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.12, half * 0.08);
-    ctx.lineTo(half * 0.12, half * 0.08);
-    ctx.lineTo(0, half * 0.3);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#60a5fa";
-    ctx.beginPath();
-    ctx.ellipse(-half * 0.72, half * 0.32, half * 0.16, half * 0.3, -0.45, 0, Math.PI * 2);
-    ctx.ellipse(half * 0.72, half * 0.32, half * 0.16, half * 0.3, 0.45, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Walking feet: alternate lift and stride only while the owl is moving.
-  if (direction !== "up") {
-    const footLiftA = sideView && isMoving ? Math.max(0, step) * half * 0.16 : 0;
-    const footLiftB = sideView && isMoving ? Math.max(0, -step) * half * 0.16 : 0;
-    const footStrideA = sideView && isMoving ? step * half * 0.12 : 0;
-    const footStrideB = sideView && isMoving ? -step * half * 0.12 : 0;
-
-    ctx.fillStyle = "#f7a914";
-    ctx.strokeStyle = "#b9680a";
-    ctx.lineWidth = Math.max(0.7, size * 0.02);
-    ctx.beginPath();
-    if (sideView) {
-      ctx.ellipse(-half * 0.02 + footStrideA, half * 0.79 - footLiftA, half * 0.19, half * 0.075, -0.08 - step * 0.12, 0, Math.PI * 2);
-      ctx.ellipse(half * 0.38 + footStrideB, half * 0.79 - footLiftB, half * 0.2, half * 0.075, 0.08 + step * 0.12, 0, Math.PI * 2);
-    } else {
-      ctx.ellipse(-half * 0.27, half * 0.78, half * 0.17, half * 0.075, 0, 0, Math.PI * 2);
-      ctx.ellipse(half * 0.27, half * 0.78, half * 0.17, half * 0.075, 0, 0, Math.PI * 2);
+    // Small blue teardrop chest feathers.
+    ctx.fillStyle = "#83c4ff";
+    for (const [fx, fy, angle] of [[-h * 0.22, h * 0.42, -0.25], [0, h * 0.43, 0], [h * 0.22, h * 0.42, 0.25], [-h * 0.11, h * 0.61, -0.12], [h * 0.11, h * 0.61, 0.12]] as const) {
+      ctx.save(); ctx.translate(fx, fy); ctx.rotate(angle);
+      ctx.beginPath(); ctx.moveTo(0, -h * 0.09); ctx.quadraticCurveTo(h * 0.16, h * 0.04, 0, h * 0.15); ctx.quadraticCurveTo(-h * 0.16, h * 0.04, 0, -h * 0.09); ctx.fill(); ctx.restore();
     }
-    ctx.fill();
-    ctx.stroke();
+
+    // Wings are drawn over the sides of the white body.
+    outline("#3999f2");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.68, -h * 0.08);
+    ctx.quadraticCurveTo(-h * 0.98, -h * 0.2, -h * 0.92, h * 0.48);
+    ctx.quadraticCurveTo(-h * 0.88, h * 0.84, -h * 0.7, h * 0.7);
+    ctx.quadraticCurveTo(-h * 0.54, h * 0.88, -h * 0.5, h * 0.65);
+    ctx.quadraticCurveTo(-h * 0.39, h * 0.84, -h * 0.34, h * 0.6);
+    ctx.lineTo(-h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.68, -h * 0.08);
+    ctx.quadraticCurveTo(h * 0.98, -h * 0.2, h * 0.92, h * 0.48);
+    ctx.quadraticCurveTo(h * 0.88, h * 0.84, h * 0.7, h * 0.7);
+    ctx.quadraticCurveTo(h * 0.54, h * 0.88, h * 0.5, h * 0.65);
+    ctx.quadraticCurveTo(h * 0.39, h * 0.84, h * 0.34, h * 0.6);
+    ctx.lineTo(h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+    drawFeet("front");
+
+    if (doctorMode) {
+      ctx.strokeStyle = "#172554"; ctx.lineWidth = Math.max(1, s * 0.045);
+      ctx.beginPath();
+      ctx.arc(-h * 0.3, -h * 0.08, h * 0.23, 0, Math.PI * 2);
+      ctx.arc(h * 0.3, -h * 0.08, h * 0.23, 0, Math.PI * 2);
+      ctx.moveTo(-h * 0.07, -h * 0.08); ctx.lineTo(h * 0.07, -h * 0.08);
+      ctx.stroke();
+    }
+  } else {
+    // Back view: smooth blue head, swept ear tufts, folded wings and central tail.
+    outline("#3299f5");
+    ctx.beginPath(); ctx.ellipse(0, 0, h * 0.9, h * 0.94, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    outline("#3299f5");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.62, -h * 0.62);
+    ctx.quadraticCurveTo(-h * 1.1, -h * 1.04, -h * 0.36, -h * 0.82);
+    ctx.quadraticCurveTo(-h * 0.18, -h * 0.7, -h * 0.62, -h * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.62, -h * 0.62);
+    ctx.quadraticCurveTo(h * 1.1, -h * 1.04, h * 0.36, -h * 0.82);
+    ctx.quadraticCurveTo(h * 0.18, -h * 0.7, h * 0.62, -h * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    // Gentle back feathers and folded wings.
+    ctx.strokeStyle = "#2a7fd6"; ctx.lineWidth = Math.max(1, s * 0.035);
+    ctx.beginPath(); ctx.moveTo(-h * 0.42, -h * 0.02); ctx.quadraticCurveTo(-h * 0.18, h * 0.06, 0, h * 0.02); ctx.quadraticCurveTo(h * 0.18, h * 0.06, h * 0.42, -h * 0.02); ctx.stroke();
+    outline("#3999f2");
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.68, -h * 0.02);
+    ctx.quadraticCurveTo(-h * 0.98, h * 0.12, -h * 0.88, h * 0.56);
+    ctx.quadraticCurveTo(-h * 0.78, h * 0.83, -h * 0.62, h * 0.65);
+    ctx.quadraticCurveTo(-h * 0.42, h * 0.83, -h * 0.35, h * 0.56);
+    ctx.lineTo(-h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(h * 0.68, -h * 0.02);
+    ctx.quadraticCurveTo(h * 0.98, h * 0.12, h * 0.88, h * 0.56);
+    ctx.quadraticCurveTo(h * 0.78, h * 0.83, h * 0.62, h * 0.65);
+    ctx.quadraticCurveTo(h * 0.42, h * 0.83, h * 0.35, h * 0.56);
+    ctx.lineTo(h * 0.42, h * 0.02); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    outline("#2782e8");
+    ctx.beginPath(); ctx.ellipse(0, h * 0.72, h * 0.17, h * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    drawFeet("back");
   }
 
   if (doctorMode) {
-    // Glasses are fitted to the visible face only.
-    if (direction === "down") {
-      ctx.strokeStyle = "#172033";
-      ctx.lineWidth = Math.max(0.9, size * 0.045);
-      ctx.beginPath();
-      ctx.roundRect(-half * 0.46, -half * 0.3, half * 0.4, half * 0.31, half * 0.1);
-      ctx.roundRect(half * 0.06, -half * 0.3, half * 0.4, half * 0.31, half * 0.1);
-      ctx.moveTo(-half * 0.06, -half * 0.15);
-      ctx.lineTo(half * 0.06, -half * 0.15);
-      ctx.stroke();
-    } else if (sideView) {
-      ctx.strokeStyle = "#172033";
-      ctx.lineWidth = Math.max(0.9, size * 0.045);
-      ctx.beginPath();
-      ctx.ellipse(half * 0.48, -half * 0.14, half * 0.15, half * 0.22, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(half * 0.62, -half * 0.13);
-      ctx.lineTo(half * 0.82, -half * 0.1);
-      ctx.stroke();
-    }
-
-    // Graduation cap sits above the same feathered head silhouette.
+    // The same navy mortarboard and gold tassel in all four directions.
+    ctx.save();
+    ctx.translate(0, -h * 0.72);
+    outline("#172554", "#101f4d", Math.max(0.9, s * 0.025));
+    ctx.beginPath();
+    ctx.moveTo(-h * 0.78, -h * 0.02);
+    ctx.lineTo(0, -h * 0.39);
+    ctx.lineTo(h * 0.78, -h * 0.02);
+    ctx.lineTo(0, h * 0.29);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#263b70";
+    ctx.beginPath(); ctx.moveTo(-h * 0.55, -h * 0.01); ctx.lineTo(0, -h * 0.27); ctx.lineTo(h * 0.55, -h * 0.01); ctx.lineTo(0, h * 0.2); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#172554";
-    ctx.beginPath();
-    ctx.moveTo(-half * 0.82, -half * 0.57);
-    ctx.lineTo(0, -half * 1.02);
-    ctx.lineTo(half * 0.82, -half * 0.57);
-    ctx.lineTo(0, -half * 0.25);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillRect(-half * 0.49, -half * 0.49, half * 0.98, half * 0.12);
-    ctx.strokeStyle = "#fbbf24";
-    ctx.lineWidth = Math.max(0.8, size * 0.04);
-    ctx.beginPath();
-    ctx.moveTo(half * 0.55, -half * 0.57);
-    ctx.lineTo(half * 0.68, -half * 0.12);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-h * 0.48, h * 0.12); ctx.quadraticCurveTo(0, h * 0.42, h * 0.48, h * 0.12); ctx.lineTo(h * 0.48, h * 0.25); ctx.quadraticCurveTo(0, h * 0.53, -h * 0.48, h * 0.25); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#a16207"; ctx.lineWidth = Math.max(0.9, s * 0.025);
+    ctx.beginPath(); ctx.moveTo(h * 0.57, -h * 0.01); ctx.lineTo(h * 0.7, h * 0.48); ctx.stroke();
     ctx.fillStyle = "#fbbf24";
-    ctx.beginPath();
-    ctx.arc(half * 0.68, -half * 0.1, Math.max(0.8, size * 0.035), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(h * 0.7, h * 0.49, Math.max(1.2, s * 0.045), 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(h * 0.63, h * 0.48); ctx.lineTo(h * 0.77, h * 0.48); ctx.lineTo(h * 0.82, h * 0.85); ctx.quadraticCurveTo(h * 0.7, h * 0.96, h * 0.58, h * 0.85); ctx.closePath(); ctx.fill();
+    ctx.restore();
   }
 
   ctx.restore();
