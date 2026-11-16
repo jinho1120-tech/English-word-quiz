@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { childProfiles, childQuizAttempts, childSubjects, families, familyMembers, wordEntries } from "@/lib/db/schema"
+import { childProfiles, childQuizAttempts, childSubjects, families, familyMembers, wordEntries, childWordSubmissions } from "@/lib/db/schema"
 import { consumeUserRateLimit } from "@/lib/rate-limit"
 import { extractWordsFromImage } from "@/lib/ai-word-scan"
 
@@ -34,7 +34,7 @@ async function requireParentChild(childProfileId: string) {
     .where(and(eq(childProfiles.id, childProfileId), eq(families.id, familyRow.id), eq(childProfiles.isActive, true)))
     .limit(1)
   if (!child) throw new Error("해당 자녀의 데이터를 관리할 권한이 없습니다.")
-  return child
+  return { ...child, userId: session.user.id }
 }
 
 async function ownedSubject(childProfileId: string, subjectId: string) {
@@ -175,4 +175,117 @@ export async function addParentChildWordsBulk(childProfileId: string, input: { d
   await db.insert(wordEntries).values(rows)
   revalidatePath("/parent")
   return { count: rows.length }
+}
+
+
+function todayInSeoulForWordReview(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date())
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")}`
+}
+
+/** List only submissions that still need a parent decision for this child. */
+export async function getParentChildWordSubmissions(childProfileId: string) {
+  const child = await requireParentChild(childProfileId)
+  const [subjects, submissions] = await Promise.all([
+    db.select({ id: childSubjects.id, name: childSubjects.name })
+      .from(childSubjects)
+      .where(and(eq(childSubjects.childProfileId, child.id), eq(childSubjects.isArchived, false)))
+      .orderBy(asc(childSubjects.sortOrder)),
+    db.select({
+      id: childWordSubmissions.id,
+      expression: childWordSubmissions.expression,
+      lexicalType: childWordSubmissions.lexicalType,
+      meaning: childWordSubmissions.meaning,
+      example: childWordSubmissions.example,
+      validationStatus: childWordSubmissions.validationStatus,
+      createdAt: childWordSubmissions.createdAt,
+    }).from(childWordSubmissions)
+      .where(and(
+        eq(childWordSubmissions.childProfileId, child.id),
+        or(
+          eq(childWordSubmissions.validationStatus, "pending_review"),
+          eq(childWordSubmissions.validationStatus, "verification_unavailable"),
+        ),
+      ))
+      .orderBy(desc(childWordSubmissions.createdAt)),
+  ])
+  return { childName: child.name, subjects, submissions }
+}
+
+/** Parent approval creates a normal wordbook entry; rejection only closes the review request. */
+export async function reviewParentChildWordSubmission(input: {
+  childProfileId: string
+  submissionId: string
+  decision: "approve" | "reject"
+  subjectId?: string
+}) {
+  const child = await requireParentChild(input?.childProfileId)
+  if (typeof input.submissionId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.submissionId) ||
+      !["approve", "reject"].includes(input.decision)) {
+    throw new Error("단어 확인 요청 정보가 올바르지 않습니다.")
+  }
+  if (input.decision === "approve" && (!input.subjectId || typeof input.subjectId !== "string")) {
+    throw new Error("등록할 과목을 선택해 주세요.")
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [submission] = await tx.select().from(childWordSubmissions)
+      .where(and(
+        eq(childWordSubmissions.id, input.submissionId),
+        eq(childWordSubmissions.childProfileId, child.id),
+        or(
+          eq(childWordSubmissions.validationStatus, "pending_review"),
+          eq(childWordSubmissions.validationStatus, "verification_unavailable"),
+        ),
+      ))
+      .for("update")
+      .limit(1)
+    if (!submission) throw new Error("이미 처리했거나 확인 요청을 찾을 수 없습니다.")
+
+    if (input.decision === "reject") {
+      await tx.update(childWordSubmissions).set({
+        validationStatus: "rejected",
+        reviewedByUserId: child.userId,
+        reviewedAt: new Date(),
+      }).where(eq(childWordSubmissions.id, submission.id))
+      return { status: "rejected" as const }
+    }
+
+    const [subject] = await tx.select().from(childSubjects).where(and(
+      eq(childSubjects.id, input.subjectId!),
+      eq(childSubjects.childProfileId, child.id),
+      eq(childSubjects.isArchived, false),
+    )).limit(1)
+    if (!subject) throw new Error("등록할 과목을 찾을 수 없습니다.")
+
+    const [word] = await tx.insert(wordEntries).values({
+      userId: child.ownerUserId,
+      childProfileId: child.id,
+      profile: child.name,
+      assignmentDate: todayInSeoulForWordReview(),
+      subjectId: subject.id,
+      subject: subject.name,
+      word: submission.expression,
+      meaning: submission.meaning,
+      example: submission.example,
+      lexicalType: submission.lexicalType,
+    }).returning({ id: wordEntries.id })
+    await tx.update(childWordSubmissions).set({
+      validationStatus: "approved",
+      reviewedByUserId: child.userId,
+      reviewedAt: new Date(),
+      createdWordEntryId: word.id,
+    }).where(eq(childWordSubmissions.id, submission.id))
+    return { status: "approved" as const, wordEntryId: word.id }
+  })
+
+  revalidatePath("/parent")
+  revalidatePath("/child")
+  return result
 }
