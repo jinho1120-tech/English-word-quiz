@@ -15,7 +15,7 @@ const CEFR_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"])
 const MAX_ROWS_PER_BATCH = 100
 const MAX_SOURCE_PAYLOAD_LENGTH = 3500
 const MAX_DICTIONARY_BATCH = 5
-const MAX_MEANING_BATCH = 25
+const MAX_MEANING_BATCH = 50
 
 export type VocabularyDatasetImportRow = {
   expression: string
@@ -461,7 +461,7 @@ export async function processNextVocabularyDatasetVerificationBatch(){
     }
   }
   revalidatePath("/super-admin/vocabulary")
-  return {processed:pending.length,matched,notFound,mismatched,retry,hasMore:pending.length===MAX_DICTIONARY_BATCH}
+  return {processed:pending.length,matched,notFound,mismatched,retry,aiRequests:meaningInputs.length>0&&Boolean(process.env.GEMINI_API_KEY?.trim())?1:0,hasMore:pending.length===MAX_DICTIONARY_BATCH}
 }
 
 /**
@@ -485,7 +485,7 @@ export async function processNextVocabularyDatasetMeaningBatch(){
     return status!=="ai_short_gloss"&&status!=="dictionary_short_translation"&&status!=="unavailable"
   })
   const batch=pending.slice(0,MAX_MEANING_BATCH)
-  if(!batch.length)return {processed:0,generated:0,fallback:0,unavailable:0,hasMore:false}
+  if(!batch.length)return {processed:0,generated:0,fallback:0,unavailable:0,aiRequests:0,hasMore:false}
   const prepared=batch.map(candidate=>{
     const payload=isRecord(candidate.sourcePayload)?candidate.sourcePayload:{}
     const verification=isRecord(payload.dictionaryVerification)?payload.dictionaryVerification:{}
@@ -534,6 +534,7 @@ export async function processNextVocabularyDatasetMeaningBatch(){
     generated:results.filter(item=>item.suggestion.status==="ai_short_gloss").length,
     fallback:results.filter(item=>item.suggestion.status==="dictionary_short_translation").length,
     unavailable:results.filter(item=>item.suggestion.status==="unavailable").length,
+    aiRequests:batch.length>0&&Boolean(process.env.GEMINI_API_KEY?.trim())?1:0,
     hasMore:pending.length>batch.length,
   }
 }
