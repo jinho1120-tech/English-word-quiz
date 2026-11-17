@@ -43,7 +43,7 @@ def main():
         integrity = con.execute("PRAGMA integrity_check").fetchone()[0]
         if integrity != "ok":
             raise RuntimeError("SQLite integrity_check: " + str(integrity))
-        master = con.execute("SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
+        master = con.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
         tables, schema, table_rows, column_rows = {}, {}, [], []
         for obj in master:
             if obj["type"] != "table" or not obj["sql"] or "CREATE VIRTUAL TABLE" in obj["sql"].upper():
