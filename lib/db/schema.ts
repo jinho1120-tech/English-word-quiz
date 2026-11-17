@@ -281,6 +281,8 @@ export const vocabularyCandidates = pgTable("vocabulary_candidates", {
   lexicalType: varchar("lexical_type", { length: 24 }).notNull(),
   partOfSpeech: varchar("part_of_speech", { length: 40 }).default("phrase").notNull(),
   senseKey: varchar("sense_key", { length: 120 }).notNull(),
+  senseOrder: integer("sense_order").default(1).notNull(),
+  learningStage: varchar("learning_stage", { length: 16 }).default("primary").notNull(),
   definitionEn: text("definition_en").notNull(),
   meaningKo: varchar("meaning_ko", { length: 200 }),
   disambiguation: varchar("disambiguation", { length: 100 }),
