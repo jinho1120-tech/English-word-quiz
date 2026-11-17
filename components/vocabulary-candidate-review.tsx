@@ -13,7 +13,7 @@ import {
 } from "@/app/actions/vocabulary-dataset-import"
 
 type Candidate = {
-  id:string;expression:string;senseOrder:number;learningStage:"primary"|"additional";lexicalType:string;disambiguation:string|null;partOfSpeech:string
+  id:string;expression:string;senseOrder:number;learningStage:string;lexicalType:string;disambiguation:string|null;partOfSpeech:string
   definitionEn:string;meaningKo:string|null;childLevel:string|null;cefrLevel:string|null;domain:string|null
   exampleSentence:string|null;sourceName:string;sourceEntryUrl:string|null;licenseName:string;licenseUrl:string|null
   sourcePayload:Record<string,unknown>;verificationStatus:string;createdAt:Date
@@ -48,7 +48,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
   const levelMapped=levelMapping.status==="mapped"
   const canApprove=!isDataset||(dictionaryMatched&&levelMapped&&candidate.verificationStatus==="dictionary_found")
   const [meaningKo,setMeaningKo]=useState(candidate.meaningKo??"")
-  const [learningStage,setLearningStage]=useState<"primary"|"additional">(candidate.learningStage??"primary")
+  const [learningStage,setLearningStage]=useState<"primary"|"additional">(candidate.learningStage==="additional"?"additional":"primary")
   const [disambiguation,setDisambiguation]=useState(candidate.disambiguation??"")
   const [childLevel,setChildLevel]=useState(candidate.childLevel??(typeof levelMapping.childLevel==="string"?levelMapping.childLevel:""))
   const [cefrLevel,setCefrLevel]=useState(candidate.cefrLevel??"")
