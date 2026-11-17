@@ -26,6 +26,8 @@ export type VocabularyDatasetImportRow = {
   frequencyRank?: number | string | null
   sourceEntryUrl?: string
   sourceRecordId?: string
+  senseOrder?: number
+  learningStage?: "primary" | "additional"
   sourcePayload?: Record<string, unknown>
 }
 export type VocabularyDatasetImportMetadata = {
@@ -173,6 +175,8 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
     const senseKey=createHash("sha256").update(definitionEn.toLowerCase().replace(/\s+/g," ")).digest("hex").slice(0,24)
     return {
       expression,normalizedExpression,lexicalType,partOfSpeech,senseKey,definitionEn,
+      senseOrder:Number.isInteger(row.senseOrder)&&Number(row.senseOrder)>0?Math.min(Number(row.senseOrder),1000):1,
+      learningStage:row.learningStage==="additional"?"additional":"primary",
       meaningKo:null,exampleSentence,cefrLevel:cefrLevel??levelMapping.sourceSignals.cefrLevel,
       childLevel:levelMapping.childLevel,frequencyRank,difficultyVerified:false,
       verificationStatus:"pending_verification",sourceName,sourceEntryUrl,licenseName,licenseUrl,
