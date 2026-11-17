@@ -4,13 +4,14 @@ import { getSuperAdminVocabularyCandidateDashboard } from "@/app/actions/ai-voca
 import { SuperAdminNav } from "@/components/super-admin-nav"
 import { LogoutButton } from "@/components/logout-button"
 import { VocabularyCandidateImporter } from "@/components/vocabulary-candidate-importer"
+import { VocabularyDatasetImporter } from "@/components/vocabulary-dataset-importer"
 import { VocabularyCandidateReview } from "@/components/vocabulary-candidate-review"
 
 export const dynamic = "force-dynamic"
 
 const number = (value: number) => value.toLocaleString("ko-KR")
 
-export default async function SuperAdminVocabularyPage() {
+export default async function SuperAdminVocabularyPage({ searchParams }: { searchParams: Promise<{ candidatePage?: string }> }) {
   let operator
   try {
     operator = await requireSuperAdmin()
@@ -19,7 +20,10 @@ export default async function SuperAdminVocabularyPage() {
     notFound()
   }
 
-  const data = await getSuperAdminVocabularyCandidateDashboard()
+  const params = await searchParams
+  const parsedPage = Number.parseInt(params.candidatePage ?? "1", 10)
+  const candidatePage = Number.isFinite(parsedPage) ? Math.max(1, Math.min(parsedPage, 1000)) : 1
+  const data = await getSuperAdminVocabularyCandidateDashboard(candidatePage)
   const total = Object.values(data.statusCounts).reduce((sum, value) => sum + value, 0)
   const pending = data.statusCounts.dictionary_found ?? 0
   const approved = data.statusCounts.approved ?? 0
@@ -86,8 +90,9 @@ export default async function SuperAdminVocabularyPage() {
         </div>
       </section>
 
+      <VocabularyDatasetImporter />
       <VocabularyCandidateImporter />
-      <VocabularyCandidateReview candidates={data.candidates} />
+      <VocabularyCandidateReview candidates={data.candidates} candidatePage={data.candidatePage} candidatePageCount={data.candidatePageCount} />
     </main>
   )
 }

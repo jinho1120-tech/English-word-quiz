@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState, useTransition } from "react"
 import { Check, Languages, ShieldCheck, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
@@ -140,20 +141,21 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
   )
 }
 
-export function VocabularyCandidateReview({ candidates }: { candidates: Candidate[] }) {
+export function VocabularyCandidateReview({ candidates, candidatePage, candidatePageCount }: { candidates: Candidate[]; candidatePage: number; candidatePageCount: number }) {
   const [items, setItems] = useState(candidates)
   const [showAll, setShowAll] = useState(false)
   useEffect(() => setItems(candidates), [candidates])
   if (!items.length) return (
     <section className="rounded-2xl border border-border bg-card p-4">
       <h2 className="text-lg font-bold">어휘 후보 검토</h2>
-      <p className="mt-1 text-sm text-muted-foreground">검토할 사전 후보가 없어요. 위에서 새 표현을 조회해 등록할 수 있어요.</p>
+      <p className="mt-1 text-sm text-muted-foreground">이 페이지에 검토할 후보가 없어요. 위에서 데이터셋 또는 사전 조회로 후보를 등록할 수 있어요.</p>
+      {candidatePageCount > 1 && <div className="mt-3 flex items-center justify-between text-sm"><Link href={`?candidatePage=${Math.max(1, candidatePage - 1)}#candidate-review`} className="rounded-lg border border-border px-3 py-2">이전</Link><span className="text-muted-foreground">{candidatePage} / {candidatePageCount}</span><Link href={`?candidatePage=${Math.min(candidatePageCount, candidatePage + 1)}#candidate-review`} className="rounded-lg border border-border px-3 py-2">다음</Link></div>}
     </section>
   )
 
   const visible = showAll ? items : items.slice(0, 5)
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+    <section id="candidate-review" className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-bold"><Languages className="size-5" /> 어휘 후보 검토</h2>
         <p className="mt-1 text-sm text-muted-foreground">사전에 존재하는 표현을 확인한 뒤 한국어 뜻과 난이도를 검토해 주세요. 사전 존재 여부만으로는 추천 후보가 되지 않아요.</p>
@@ -161,6 +163,7 @@ export function VocabularyCandidateReview({ candidates }: { candidates: Candidat
       </div>
       {visible.map((candidate) => <CandidateCard key={candidate.id} candidate={candidate} onReviewed={(id) => setItems((current) => current.filter((item) => item.id !== id))} />)}
       {items.length > 5 && <button type="button" onClick={() => setShowAll((value) => !value)} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground">{showAll ? "접기" : `나머지 ${items.length - 5}개 더 보기`}</button>}
+      {candidatePageCount > 1 && <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-sm"><Link href={`?candidatePage=${Math.max(1, candidatePage - 1)}#candidate-review`} aria-disabled={candidatePage <= 1} className={`rounded-lg border border-border px-3 py-2 ${candidatePage <= 1 ? "pointer-events-none opacity-40" : ""}`}>이전</Link><span className="text-muted-foreground">{candidatePage} / {candidatePageCount} 페이지</span><Link href={`?candidatePage=${Math.min(candidatePageCount, candidatePage + 1)}#candidate-review`} aria-disabled={candidatePage >= candidatePageCount} className={`rounded-lg border border-border px-3 py-2 ${candidatePage >= candidatePageCount ? "pointer-events-none opacity-40" : ""}`}>다음</Link></div>}
     </section>
   )
 }

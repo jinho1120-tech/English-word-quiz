@@ -293,8 +293,10 @@ const VOCABULARY_DOMAINS = new Set([
   "medical", "biology", "chemistry", "engineering", "law",
 ])
 
-export async function getSuperAdminVocabularyCandidateDashboard() {
+export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 1) {
   await requireSuperAdmin()
+  const pageSize = 50
+  const safePage = Number.isInteger(candidatePage) ? Math.max(1, Math.min(candidatePage, 1000)) : 1
   const [statusRows, eligibleRows, candidates] = await Promise.all([
     db.select({
       status: vocabularyCandidates.verificationStatus,
@@ -326,7 +328,8 @@ export async function getSuperAdminVocabularyCandidateDashboard() {
     }).from(vocabularyCandidates)
       .where(eq(vocabularyCandidates.verificationStatus, "dictionary_found"))
       .orderBy(desc(vocabularyCandidates.createdAt))
-      .limit(100),
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize),
   ])
 
   const groups = new Map<string, typeof eligibleRows>()
@@ -346,6 +349,7 @@ export async function getSuperAdminVocabularyCandidateDashboard() {
 
   const idiomTypes = ["idiom", "phrasal_verb", "collocation"]
   const statusCounts = Object.fromEntries(statusRows.map((row) => [row.status, Number(row.count)]))
+  const pendingCount = statusCounts.dictionary_found ?? 0
   return {
     statusCounts,
     assessmentReadiness: {
@@ -354,6 +358,9 @@ export async function getSuperAdminVocabularyCandidateDashboard() {
       required: 9,
     },
     candidates,
+    candidatePage: safePage,
+    candidatePageCount: Math.max(1, Math.ceil(pendingCount / pageSize)),
+    candidatePageSize: pageSize,
   }
 }
 
