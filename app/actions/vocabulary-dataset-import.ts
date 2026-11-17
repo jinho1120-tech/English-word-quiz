@@ -18,7 +18,7 @@ const MAX_DICTIONARY_BATCH = 5
 
 export type VocabularyDatasetImportRow = {
   expression: string
-  definitionEn: string
+  definitionEn?: string
   partOfSpeech?: string
   exampleSentence?: string
   lexicalType?: string
@@ -33,7 +33,7 @@ export type VocabularyDatasetImportRow = {
 export type VocabularyDatasetImportMetadata = {
   sourceName: string
   sourceDatasetUrl: string
-  licenseName: string
+  licenseName?: string
   licenseUrl?: string
 }
 function requireHttpsUrl(value:string,label:string,optional=false):string|null{
@@ -133,11 +133,12 @@ function deriveSourceLevelMapping(value:unknown,rowCefr?:string):LevelMapping{
     },
   }
 }
-function safeSourcePayload(value:unknown,metadata:VocabularyDatasetImportMetadata,sourceRecordId:string|null,levelMapping:LevelMapping){
+function safeSourcePayload(value:unknown,metadata:VocabularyDatasetImportMetadata,sourceRecordId:string|null,levelMapping:LevelMapping,dictionaryMode:"lookup_by_expression"|"match_definition"){
   let serialized="{}"
   if(isRecord(value)){try{serialized=JSON.stringify(value)}catch{serialized="{}"}}
   return {
     importKind:"public_dataset",
+    dictionaryMode,
     datasetName:metadata.sourceName,
     datasetUrl:metadata.sourceDatasetUrl,
     sourceRecordId,
@@ -151,19 +152,21 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
   if(!Array.isArray(rows)||rows.length<1||rows.length>MAX_ROWS_PER_BATCH)throw new Error("데이터는 한 번에 1~100개씩 처리할 수 있습니다.")
   if(!LEXICAL_TYPES.has(defaultLexicalType))throw new Error("기본 표현 유형을 확인해 주세요.")
   const sourceName=typeof metadataInput?.sourceName==="string"?metadataInput.sourceName.trim():""
-  const licenseName=typeof metadataInput?.licenseName==="string"?metadataInput.licenseName.trim():""
-  if(!sourceName||sourceName.length>60||!licenseName||licenseName.length>40)throw new Error("데이터 출처 이름과 라이선스 이름을 입력해 주세요.")
-  const sourceDatasetUrl=requireHttpsUrl(metadataInput.sourceDatasetUrl,"데이터 출처 주소")!
-  const licenseUrl=metadataInput.licenseUrl?requireHttpsUrl(metadataInput.licenseUrl,"라이선스 주소",true):null
+  const sourceDatasetUrl=requireHttpsUrl(metadataInput?.sourceDatasetUrl??"","데이터 출처 주소")!
+  const licenseName=typeof metadataInput?.licenseName==="string"?metadataInput.licenseName.trim().slice(0,40):""
+  const licenseUrl=metadataInput?.licenseUrl?requireHttpsUrl(metadataInput.licenseUrl,"라이선스 주소",true):null
+  if(!sourceName||sourceName.length>60)throw new Error("데이터 출처 이름을 입력해 주세요.")
   const metadata={sourceName,sourceDatasetUrl,licenseName,licenseUrl:licenseUrl??undefined}
   return rows.map((row,index)=>{
     if(!isRecord(row))throw new Error((index+1)+"번째 데이터 형식이 올바르지 않습니다.")
-    const expression=typeof row.expression==="string"?row.expression.trim().replace(/\s+/g," "):""
+    const expression=typeof row.expression==="string"?row.expression.trim().replace(/\\s+/g," "):""
     const normalizedExpression=normalizeDictionaryExpression(expression)
-    const definitionEn=typeof row.definitionEn==="string"?row.definitionEn.trim():""
-    if(!normalizedExpression||normalizedExpression.length>100||!definitionEn||definitionEn.length>8000)throw new Error((index+1)+"번째 데이터에 영어 표현(최대 100자) 또는 영어 정의가 없거나 길이가 제한을 초과했습니다.")
+    const suppliedDefinition=typeof row.definitionEn==="string"?row.definitionEn.trim():""
+    const dictionaryMode=suppliedDefinition?"match_definition" as const:"lookup_by_expression" as const
+    const definitionEn=suppliedDefinition||"FreeDictionaryAPI 의미 조회 대기"
+    if(!normalizedExpression||normalizedExpression.length>100||definitionEn.length>8000)throw new Error((index+1)+"번째 데이터의 영어 표현이 없거나 길이가 제한을 초과했습니다.")
     const lexicalType=typeof row.lexicalType==="string"&&LEXICAL_TYPES.has(row.lexicalType)?row.lexicalType:defaultLexicalType
-    const partOfSpeech=typeof row.partOfSpeech==="string"&&row.partOfSpeech.trim()?row.partOfSpeech.trim().toLowerCase().slice(0,40):"unknown"
+    const partOfSpeech=dictionaryMode==="lookup_by_expression"?"unknown":typeof row.partOfSpeech==="string"&&row.partOfSpeech.trim()?row.partOfSpeech.trim().toLowerCase().slice(0,40):"unknown"
     const cefr=typeof row.cefrLevel==="string"?row.cefrLevel.trim().toUpperCase():""
     const cefrLevel=CEFR_LEVELS.has(cefr)?cefr:null
     const frequency=typeof row.frequencyRank==="number"?row.frequencyRank:typeof row.frequencyRank==="string"&&row.frequencyRank.trim()?Number(row.frequencyRank):null
@@ -172,15 +175,16 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
     const sourceEntryUrl=typeof row.sourceEntryUrl==="string"&&row.sourceEntryUrl.trim()?requireHttpsUrl(row.sourceEntryUrl,(index+1)+"번째 원문 주소",true)??sourceDatasetUrl:sourceDatasetUrl
     const sourceRecordId=typeof row.sourceRecordId==="string"&&row.sourceRecordId.trim()?row.sourceRecordId.trim().slice(0,200):null
     const levelMapping=deriveSourceLevelMapping(row.sourcePayload,cefrLevel??undefined)
-    const senseKey=createHash("sha256").update(definitionEn.toLowerCase().replace(/\s+/g," ")).digest("hex").slice(0,24)
+    const seedKey="dictionary-seed:"+normalizedExpression
+    const senseKey=createHash("sha256").update(dictionaryMode==="lookup_by_expression"?seedKey:definitionEn.toLowerCase().replace(/\\s+/g," ")).digest("hex").slice(0,24)
     return {
       expression,normalizedExpression,lexicalType,partOfSpeech,senseKey,definitionEn,
-      senseOrder:Number.isInteger(row.senseOrder)&&Number(row.senseOrder)>0?Math.min(Number(row.senseOrder),1000):1,
-      learningStage:row.learningStage==="additional"?"additional":"primary",
+      senseOrder:dictionaryMode==="lookup_by_expression"?1:Number.isInteger(row.senseOrder)&&Number(row.senseOrder)>0?Math.min(Number(row.senseOrder),1000):1,
+      learningStage:dictionaryMode==="lookup_by_expression"?"primary":row.learningStage==="additional"?"additional":"primary",
       meaningKo:null,exampleSentence,cefrLevel:cefrLevel??levelMapping.sourceSignals.cefrLevel,
       childLevel:levelMapping.childLevel,frequencyRank,difficultyVerified:false,
-      verificationStatus:"pending_verification",sourceName,sourceEntryUrl,licenseName,licenseUrl,
-      sourcePayload:safeSourcePayload(row.sourcePayload,metadata,sourceRecordId,levelMapping),
+      verificationStatus:"pending_verification",sourceName,sourceEntryUrl,licenseName:licenseName||"Not specified",licenseUrl,
+      sourcePayload:safeSourcePayload(row.sourcePayload,metadata,sourceRecordId,levelMapping,dictionaryMode),
       dictionaryFetchedAt:null,
     }
   })
@@ -191,23 +195,29 @@ function candidateKey(row:{normalizedExpression:string;lexicalType:string;partOf
 export async function previewVocabularyDatasetImport(input:{rows:VocabularyDatasetImportRow[];defaultLexicalType:string;metadata:VocabularyDatasetImportMetadata}){
   await requireSuperAdmin()
   const prepared=prepareRows(input?.rows,input?.defaultLexicalType,input?.metadata)
-  const unique=new Map(prepared.map(row=>[candidateKey(row),row]))
+  const unique=new Map(prepared.map(row=>[row.normalizedExpression+"|"+row.lexicalType,row]))
   const expressions=[...new Set(prepared.map(row=>row.normalizedExpression))]
   const existing=await db.select({
     normalizedExpression:vocabularyCandidates.normalizedExpression,
     lexicalType:vocabularyCandidates.lexicalType,
-    partOfSpeech:vocabularyCandidates.partOfSpeech,
-    senseKey:vocabularyCandidates.senseKey,
   }).from(vocabularyCandidates).where(inArray(vocabularyCandidates.normalizedExpression,expressions))
-  const existingKeys=new Set(existing.map(candidateKey))
+  const existingKeys=new Set(existing.map(row=>row.normalizedExpression+"|"+row.lexicalType))
   const duplicateInDatabase=[...unique.keys()].filter(key=>existingKeys.has(key)).length
   return {received:prepared.length,uniqueInBatch:unique.size,duplicateInDatabase,expectedNew:unique.size-duplicateInDatabase}
 }
-/** Stage original data only. The dedicated verification queue checks it before approval. */
+/** Store one seed per expression; the bounded dictionary worker expands it into verified senses. */
 export async function stageVocabularyDatasetImport(input:{rows:VocabularyDatasetImportRow[];defaultLexicalType:string;metadata:VocabularyDatasetImportMetadata}){
   await requireSuperAdmin()
   const prepared=prepareRows(input?.rows,input?.defaultLexicalType,input?.metadata)
-  const inserted=await db.insert(vocabularyCandidates).values(prepared).onConflictDoNothing().returning({id:vocabularyCandidates.id})
+  const unique=[...new Map(prepared.map(row=>[row.normalizedExpression+"|"+row.lexicalType,row])).values()]
+  const expressions=[...new Set(unique.map(row=>row.normalizedExpression))]
+  const existing=await db.select({
+    normalizedExpression:vocabularyCandidates.normalizedExpression,
+    lexicalType:vocabularyCandidates.lexicalType,
+  }).from(vocabularyCandidates).where(inArray(vocabularyCandidates.normalizedExpression,expressions))
+  const existingKeys=new Set(existing.map(row=>row.normalizedExpression+"|"+row.lexicalType))
+  const fresh=unique.filter(row=>!existingKeys.has(row.normalizedExpression+"|"+row.lexicalType))
+  const inserted=fresh.length?await db.insert(vocabularyCandidates).values(fresh).onConflictDoNothing().returning({id:vocabularyCandidates.id}):[]
   revalidatePath("/super-admin/vocabulary")
   return {received:prepared.length,added:inserted.length,skippedAsDuplicate:prepared.length-inserted.length}
 }
@@ -254,8 +264,13 @@ export async function processNextVocabularyDatasetVerificationBatch(){
   const pending=await db.select({
     id:vocabularyCandidates.id,expression:vocabularyCandidates.expression,
     normalizedExpression:vocabularyCandidates.normalizedExpression,
-    partOfSpeech:vocabularyCandidates.partOfSpeech,definitionEn:vocabularyCandidates.definitionEn,
-    exampleSentence:vocabularyCandidates.exampleSentence,sourcePayload:vocabularyCandidates.sourcePayload,
+    lexicalType:vocabularyCandidates.lexicalType,partOfSpeech:vocabularyCandidates.partOfSpeech,
+    definitionEn:vocabularyCandidates.definitionEn,exampleSentence:vocabularyCandidates.exampleSentence,
+    senseOrder:vocabularyCandidates.senseOrder,learningStage:vocabularyCandidates.learningStage,
+    childLevel:vocabularyCandidates.childLevel,cefrLevel:vocabularyCandidates.cefrLevel,
+    frequencyRank:vocabularyCandidates.frequencyRank,sourceName:vocabularyCandidates.sourceName,
+    sourceEntryUrl:vocabularyCandidates.sourceEntryUrl,licenseName:vocabularyCandidates.licenseName,
+    licenseUrl:vocabularyCandidates.licenseUrl,sourcePayload:vocabularyCandidates.sourcePayload,
   }).from(vocabularyCandidates)
     .where(inArray(vocabularyCandidates.verificationStatus,["pending_verification","verification_retry"]))
     .orderBy(asc(vocabularyCandidates.createdAt)).limit(MAX_DICTIONARY_BATCH)
@@ -286,12 +301,77 @@ export async function processNextVocabularyDatasetVerificationBatch(){
       notFound+=candidates.length
       for(const candidate of candidates)await db.update(vocabularyCandidates).set({
         verificationStatus:"dictionary_not_found",
+        definitionEn:"FreeDictionaryAPI에서 표제어를 찾지 못했습니다.",
         sourcePayload:withPayload(candidate.sourcePayload,{dictionaryVerification:{status:"not_found",checkedAt:new Date().toISOString()}}),
         updatedAt:new Date(),
       }).where(eq(vocabularyCandidates.id,candidate.id))
       continue
     }
     for(const candidate of candidates){
+      const payload=isRecord(candidate.sourcePayload)?candidate.sourcePayload:{}
+      const dictionaryMode=payload.dictionaryMode==="lookup_by_expression"
+      if(dictionaryMode){
+        const uniqueSenses=[...new Map(lookup.senses
+          .filter(sense=>typeof sense.definition==="string"&&sense.definition.trim())
+          .map(sense=>[sense.partOfSpeech.toLowerCase()+"|"+normalizedDefinition(sense.definition),sense])).values()]
+          .slice(0,20)
+        if(!uniqueSenses.length){
+          mismatched++
+          await db.update(vocabularyCandidates).set({
+            verificationStatus:"dictionary_mismatch",
+            definitionEn:"FreeDictionaryAPI에서 사용할 수 있는 정의를 찾지 못했습니다.",
+            sourcePayload:withPayload(payload,{dictionaryVerification:{status:"mismatch",reason:"사전에서 사용할 수 있는 정의가 없습니다.",sourceUrl:lookup.sourceUrl,checkedAt:new Date().toISOString()}}),
+            updatedAt:new Date(),
+          }).where(eq(vocabularyCandidates.id,candidate.id))
+          continue
+        }
+        const now=new Date()
+        for(let index=0;index<uniqueSenses.length;index++){
+          const sense=uniqueSenses[index]
+          const partOfSpeech=sense.partOfSpeech.trim().toLowerCase()||"unknown"
+          const definitionEn=sense.definition.trim()
+          const senseKey=createHash("sha256").update(partOfSpeech+"|"+normalizedDefinition(definitionEn)).digest("hex").slice(0,24)
+          const korean=[...new Set(sense.translations.filter(item=>item.languageCode==="ko").map(item=>item.word.trim()).filter(Boolean))].slice(0,3)
+          let meaningKo=korean.join(" / ").slice(0,200)||null
+          const meaningSuggestion:Record<string,unknown>=meaningKo
+            ?{status:"dictionary_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
+            :{status:"pending_ai_draft",sourceName:"Gemini",basedOn:"FreeDictionaryAPI dictionary sense"}
+          if(!meaningKo){
+            try{
+              meaningKo=await generateKoreanMeaningDraft({expression:candidate.expression,partOfSpeech,verifiedDefinitionEn:definitionEn})
+            }catch{
+              meaningKo=null
+            }
+            meaningSuggestion.status=meaningKo?"ai_draft":"unavailable"
+            meaningSuggestion.requiresHumanReview=true
+          }
+          const dictionaryVerification={
+            status:"matched",matchType:"dictionary_lookup",senseCount:uniqueSenses.length,senseOrder:index+1,
+            partOfSpeech,definitionEn,examples:sense.examples,translations:sense.translations,
+            sourceUrl:lookup.sourceUrl,licenseName:lookup.licenseName,licenseUrl:lookup.licenseUrl,
+            verifiedAt:now.toISOString(),
+          }
+          const nextPayload=withPayload(payload,{dictionaryVerification,koreanMeaningSuggestion:meaningSuggestion})
+          const common={
+            senseKey,expression:candidate.expression,normalizedExpression:candidate.normalizedExpression,
+            lexicalType:candidate.lexicalType,partOfSpeech,definitionEn,meaningKo,
+            senseOrder:index+1,learningStage:index===0?"primary" as const:"additional" as const,
+            exampleSentence:sense.examples[0]??null,childLevel:candidate.childLevel,cefrLevel:candidate.cefrLevel,
+            frequencyRank:candidate.frequencyRank,difficultyVerified:false,verificationStatus:"dictionary_found",
+            sourceName:"FreeDictionaryAPI.com",sourceEntryUrl:lookup.sourceUrl,
+            licenseName:lookup.licenseName,licenseUrl:lookup.licenseUrl,sourcePayload:nextPayload,
+            dictionaryFetchedAt:now,updatedAt:now,
+          }
+          if(index===0){
+            await db.update(vocabularyCandidates).set(common).where(eq(vocabularyCandidates.id,candidate.id))
+          }else{
+            await db.insert(vocabularyCandidates).values(common).onConflictDoNothing()
+          }
+        }
+        matched++
+        continue
+      }
+
       const match=matchVerifiedSense(candidate,lookup.senses)
       if(!match){
         mismatched++
