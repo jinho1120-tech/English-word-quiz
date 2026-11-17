@@ -109,8 +109,12 @@ export function ChildAiVocabularyAssessment({ summary }: { summary: AssessmentSu
     startTransition(async () => {
       try {
         const response = await startChildAiVocabularyCombinedAssessment()
-        setSession(response)
-        setActiveType(response.word.question ? "word" : "idiom")
+        if (!response.success) {
+          setError(response.error)
+          return
+        }
+        setSession(response.session)
+        setActiveType(response.session.word.question ? "word" : "idiom")
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "통합 레벨 진단을 시작하지 못했어요.")
       }

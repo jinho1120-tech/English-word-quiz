@@ -470,7 +470,7 @@ export async function startChildAiVocabularyCombinedAssessment() {
         wordUsable < ASSESSMENT_QUESTION_COUNT ? "단어" : "",
         idiomUsable < ASSESSMENT_QUESTION_COUNT ? "숙어" : "",
       ].filter(Boolean).join("와 ")
-      throw new Error(`${missing} 문제 데이터가 부족해요. 각 유형에 서로 다른 뜻의 검증된 후보가 최소 9개 필요해요.`)
+      return { success: false as const, error: `${missing} 문제 데이터가 부족해요. 각 유형에 서로 다른 뜻의 검증된 후보가 최소 9개 필요해요. 부모님이 후보 단어와 숙어를 등록하고 검증한 뒤 다시 시도해 주세요.` }
     }
 
     combinedSessionId = randomUUID()
@@ -487,8 +487,11 @@ export async function startChildAiVocabularyCombinedAssessment() {
       }).where(eq(aiVocabularyLevelAssessments.id, start.assessmentId))
     }
     return {
-      word: { assessmentId: wordStart.assessmentId, question: wordStart.question, result: null },
-      idiom: { assessmentId: idiomStart.assessmentId, question: idiomStart.question, result: null },
+      success: true as const,
+      session: {
+        word: { assessmentId: wordStart.assessmentId, question: wordStart.question, result: null },
+        idiom: { assessmentId: idiomStart.assessmentId, question: idiomStart.question, result: null },
+      },
     }
   }
 
@@ -521,7 +524,7 @@ export async function startChildAiVocabularyCombinedAssessment() {
     return { assessmentId: started.assessmentId, question: started.question, result: null }
   }
   const [word, idiom] = await Promise.all([restore("word"), restore("idiom")])
-  return { word, idiom }
+  return { success: true as const, session: { word, idiom } }
 }
 
 export async function answerChildAiVocabularyAssessment(assessmentId: string, selectedOptionId: string) {

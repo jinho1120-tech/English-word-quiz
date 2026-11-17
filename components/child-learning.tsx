@@ -95,7 +95,7 @@ export function ChildLearning({
   const ttsCacheRef = useRef(new Map<string, string>())
   const activeAudioRef = useRef<HTMLAudioElement | null>(null)
   const [reviewMode, setReviewMode] = useState<"daily" | "wrong">("daily")
-  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "cards" | "manage" | "ai-quiz">("daily")
+  const [activeTab, setActiveTab] = useState<"daily" | "wrong" | "cards" | "manage" | "ai-quiz">("cards")
   const [isPacmanOpen, setIsPacmanOpen] = useState(false)
   const [isWordDefenseOpen, setIsWordDefenseOpen] = useState(false)
   const [pacmanRemainingPlays, setPacmanRemainingPlays] = useState(pacmanStatus.remainingPlays)
