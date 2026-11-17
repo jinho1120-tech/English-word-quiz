@@ -59,10 +59,16 @@ export function VocabularyCandidateImporter() {
           const response = await lookupAndStageVocabularyCandidates(batch, lexicalType)
           collected.push(...response.results)
           setResults([...collected])
-          const rateLimited = response.results.some((item) => item.status === "unavailable" && item.reason === "rate_limited")
-          if (rateLimited) {
-            setExpressions(unique.slice(offset + batch.length).join("\n"))
-            setNotice("요청 한도에 도달했어요. 확인한 " + collected.length + "개 결과는 보존했고, 남은 " + (unique.length - offset - batch.length) + "개 표현은 입력창에 남겨 두었습니다.")
+          const retryInputs = response.results
+            .filter((item) => item.status === "unavailable")
+            .map((item) => item.input)
+          if (retryInputs.length > 0) {
+            const remaining = [...retryInputs, ...unique.slice(offset + batch.length)]
+            const reason = response.results.some((item) => item.status === "unavailable" && item.reason === "rate_limited")
+              ? "사전 요청 한도에 도달했어요."
+              : "일부 사전 조회가 일시적으로 실패했어요."
+            setExpressions(remaining.join("\n"))
+            setNotice(reason + " 완료된 결과는 보존했고, 재확인이 필요한 " + remaining.length + "개 표현은 입력창에 남겨 두었습니다.")
             setProgress("")
             return
           }
