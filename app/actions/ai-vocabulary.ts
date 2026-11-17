@@ -1,7 +1,7 @@
 "use server"
 
 import { createHash } from "node:crypto"
-import { and, asc, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
@@ -232,53 +232,54 @@ export async function lookupAndStageVocabularyCandidates(
   }
 
   const results: CandidateLookupItem[] = await Promise.all(expressions.map(async ({ input, normalized }) => {
+    let lookup
     try {
-      const lookup = await lookupFreeDictionaryCached(normalized)
-      if (lookup.status === "not_found") {
-        return { input, status: "not_found" as const, word: lookup.word }
-      }
-      if (lookup.status === "unavailable") {
-        return { input, status: "unavailable" as const, word: lookup.word, reason: lookup.reason }
-      }
-
-      const rows = lookup.senses.map((sense) => ({
-        expression: lookup.word,
-        normalizedExpression: normalized,
-        lexicalType,
-        partOfSpeech: sense.partOfSpeech || "unknown",
-        senseKey: createHash("sha256").update(sense.definition.toLocaleLowerCase("en-US")).digest("hex").slice(0, 24),
-        definitionEn: sense.definition,
-        meaningKo: null,
-        exampleSentence: sense.examples[0] ?? null,
-        difficultyVerified: false,
-        verificationStatus: "dictionary_found",
-        sourceName: "FreeDictionaryAPI.com",
-        sourceEntryUrl: lookup.sourceUrl,
-        licenseName: lookup.licenseName,
-        licenseUrl: lookup.licenseUrl,
-        sourcePayload: {
-          partOfSpeech: sense.partOfSpeech,
-          definition: sense.definition,
-          examples: sense.examples,
-        },
-        dictionaryFetchedAt: new Date(),
-      }))
-      const inserted = await db.insert(vocabularyCandidates).values(rows)
-        .onConflictDoNothing()
-        .returning({ id: vocabularyCandidates.id })
-
-      return {
-        input,
-        status: "found" as const,
-        word: lookup.word,
-        sensesFound: rows.length,
-        added: inserted.length,
-        alreadyExists: rows.length - inserted.length,
-        sourceUrl: lookup.sourceUrl,
-        licenseName: lookup.licenseName,
-      }
+      lookup = await lookupFreeDictionaryCached(normalized)
     } catch {
       return { input, status: "unavailable" as const, word: normalized, reason: "upstream_error" as const }
+    }
+    if (lookup.status === "not_found") {
+      return { input, status: "not_found" as const, word: lookup.word }
+    }
+    if (lookup.status === "unavailable") {
+      return { input, status: "unavailable" as const, word: lookup.word, reason: lookup.reason }
+    }
+
+    const rows = lookup.senses.map((sense) => ({
+      expression: lookup.word,
+      normalizedExpression: normalized,
+      lexicalType,
+      partOfSpeech: sense.partOfSpeech || "unknown",
+      senseKey: createHash("sha256").update(sense.definition.toLocaleLowerCase("en-US")).digest("hex").slice(0, 24),
+      definitionEn: sense.definition,
+      meaningKo: null,
+      exampleSentence: sense.examples[0] ?? null,
+      difficultyVerified: false,
+      verificationStatus: "dictionary_found",
+      sourceName: "FreeDictionaryAPI.com",
+      sourceEntryUrl: lookup.sourceUrl,
+      licenseName: lookup.licenseName,
+      licenseUrl: lookup.licenseUrl,
+      sourcePayload: {
+        partOfSpeech: sense.partOfSpeech,
+        definition: sense.definition,
+        examples: sense.examples,
+      },
+      dictionaryFetchedAt: new Date(),
+    }))
+    const inserted = await db.insert(vocabularyCandidates).values(rows)
+      .onConflictDoNothing()
+      .returning({ id: vocabularyCandidates.id })
+
+    return {
+      input,
+      status: "found" as const,
+      word: lookup.word,
+      sensesFound: rows.length,
+      added: inserted.length,
+      alreadyExists: rows.length - inserted.length,
+      sourceUrl: lookup.sourceUrl,
+      licenseName: lookup.licenseName,
     }
   }))
 
@@ -297,7 +298,7 @@ export async function getSuperAdminVocabularyCandidateDashboard() {
   const [statusRows, eligibleRows, candidates] = await Promise.all([
     db.select({
       status: vocabularyCandidates.verificationStatus,
-      count: sql<number>\`count(*)::int\`,
+      count: count(),
     }).from(vocabularyCandidates).groupBy(vocabularyCandidates.verificationStatus),
     db.select({
       lexicalType: vocabularyCandidates.lexicalType,
