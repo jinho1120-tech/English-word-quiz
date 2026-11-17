@@ -2,6 +2,7 @@ import Link from "next/link"
 
 const ITEMS = [
   { href: "/super-admin/overview", label: "운영 현황" },
+  { href: "/super-admin/vocabulary", label: "공용 어휘" },
   { href: "/super-admin", label: "가족 관리" },
   { href: "/super-admin/usage", label: "사용량·비용" },
   { href: "/super-admin/limits", label: "사용 한도" },

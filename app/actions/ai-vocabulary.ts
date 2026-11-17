@@ -1,11 +1,12 @@
 "use server"
 
 import { createHash } from "node:crypto"
-import { and, asc, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm"
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { requireSuperAdmin } from "@/lib/super-admin"
 import { aiVocabularyBundleItems, aiVocabularyBundles, aiVocabularySettings, aiVocabularyLevelAssessments, childProfiles, childSubjects, families, familyMembers, vocabularyCandidates, wordEntries } from "@/lib/db/schema"
 import { normalizeDictionaryExpression } from "@/lib/free-dictionary-api"
 import { lookupFreeDictionaryCached } from "@/lib/free-dictionary-cache"
@@ -189,58 +190,102 @@ export async function saveParentAiVocabularySettings(input: {
 
 type CandidateLexicalType = "word" | "idiom" | "phrasal_verb" | "collocation"
 
+type CandidateLookupItem =
+  | {
+      input: string
+      status: "found"
+      word: string
+      sensesFound: number
+      added: number
+      alreadyExists: number
+      sourceUrl: string
+      licenseName: string
+    }
+  | { input: string; status: "not_found"; word: string }
+  | { input: string; status: "unavailable"; word: string; reason: "rate_limited" | "timeout" | "upstream_error" }
+
 /**
- * Adds dictionary-backed definitions to the shared candidate pool.
- * Dictionary presence is not a difficulty rating or editorial approval.
+ * Adds dictionary-backed definitions to the global candidate pool.
+ * The operation is restricted to super admins because candidates are shared
+ * across every family. Dictionary presence is not editorial approval.
  */
-export async function lookupAndStageVocabularyCandidate(expressionInput: string, lexicalType: CandidateLexicalType) {
-  await requireParentFamily()
-  if (typeof expressionInput !== "string" || !["word", "idiom", "phrasal_verb", "collocation"].includes(lexicalType)) {
-    throw new Error("영어 표현과 유형을 확인해 주세요.")
+export async function lookupAndStageVocabularyCandidates(
+  expressionInputs: string[],
+  lexicalType: CandidateLexicalType,
+) {
+  await requireSuperAdmin()
+  if (!Array.isArray(expressionInputs) ||
+      expressionInputs.length < 1 ||
+      expressionInputs.length > 5 ||
+      !["word", "idiom", "phrasal_verb", "collocation"].includes(lexicalType)) {
+    throw new Error("한 번에 1~5개 표현과 올바른 표현 유형을 입력해 주세요.")
   }
-  const expression = normalizeDictionaryExpression(expressionInput)
-  if (!expression || expression.length > 100) throw new Error("영어 표현은 1~100자로 입력해 주세요.")
 
-  const lookup = await lookupFreeDictionaryCached(expression)
-  if (lookup.status !== "found") return lookup
+  const expressions = expressionInputs.map((value) => {
+    if (typeof value !== "string") throw new Error("영어 표현을 확인해 주세요.")
+    const normalized = normalizeDictionaryExpression(value)
+    if (!normalized || normalized.length > 100) throw new Error("영어 표현은 1~100자로 입력해 주세요.")
+    return { input: value.trim().replace(/\s+/g, " "), normalized }
+  })
+  if (new Set(expressions.map((item) => item.normalized)).size !== expressions.length) {
+    throw new Error("같은 묶음 안에 중복 표현이 있습니다. 중복을 제거한 뒤 다시 시도해 주세요.")
+  }
 
-  const rows = lookup.senses.map((sense) => ({
-    expression: lookup.word,
-    normalizedExpression: expression,
-    lexicalType,
-    partOfSpeech: sense.partOfSpeech || "unknown",
-    senseKey: createHash("sha256").update(sense.definition.toLocaleLowerCase("en-US")).digest("hex").slice(0, 24),
-    definitionEn: sense.definition,
-    meaningKo: null,
-    exampleSentence: sense.examples[0] ?? null,
-    difficultyVerified: false,
-    verificationStatus: "dictionary_found",
-    sourceName: "FreeDictionaryAPI.com",
-    sourceEntryUrl: lookup.sourceUrl,
-    licenseName: lookup.licenseName,
-    licenseUrl: lookup.licenseUrl,
-    sourcePayload: {
-      partOfSpeech: sense.partOfSpeech,
-      definition: sense.definition,
-      examples: sense.examples,
-    },
-    dictionaryFetchedAt: new Date(),
+  const results: CandidateLookupItem[] = await Promise.all(expressions.map(async ({ input, normalized }) => {
+    let lookup: Awaited<ReturnType<typeof lookupFreeDictionaryCached>>
+    try {
+      lookup = await lookupFreeDictionaryCached(normalized)
+    } catch {
+      return { input, status: "unavailable" as const, word: normalized, reason: "upstream_error" as const }
+    }
+    if (lookup.status === "not_found") {
+      return { input, status: "not_found" as const, word: lookup.word }
+    }
+    if (lookup.status === "unavailable") {
+      return { input, status: "unavailable" as const, word: lookup.word, reason: lookup.reason }
+    }
+
+    const rows = lookup.senses.map((sense) => ({
+      expression: lookup.word,
+      normalizedExpression: normalized,
+      lexicalType,
+      partOfSpeech: sense.partOfSpeech || "unknown",
+      senseKey: createHash("sha256").update(sense.definition.toLocaleLowerCase("en-US")).digest("hex").slice(0, 24),
+      definitionEn: sense.definition,
+      meaningKo: null,
+      exampleSentence: sense.examples[0] ?? null,
+      difficultyVerified: false,
+      verificationStatus: "dictionary_found",
+      sourceName: "FreeDictionaryAPI.com",
+      sourceEntryUrl: lookup.sourceUrl,
+      licenseName: lookup.licenseName,
+      licenseUrl: lookup.licenseUrl,
+      sourcePayload: {
+        partOfSpeech: sense.partOfSpeech,
+        definition: sense.definition,
+        examples: sense.examples,
+      },
+      dictionaryFetchedAt: new Date(),
+    }))
+    const inserted = await db.insert(vocabularyCandidates).values(rows)
+      .onConflictDoNothing()
+      .returning({ id: vocabularyCandidates.id })
+
+    return {
+      input,
+      status: "found" as const,
+      word: lookup.word,
+      sensesFound: rows.length,
+      added: inserted.length,
+      alreadyExists: rows.length - inserted.length,
+      sourceUrl: lookup.sourceUrl,
+      licenseName: lookup.licenseName,
+    }
   }))
 
-  const inserted = await db.insert(vocabularyCandidates).values(rows).onConflictDoNothing().returning({ id: vocabularyCandidates.id })
-  revalidatePath("/parent")
-  return {
-    status: "found" as const,
-    word: lookup.word,
-    sensesFound: rows.length,
-    added: inserted.length,
-    alreadyExists: rows.length - inserted.length,
-    sourceUrl: lookup.sourceUrl,
-    licenseName: lookup.licenseName,
-    licenseUrl: lookup.licenseUrl,
-  }
+  revalidatePath("/super-admin/vocabulary")
+  return { results }
 }
-
 
 const CEFR_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"])
 const VOCABULARY_DOMAINS = new Set([
@@ -248,28 +293,91 @@ const VOCABULARY_DOMAINS = new Set([
   "medical", "biology", "chemistry", "engineering", "law",
 ])
 
-export async function getParentVocabularyCandidateQueue() {
-  await requireParentFamily()
-  return db.select({
-    id: vocabularyCandidates.id,
-    expression: vocabularyCandidates.expression,
-    lexicalType: vocabularyCandidates.lexicalType,
-    partOfSpeech: vocabularyCandidates.partOfSpeech,
-    definitionEn: vocabularyCandidates.definitionEn,
-    disambiguation: vocabularyCandidates.disambiguation,
-    exampleSentence: vocabularyCandidates.exampleSentence,
-    sourceName: vocabularyCandidates.sourceName,
-    sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
-    licenseName: vocabularyCandidates.licenseName,
-    licenseUrl: vocabularyCandidates.licenseUrl,
-    createdAt: vocabularyCandidates.createdAt,
-  }).from(vocabularyCandidates)
-    .where(eq(vocabularyCandidates.verificationStatus, "dictionary_found"))
-    .orderBy(desc(vocabularyCandidates.createdAt))
-    .limit(50)
+export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 1) {
+  await requireSuperAdmin()
+  const pageSize = 50
+  const safePage = Number.isInteger(candidatePage) ? Math.max(1, Math.min(candidatePage, 1000)) : 1
+  const [statusRows, eligibleRows, candidates] = await Promise.all([
+    db.select({
+      status: vocabularyCandidates.verificationStatus,
+      count: count(),
+    }).from(vocabularyCandidates).groupBy(vocabularyCandidates.verificationStatus),
+    db.select({
+      lexicalType: vocabularyCandidates.lexicalType,
+      meaningKo: vocabularyCandidates.meaningKo,
+      disambiguation: vocabularyCandidates.disambiguation,
+    }).from(vocabularyCandidates).where(and(
+      eq(vocabularyCandidates.verificationStatus, "approved"),
+      eq(vocabularyCandidates.difficultyVerified, true),
+      isNotNull(vocabularyCandidates.meaningKo),
+      isNotNull(vocabularyCandidates.childLevel),
+    )),
+    db.select({
+      id: vocabularyCandidates.id,
+      expression: vocabularyCandidates.expression,
+      lexicalType: vocabularyCandidates.lexicalType,
+      partOfSpeech: vocabularyCandidates.partOfSpeech,
+      definitionEn: vocabularyCandidates.definitionEn,
+      meaningKo: vocabularyCandidates.meaningKo,
+      childLevel: vocabularyCandidates.childLevel,
+      cefrLevel: vocabularyCandidates.cefrLevel,
+      domain: vocabularyCandidates.domain,
+      disambiguation: vocabularyCandidates.disambiguation,
+      exampleSentence: vocabularyCandidates.exampleSentence,
+      sourceName: vocabularyCandidates.sourceName,
+      sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
+      licenseName: vocabularyCandidates.licenseName,
+      licenseUrl: vocabularyCandidates.licenseUrl,
+      sourcePayload: vocabularyCandidates.sourcePayload,
+      verificationStatus: vocabularyCandidates.verificationStatus,
+      createdAt: vocabularyCandidates.createdAt,
+    }).from(vocabularyCandidates)
+      .where(inArray(vocabularyCandidates.verificationStatus, [
+        "pending_verification", "verification_retry", "dictionary_found",
+        "dictionary_not_found", "dictionary_mismatch",
+      ]))
+      .orderBy(asc(vocabularyCandidates.createdAt))
+      .limit(pageSize)
+      .offset((safePage - 1) * pageSize),
+  ])
+
+  const groups = new Map<string, typeof eligibleRows>()
+  for (const candidate of eligibleRows) {
+    const group = groups.get(candidate.lexicalType) ?? []
+    group.push(candidate)
+    groups.set(candidate.lexicalType, group)
+  }
+  const usableCounts = new Map<string, number>()
+  for (const [lexicalType, group] of groups) {
+    const distinctMeanings = new Set(group.map((candidate) =>
+      (candidate.meaningKo?.trim() ?? "") +
+      (candidate.disambiguation?.trim() ? " (" + candidate.disambiguation.trim() + ")" : ""),
+    ).filter(Boolean).map((value) => value.toLocaleLowerCase("ko-KR")))
+    usableCounts.set(lexicalType, distinctMeanings.size >= 4 ? group.length : 0)
+  }
+
+  const idiomTypes = ["idiom", "phrasal_verb", "collocation"]
+  const statusCounts = Object.fromEntries(statusRows.map((row) => [row.status, Number(row.count)]))
+  const pendingCount = (statusCounts.pending_verification ?? 0) +
+    (statusCounts.verification_retry ?? 0) +
+    (statusCounts.dictionary_found ?? 0) +
+    (statusCounts.dictionary_not_found ?? 0) +
+    (statusCounts.dictionary_mismatch ?? 0)
+  return {
+    statusCounts,
+    assessmentReadiness: {
+      words: usableCounts.get("word") ?? 0,
+      idioms: idiomTypes.reduce((total, type) => total + (usableCounts.get(type) ?? 0), 0),
+      required: 9,
+    },
+    candidates,
+    candidatePage: safePage,
+    candidatePageCount: Math.max(1, Math.ceil(pendingCount / pageSize)),
+    candidatePageSize: pageSize,
+  }
 }
 
-/** Parent curation is explicit; only reviewed candidates with an assigned level may enter recommendation selection. */
+/** Only a super admin may approve or reject rows in the globally shared pool. */
 export async function reviewVocabularyCandidate(input: {
   candidateId: string
   decision: "approve" | "reject"
@@ -280,10 +388,25 @@ export async function reviewVocabularyCandidate(input: {
   domain?: string
   difficultyVerified?: boolean
 }) {
-  const { userId } = await requireParentFamily()
+  const actor = await requireSuperAdmin()
   if (typeof input?.candidateId !== "string" || !/^[0-9a-f-]{36}$/i.test(input.candidateId) ||
       !["approve", "reject"].includes(input.decision)) {
     throw new Error("어휘 후보 검토 정보가 올바르지 않습니다.")
+  }
+
+  const [candidate] = await db.select({
+    meaningKo: vocabularyCandidates.meaningKo,
+    childLevel: vocabularyCandidates.childLevel,
+    cefrLevel: vocabularyCandidates.cefrLevel,
+    domain: vocabularyCandidates.domain,
+    sourcePayload: vocabularyCandidates.sourcePayload,
+    verificationStatus: vocabularyCandidates.verificationStatus,
+  }).from(vocabularyCandidates).where(eq(vocabularyCandidates.id, input.candidateId)).limit(1)
+  const reviewableStatuses = input.decision === "approve"
+    ? ["dictionary_found"]
+    : ["pending_verification", "verification_retry", "dictionary_found", "dictionary_not_found", "dictionary_mismatch"]
+  if (!candidate || !reviewableStatuses.includes(candidate.verificationStatus)) {
+    throw new Error("이미 검토했거나 검토할 수 없는 어휘 후보입니다.")
   }
 
   const now = new Date()
@@ -291,33 +414,45 @@ export async function reviewVocabularyCandidate(input: {
     ? {
         verificationStatus: "rejected",
         difficultyVerified: false,
-        reviewedByUserId: userId,
+        reviewedByUserId: actor.id,
         verifiedAt: now,
         updatedAt: now,
       }
     : (() => {
-        const meaningKo = typeof input.meaningKo === "string" ? input.meaningKo.trim() : ""
+        const meaningKo = input.meaningKo?.trim() || candidate.meaningKo?.trim() || ""
         const disambiguation = input.disambiguation?.trim() ?? ""
-        const childLevel = input.childLevel?.trim() ?? ""
-        const cefrLevel = input.cefrLevel?.trim() ?? ""
-        const domain = input.domain?.trim() ?? ""
-        const difficultyVerified = input.difficultyVerified === true
+        const childLevel = input.childLevel?.trim() || candidate.childLevel || ""
+        const cefrLevel = input.cefrLevel?.trim() || candidate.cefrLevel || ""
+        const domain = input.domain?.trim() || candidate.domain || ""
+        const sourcePayload = candidate.sourcePayload && typeof candidate.sourcePayload === "object"
+          ? candidate.sourcePayload as Record<string, unknown> : {}
+        const isDatasetImport = sourcePayload.importKind === "public_dataset"
+        const dictionaryVerification = sourcePayload.dictionaryVerification
+        const levelMapping = sourcePayload.levelMapping
+        if (isDatasetImport && (
+          !dictionaryVerification || typeof dictionaryVerification !== "object" ||
+          (dictionaryVerification as Record<string, unknown>).status !== "matched" ||
+          !levelMapping || typeof levelMapping !== "object" ||
+          (levelMapping as Record<string, unknown>).status !== "mapped"
+        )) {
+          throw new Error("외부 데이터는 FreeDictionaryAPI 의미·품사 검증과 원본 레벨 변환이 끝난 뒤 승인할 수 있습니다.")
+        }
         if (!meaningKo || meaningKo.length > 200 || disambiguation.length > 100 ||
-            (childLevel && !LEVELS.has(childLevel)) ||
+            !LEVELS.has(childLevel) ||
             (cefrLevel && !CEFR_LEVELS.has(cefrLevel)) ||
-            (domain && !VOCABULARY_DOMAINS.has(domain)) ||
-            (difficultyVerified && !childLevel && !cefrLevel)) {
-          throw new Error("한국어 뜻과 난이도 검토 정보를 확인해 주세요.")
+            (domain && !VOCABULARY_DOMAINS.has(domain))) {
+          throw new Error("제안된 한국어 뜻과 자녀 난이도(L1~L6)를 확인해 주세요.")
         }
         return {
           verificationStatus: "approved",
           meaningKo,
           disambiguation: disambiguation || null,
-          childLevel: childLevel || null,
+          childLevel,
           cefrLevel: cefrLevel || null,
           domain: domain || null,
-          difficultyVerified,
-          reviewedByUserId: userId,
+          // Explicit administrator approval is the human verification step.
+          difficultyVerified: true,
+          reviewedByUserId: actor.id,
           verifiedAt: now,
           updatedAt: now,
         }
@@ -326,15 +461,14 @@ export async function reviewVocabularyCandidate(input: {
   const [updated] = await db.update(vocabularyCandidates).set(changes)
     .where(and(
       eq(vocabularyCandidates.id, input.candidateId),
-      eq(vocabularyCandidates.verificationStatus, "dictionary_found"),
+      inArray(vocabularyCandidates.verificationStatus, reviewableStatuses),
     ))
     .returning({ id: vocabularyCandidates.id })
   if (!updated) throw new Error("이미 검토했거나 어휘 후보를 찾을 수 없습니다.")
 
-  revalidatePath("/parent")
+  revalidatePath("/super-admin/vocabulary")
   return { success: true, decision: input.decision }
 }
-
 
 function todayInSeoul(): string {
   const parts = new Intl.DateTimeFormat("en-US", {
