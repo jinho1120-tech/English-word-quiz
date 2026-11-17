@@ -14,14 +14,8 @@ import {
 type DatasetRecord = Record<string, unknown>
 type FieldMap = {
   expression: string
-  definitionEn: string
-  partOfSpeech: string
-  exampleSentence: string
-  cefrLevel: string
-  frequencyRank: string
-  lexicalType: string
-  sourceEntryUrl: string
-  sourceRecordId: string
+  gradeLevel: string
+  gradeBand: string
 }
 type SourcePreset = "worduniversum" | "oewn" | "custom"
 
@@ -37,33 +31,21 @@ const LEXICAL_TYPES = [
 ]
 const EMPTY_MAP: FieldMap = {
   expression: "",
-  definitionEn: "",
-  partOfSpeech: "",
-  exampleSentence: "",
-  cefrLevel: "",
-  frequencyRank: "",
-  lexicalType: "",
-  sourceEntryUrl: "",
-  sourceRecordId: "",
+  gradeLevel: "",
+  gradeBand: "",
 }
 const PRESETS: Record<SourcePreset, VocabularyDatasetImportMetadata> = {
   worduniversum: {
     sourceName: "WortUniversum",
     sourceDatasetUrl: "https://huggingface.co/datasets/cstr/grundwortschatz-voc-en",
-    licenseName: "CC BY-SA 4.0",
-    licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
   },
   oewn: {
     sourceName: "Open English WordNet",
     sourceDatasetUrl: "https://en-word.net/downloads",
-    licenseName: "CC BY 4.0",
-    licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
   },
   custom: {
     sourceName: "",
     sourceDatasetUrl: "",
-    licenseName: "",
-    licenseUrl: "",
   },
 }
 
@@ -175,66 +157,6 @@ function readString(record: DatasetRecord, key: string) {
   return ""
 }
 
-function parseNestedObject(value: unknown): DatasetRecord | null {
-  if (isRecord(value)) return value
-  if (typeof value !== "string" || !value.trim()) return null
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return isRecord(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
-
-function parseJsonValue(value: unknown): unknown {
-  if (typeof value !== "string" || !value.trim()) return value
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
-}
-
-function textList(value: unknown): string[] {
-  const parsed = parseJsonValue(value)
-  if (typeof parsed === "string") return parsed.trim() ? [parsed.trim()] : []
-  if (Array.isArray(parsed)) {
-    return parsed.map((item) => firstText(item)).filter(Boolean)
-  }
-  if (isRecord(parsed)) {
-    for (const key of ["definitions", "senses", "glosses", "meanings"]) {
-      if (parsed[key] !== undefined) {
-        const found = textList(parsed[key])
-        if (found.length) return found
-      }
-    }
-    const found = firstText(parsed)
-    return found ? [found] : []
-  }
-  return []
-}
-
-function firstText(value: unknown): string {
-  if (typeof value === "string") return value.trim()
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = firstText(item)
-      if (found) return found
-    }
-  }
-  if (isRecord(value)) {
-    for (const key of ["text", "sentence", "example", "value", "gloss", "definition", "meaning"]) {
-      const found = firstText(value[key])
-      if (found) return found
-    }
-    for (const nested of Object.values(value)) {
-      const found = firstText(nested)
-      if (found) return found
-    }
-  }
-  return ""
-}
-
 function prepareMappedRecords(
   records: DatasetRecord[],
   fieldMap: FieldMap,
@@ -248,75 +170,26 @@ function prepareMappedRecords(
 
   for (const record of records) {
     const expression = readString(record, fieldMap.expression).replace(/\s+/g, " ")
-    const isWortUniversumPhrasal = sourcePreset === "worduniversum" && typeof record.phrasal === "string"
-    const enrichment = sourcePreset === "worduniversum" ? parseNestedObject(record.enrichment_json) : null
-    const datasetMetadata = sourcePreset === "worduniversum" ? parseNestedObject(record.metadata_json) : null
-    const mappedDefinition = readString(record, fieldMap.definitionEn)
-    const nestedDefinitions = Array.isArray(enrichment?.definitions)
-      ? enrichment.definitions.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim())
-      : []
-    const phrasalDefinitions = isWortUniversumPhrasal
-      ? textList(record.senses_json).length ? textList(record.senses_json) : [readString(record, "meaning")].filter(Boolean)
-      : []
-    const definitions = isWortUniversumPhrasal
-      ? phrasalDefinitions
-      : sourcePreset === "worduniversum" && fieldMap.definitionEn === "enrichment_json"
-        ? nestedDefinitions
-        : mappedDefinition ? [mappedDefinition] : nestedDefinitions
-    const distinctDefinitions = [...new Set(definitions)]
-    if (!expression || expression.length > 120 || distinctDefinitions.length === 0) {
+    const isWortUniversumPhrasal = sourcePreset === "worduniversum" && Boolean(readString(record, "phrasal"))
+    if (!expression || expression.length > 120) {
       invalid += 1
       continue
     }
 
-    const mappedType = readString(record, fieldMap.lexicalType).toLocaleLowerCase("en-US")
-    const lexicalType = isWortUniversumPhrasal
-      ? "phrasal_verb"
-      : LEXICAL_TYPES.some((item) => item.value === mappedType) ? mappedType : defaultLexicalType
-    const partOfSpeech = readString(record, fieldMap.partOfSpeech) || (isWortUniversumPhrasal ? "phrase" : "unknown")
-    const rawFrequency = readString(record, fieldMap.frequencyRank)
-    const frequencyRank = rawFrequency && /^\d+$/.test(rawFrequency) ? Number(rawFrequency) : null
-    const nestedExample = isWortUniversumPhrasal
-      ? firstText(parseJsonValue(record.wiktionary_examples_json)) || firstText(parseJsonValue(record.examples_json))
-      : sourcePreset === "worduniversum"
-        ? firstText(enrichment?.examples) || firstText(datasetMetadata?.gutenberg_examples)
-        : ""
-    const exampleSentence = readString(record, fieldMap.exampleSentence) || nestedExample
-    const cefrLevel = readString(record, fieldMap.cefrLevel) ||
-      (typeof datasetMetadata?.cefr_level === "string" ? datasetMetadata.cefr_level : "")
-    const sourceRecordId = readString(record, fieldMap.sourceRecordId) || readString(record, "original_id")
+    const lexicalType = isWortUniversumPhrasal ? "phrasal_verb" : defaultLexicalType
+    const gradeLevel = readString(record, fieldMap.gradeLevel)
+    const gradeBand = readString(record, fieldMap.gradeBand)
+    const sourcePayload: DatasetRecord = {}
+    if (gradeLevel) sourcePayload.grade_level = gradeLevel
+    if (gradeBand) sourcePayload.grade_band = gradeBand
 
-    for (const [senseIndex, definitionEn] of distinctDefinitions.entries()) {
-      if (!definitionEn || definitionEn.length > 8000 || rows.length >= MAX_RECORDS) {
-        invalid += 1
-        continue
-      }
-      const key = [
-        expression.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
-        lexicalType,
-        partOfSpeech.toLocaleLowerCase("en-US"),
-        definitionEn.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
-      ].join("|")
-      if (seen.has(key)) {
-        duplicatesInFile += 1
-        continue
-      }
-      seen.add(key)
-      rows.push({
-        expression,
-        definitionEn,
-        partOfSpeech,
-        exampleSentence: exampleSentence || undefined,
-        lexicalType,
-        cefrLevel: cefrLevel || undefined,
-        frequencyRank,
-        sourceEntryUrl: readString(record, fieldMap.sourceEntryUrl) || undefined,
-        sourceRecordId: sourceRecordId || undefined,
-        senseOrder: senseIndex + 1,
-        learningStage: senseIndex === 0 ? "primary" : "additional",
-        sourcePayload: record,
-      })
+    const key = expression.toLocaleLowerCase("en-US").replace(/\s+/g, " ") + "|" + lexicalType
+    if (seen.has(key)) {
+      duplicatesInFile += 1
+      continue
     }
+    seen.add(key)
+    rows.push({ expression, lexicalType, sourcePayload })
   }
 
   return { rows, invalid, duplicatesInFile }
@@ -324,33 +197,19 @@ function prepareMappedRecords(
 
 function inferredMap(records: DatasetRecord[], sourcePreset: SourcePreset): FieldMap {
   const keys = records.length ? Object.keys(records[0]) : []
-  const isWortUniversum = sourcePreset === "worduniversum"
+  const phrasal = findKey(keys, ["phrasal"])
   return {
-    expression: findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform", "phrasal"]),
-    definitionEn: findKey(keys, isWortUniversum
-      ? ["enrichment_json", "senses_json", "definition", "definition_en", "gloss", "meaning_en", "def", "description"]
-      : ["definition", "definition_en", "gloss", "meaning_en", "def", "description", "senses_json"]),
-    partOfSpeech: findKey(keys, ["part_of_speech", "partofspeech", "pos", "grammatical_category", "word_type"]),
-    exampleSentence: findKey(keys, ["example", "example_sentence", "sentence", "exampletext"]),
-    cefrLevel: findKey(keys, ["cefr", "cefr_level", "cefrlevel"]),
-    frequencyRank: findKey(keys, ["frequency_rank", "frequencyrank", "rank", "word_frequency_rank"]),
-    lexicalType: findKey(keys, ["lexical_type", "lexicaltype"]),
-    sourceEntryUrl: findKey(keys, ["source_entry_url", "sourceentryurl", "source_url", "url"]),
-    sourceRecordId: findKey(keys, ["original_id", "record_id", "recordid", "id", "synset_id", "synsetid"]),
+    expression: phrasal || findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform"]),
+    gradeLevel: findKey(keys, ["grade_level", "gradelevel", "grade", "grade_level_estimate"]),
+    gradeBand: findKey(keys, ["grade_band", "gradeband"]),
   }
 }
 
 function fieldLabel(field: keyof FieldMap) {
   const labels: Record<keyof FieldMap, string> = {
-    expression: "영어 표현 / 표제어",
-    definitionEn: "영어 정의",
-    partOfSpeech: "품사",
-    exampleSentence: "예문",
-    cefrLevel: "CEFR",
-    frequencyRank: "빈도 순위",
-    lexicalType: "표현 유형",
-    sourceEntryUrl: "개별 원문 URL",
-    sourceRecordId: "원본 레코드 ID",
+    expression: "영어 표제어 / 구동사",
+    gradeLevel: "원본 학년 (grade_level)",
+    gradeBand: "원본 난이도 범위 (grade_band)",
   }
   return labels[field]
 }
@@ -376,23 +235,19 @@ export function VocabularyDatasetImporter() {
   )
 
   const previewGroups = useMemo(() => {
-    const groups = new Map<string, { expression: string; lexicalType: string; partOfSpeech: string; senses: number; firstDefinition: string }>()
+    const groups = new Map<string, { expression: string; lexicalType: string; levelLabel: string }>()
     for (const row of mapped.rows) {
       const lexicalType = row.lexicalType ?? defaultLexicalType
-      const partOfSpeech = row.partOfSpeech ?? "unknown"
-      const key = [row.expression.toLocaleLowerCase("en-US"), lexicalType, partOfSpeech].join("|")
-      const current = groups.get(key)
-      if (current) current.senses += 1
-      else groups.set(key, {
-        expression: row.expression,
-        lexicalType,
-        partOfSpeech,
-        senses: 1,
-        firstDefinition: row.definitionEn,
-      })
+      const key = [row.expression.toLocaleLowerCase("en-US"), lexicalType].join("|")
+      if (groups.has(key)) continue
+      const source = row.sourcePayload ?? {}
+      const gradeLevel = typeof source.grade_level === "string" ? source.grade_level : ""
+      const gradeBand = typeof source.grade_band === "string" ? source.grade_band : ""
+      const levelLabel = gradeLevel ? "원본 학년 " + gradeLevel : gradeBand ? "원본 범위 " + gradeBand : "원본 난이도 없음"
+      groups.set(key, { expression: row.expression, lexicalType, levelLabel })
     }
     return { total: groups.size, items: [...groups.values()].slice(0, 8) }
-  }, [mapped.rows])
+  }, [mapped.rows, defaultLexicalType])
 
   function resetPreview() {
     setPreview(null)
@@ -441,11 +296,11 @@ export function VocabularyDatasetImporter() {
     setError("")
     setNotice("")
     if (!records.length || !mapped.rows.length) {
-      setError("파일을 선택하고 영어 표현 및 영어 정의 열을 확인해 주세요.")
+      setError("파일을 선택하고 영어 표제어 열을 확인해 주세요.")
       return
     }
-    if (!metadata.sourceName.trim() || !metadata.sourceDatasetUrl.trim() || !metadata.licenseName.trim()) {
-      setError("데이터 출처 이름, 출처 URL, 라이선스를 입력해 주세요.")
+    if (!metadata.sourceName.trim() || !metadata.sourceDatasetUrl.trim()) {
+      setError("데이터 출처 이름과 출처 URL을 입력해 주세요.")
       return
     }
 
@@ -468,7 +323,7 @@ export function VocabularyDatasetImporter() {
           databaseDuplicates,
           expectedNew: Math.max(0, mapped.rows.length - databaseDuplicates),
         })
-        setNotice("미리보기가 완료되었습니다. 신규 후보 수와 출처·라이선스를 확인한 뒤 가져오기를 진행해 주세요.")
+        setNotice("미리보기가 완료되었습니다. 표제어와 원본 난이도 매핑을 확인한 뒤 가져오기를 진행해 주세요.")
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "데이터 미리보기를 완료하지 못했습니다.")
       } finally {
@@ -498,7 +353,7 @@ export function VocabularyDatasetImporter() {
           processed += batch.length
           setProgress("공용 후보 저장 중 " + processed.toLocaleString("ko-KR") + " / " + mapped.rows.length.toLocaleString("ko-KR"))
         }
-        setNotice("가져오기 완료: 신규 " + added.toLocaleString("ko-KR") + "개, 중복 제외 " + skipped.toLocaleString("ko-KR") + "개. 신규 후보는 사전 검증 대기 상태로 저장됩니다.")
+        setNotice("가져오기 완료: 신규 표제어 " + added.toLocaleString("ko-KR") + "개, 중복 제외 " + skipped.toLocaleString("ko-KR") + "개. 의미·품사·예문은 사전 조회 단계에서 채워집니다.")
         setPreview(null)
         setRecords([])
         setFileName("")
@@ -512,17 +367,14 @@ export function VocabularyDatasetImporter() {
   }
 
   const busy = isPending
-  const mappedFields: (keyof FieldMap)[] = [
-    "expression", "definitionEn", "partOfSpeech", "exampleSentence", "cefrLevel",
-    "frequencyRank", "lexicalType", "sourceEntryUrl", "sourceRecordId",
-  ]
+  const mappedFields: (keyof FieldMap)[] = ["expression", "gradeLevel", "gradeBand"]
 
   return (
     <section className="space-y-4 rounded-2xl border border-border bg-card p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-bold"><Database className="size-5" /> 공개 어휘 데이터셋 가져오기</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          공개 사이트·GitHub에서 받은 CSV, JSON, JSONL 파일을 올리면 열을 연결하고 중복을 미리 확인한 뒤 공용 후보 DB에 일괄 저장합니다. 최대 8MB, 파일당 5,000개 레코드를 지원합니다.
+          CSV/JSON 파일에서 영어 표제어와 원본 난이도만 가져옵니다. 뜻·품사·예문은 FreeDictionaryAPI에서 표제어별로 조회해 의미 후보를 만듭니다. 최대 8MB, 파일당 5,000개 레코드를 지원합니다.
         </p>
       </div>
 
@@ -530,10 +382,10 @@ export function VocabularyDatasetImporter() {
         <p className="text-xs font-bold">가져올 데이터 출처</p>
         <div className="grid gap-2 sm:grid-cols-3">
           <button type="button" disabled={busy} onClick={() => selectPreset("worduniversum")} className={`rounded-xl border px-3 py-2 text-left text-sm ${sourcePreset === "worduniversum" ? "border-primary bg-primary-container text-primary-container-foreground" : "border-border bg-card"}`}>
-            <span className="block font-semibold">WortUniversum</span><span className="mt-0.5 block text-xs opacity-75">CC BY-SA 4.0</span>
+            <span className="block font-semibold">WortUniversum</span><span className="mt-0.5 block text-xs opacity-75">단어·구동사 난이도 데이터</span>
           </button>
           <button type="button" disabled={busy} onClick={() => selectPreset("oewn")} className={`rounded-xl border px-3 py-2 text-left text-sm ${sourcePreset === "oewn" ? "border-primary bg-primary-container text-primary-container-foreground" : "border-border bg-card"}`}>
-            <span className="block font-semibold">Open English WordNet</span><span className="mt-0.5 block text-xs opacity-75">CC BY 4.0</span>
+            <span className="block font-semibold">Open English WordNet</span><span className="mt-0.5 block text-xs opacity-75">표제어 데이터</span>
           </button>
           <button type="button" disabled={busy} onClick={() => selectPreset("custom")} className={`rounded-xl border px-3 py-2 text-left text-sm ${sourcePreset === "custom" ? "border-primary bg-primary-container text-primary-container-foreground" : "border-border bg-card"}`}>
             <span className="block font-semibold">기타 CSV / JSON</span><span className="mt-0.5 block text-xs opacity-75">직접 입력</span>
@@ -541,13 +393,11 @@ export function VocabularyDatasetImporter() {
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <label className="block space-y-1"><span className="text-xs font-semibold text-muted-foreground">출처 이름</span><input value={metadata.sourceName} onChange={(event) => updateMetadata("sourceName", event.target.value)} disabled={busy} maxLength={60} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
-          <label className="block space-y-1"><span className="text-xs font-semibold text-muted-foreground">라이선스</span><input value={metadata.licenseName} onChange={(event) => updateMetadata("licenseName", event.target.value)} disabled={busy} maxLength={40} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">데이터셋 원문 주소</span><input value={metadata.sourceDatasetUrl} onChange={(event) => updateMetadata("sourceDatasetUrl", event.target.value)} disabled={busy} type="url" placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
-          <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">라이선스 주소</span><input value={metadata.licenseUrl ?? ""} onChange={(event) => updateMetadata("licenseUrl", event.target.value)} disabled={busy} type="url" placeholder="https://creativecommons.org/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
         </div>
-        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json을 자동 해석하고, phrasal_verbs 테이블은 senses_json과 예문을 읽어 구동사 후보로 등록합니다. 원본 grade_level·학년 추정치·CEFR·YLE·빈도 신호를 고정 규칙으로 L1~L6 제안에 변환합니다. AI가 레벨을 추측하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
-        {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">Open English WordNet은 단어 의미·관계 자료입니다. ZIP 파일을 내려받은 경우 압축을 풀고 표제어·품사·영어 정의를 평탄화한 CSV/JSON/JSONL 파일을 올려 주세요. 원본 JSON의 계층 구조를 그대로 올리는 방식은 아직 지원하지 않으며, 한국어 뜻이나 아동 난이도가 검증된 자료는 아니므로 검토가 필요합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
-        {sourcePreset === "custom" && <p className="text-xs leading-relaxed text-muted-foreground">GitHub의 공개 데이터도 CSV/JSON/JSONL 파일로 내려받아 가져올 수 있습니다. 원본 데이터의 재사용 라이선스를 먼저 확인하고 출처를 정확히 기록해 주세요.</p>}
+        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV의 표제어와 grade_level / grade_band만 읽고, 원본 정의·품사·예문은 저장하지 않습니다. 사전 조회는 표제어 단위로 최대 5개씩 진행하며, 결과는 캐시에 보관해 반복 조회와 API 사용량을 줄입니다. SQLite 원본은 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
+        {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">표제어 열을 연결해 가져올 수 있습니다. 원본 난이도 열이 없다면 L1~L6은 미지정으로 남으므로 슈퍼 관리자 검토에서 난이도를 지정해야 합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
+        {sourcePreset === "custom" && <p className="text-xs leading-relaxed text-muted-foreground">표제어 열과 난이도 열을 연결해 주세요. 뜻·품사·예문 열은 사용하지 않습니다. 데이터 출처는 내부 기록용으로 보관합니다.</p>}
       </div>
 
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border bg-background p-4">
@@ -564,11 +414,11 @@ export function VocabularyDatasetImporter() {
             <div className="rounded-lg bg-muted/40 px-3 py-2"><span className="text-xs text-muted-foreground">읽은 데이터</span><p className="mt-0.5 text-lg font-bold tabular-nums">{records.length.toLocaleString("ko-KR")}개 레코드</p></div>
           </div>
           <div className="space-y-2 rounded-xl border border-border p-3">
-            <div><h3 className="text-sm font-bold">파일 열 연결</h3><p className="mt-1 text-xs text-muted-foreground">자동으로 선택된 열을 확인해 주세요. 영어 표현과 영어 정의는 필수입니다.</p></div>
+            <div><h3 className="text-sm font-bold">파일 열 연결</h3><p className="mt-1 text-xs text-muted-foreground">자동으로 선택된 열을 확인해 주세요. 표제어는 필수입니다. grade_level 또는 grade_band가 있으면 연결해 주세요. 뜻·품사·예문 열은 사용하지 않습니다.</p></div>
             <div className="grid gap-2 sm:grid-cols-2">
               {mappedFields.map((field) => (
                 <label key={field} className="block space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground">{fieldLabel(field)}{(field === "expression" || field === "definitionEn") ? " · 필수" : ""}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{fieldLabel(field)}{field === "expression" ? " · 필수" : ""}</span>
                   <select value={fieldMap[field]} disabled={busy} onChange={(event) => { setFieldMap((current) => ({ ...current, [field]: event.target.value })); resetPreview() }} className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-sm">
                     <option value="">사용 안 함</option>
                     {keys.map((key) => <option key={key} value={key}>{key}</option>)}
@@ -578,16 +428,15 @@ export function VocabularyDatasetImporter() {
             </div>
           </div>
           <div className="rounded-xl bg-muted/40 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">가져오기 전 데이터 점검</p><span className="text-xs text-muted-foreground">표제어·품사 그룹 {previewGroups.total.toLocaleString("ko-KR")}개 · 의미 후보 {mapped.rows.length.toLocaleString("ko-KR")}개</span></div>
-            <p className="mt-1 text-xs text-muted-foreground">서로 다른 표제어를 우선 보여줍니다. 각 표제어의 첫 번째 원본 정의는 대표 의미(초기 학습), 나머지는 추가 의미(후속 학습)로 보존합니다. 원본 나열 순서는 빈도 순위와 같다는 뜻은 아닙니다.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">가져오기 전 데이터 점검</p><span className="text-xs text-muted-foreground">표제어 그룹 {previewGroups.total.toLocaleString("ko-KR")}개 · 사전 조회 대상 {mapped.rows.length.toLocaleString("ko-KR")}개</span></div>
+            <p className="mt-1 text-xs text-muted-foreground">표제어와 원본 난이도만 후보 DB에 저장합니다. 사전 검증을 실행하면 FreeDictionaryAPI가 제공하는 의미별 정의·품사·예문·번역을 가져오고, 첫 번째 의미를 대표 의미로 제안합니다.</p>
             <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
-              {previewGroups.items.map((group) => <div key={group.expression + group.lexicalType + group.partOfSpeech} className="rounded-lg bg-background px-2.5 py-2">
-                <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{group.expression}</p><span className="text-[11px] text-muted-foreground">{group.partOfSpeech} · 의미 {group.senses}개</span><span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">대표 의미 1개</span></div>
-                <p className="mt-1 text-xs text-muted-foreground">{group.firstDefinition}</p>
+              {previewGroups.items.map((group) => <div key={group.expression + group.lexicalType} className="rounded-lg bg-background px-2.5 py-2">
+                <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{group.expression}</p><span className="text-[11px] text-muted-foreground">{group.lexicalType === "phrasal_verb" ? "구동사" : group.lexicalType === "word" ? "단어" : group.lexicalType} · {group.levelLabel}</span></div>
               </div>)}
-              {previewGroups.total > 8 && <p className="px-1 pt-1 text-xs text-muted-foreground">나머지 {(previewGroups.total - 8).toLocaleString("ko-KR")}개 표제어 그룹은 일괄 처리됩니다.</p>}
+              {previewGroups.total > 8 && <p className="px-1 pt-1 text-xs text-muted-foreground">나머지 {(previewGroups.total - 8).toLocaleString("ko-KR")}개 표제어는 일괄 처리됩니다.</p>}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">파일 중복 {mapped.duplicatesInFile.toLocaleString("ko-KR")}개 · 필수값 누락 {mapped.invalid.toLocaleString("ko-KR")}개</p>
+            <p className="mt-2 text-xs text-muted-foreground">파일 중복 {mapped.duplicatesInFile.toLocaleString("ko-KR")}개 · 표제어 누락 {mapped.invalid.toLocaleString("ko-KR")}개</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <HapticButton type="button" disabled={busy || !mapped.rows.length} onClick={runPreview} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-bold disabled:opacity-50"><Eye className="size-4" /> {busy ? (progress || "확인 중…") : "DB 중복 미리 확인"}</HapticButton>
@@ -610,7 +459,7 @@ export function VocabularyDatasetImporter() {
 
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {notice && <p role="status" className="rounded-lg bg-muted/50 p-3 text-sm">{notice}</p>}
-      <p className="text-xs leading-relaxed text-muted-foreground">중간에 네트워크가 끊겨도 이미 저장된 묶음은 유지됩니다. 같은 파일을 다시 가져오면 고유 키로 중복을 건너뜁니다. 영어 의미·품사는 FreeDictionaryAPI와 대조하며, 한국어 뜻은 API 번역 또는 검증된 정의에 근거한 Gemini 초안으로 제시합니다. L1~L6은 원본 레벨 신호의 결정 규칙으로만 변환합니다.</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">중간에 네트워크가 끊겨도 이미 저장된 표제어는 유지됩니다. 같은 파일을 다시 가져오면 표현 유형 기준으로 중복을 건너뜁니다. FreeDictionaryAPI에서 의미·품사·예문·한국어 번역을 조회하며, 번역이 없으면 검증된 영어 정의를 바탕으로 Gemini 초안을 제안합니다. L1~L6은 원본 학년 신호의 고정 규칙으로 변환합니다.</p>
     </section>
   )
 }

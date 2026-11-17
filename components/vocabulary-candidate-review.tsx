@@ -30,8 +30,8 @@ const DOMAINS=[
 ]
 const TYPE_LABELS:Record<string,string>={word:"단어",idiom:"숙어",phrasal_verb:"구동사",collocation:"연어"}
 const STATUS_LABELS:Record<string,string>={
-  pending_verification:"사전 검증 대기",verification_retry:"재검증 대기",dictionary_found:"사전 검증 완료",
-  dictionary_not_found:"사전 항목 없음",dictionary_mismatch:"품사·뜻 불일치",
+  pending_verification:"사전 조회 대기",verification_retry:"사전 조회 재시도",dictionary_found:"사전 조회 완료",
+  dictionary_not_found:"사전 항목 없음",dictionary_mismatch:"사전 의미 확인 필요",
 }
 function asRecord(value:unknown):Record<string,unknown>{
   return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{}
@@ -44,6 +44,9 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
   const verification=asRecord(payload.dictionaryVerification)
   const meaningSuggestion=asRecord(payload.koreanMeaningSuggestion)
   const isDataset=payload.importKind==="public_dataset"
+  const dictionaryMode=payload.dictionaryMode==="lookup_by_expression"
+  const datasetName=typeof payload.datasetName==="string"?payload.datasetName:candidate.sourceName
+  const datasetUrl=typeof payload.datasetUrl==="string"?payload.datasetUrl:null
   const dictionaryMatched=verification.status==="matched"
   const levelMapped=levelMapping.status==="mapped"
   const canApprove=!isDataset||(dictionaryMatched&&levelMapped&&candidate.verificationStatus==="dictionary_found")
@@ -103,26 +106,29 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
         <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">{STATUS_LABELS[candidate.verificationStatus]??candidate.verificationStatus}</span>
       </div>
       <div className="space-y-2 rounded-xl bg-muted/40 p-3">
-        <p className="text-sm leading-relaxed">{candidate.definitionEn}</p>
+        {dictionaryMode&&candidate.verificationStatus!=="dictionary_found"
+          ?<p className="text-sm text-muted-foreground">FreeDictionaryAPI에서 이 표제어의 의미·품사·예문을 조회합니다.</p>
+          :<p className="text-sm leading-relaxed">{candidate.definitionEn}</p>}
         {candidate.exampleSentence&&<p className="text-xs italic leading-relaxed text-muted-foreground">“{candidate.exampleSentence}”</p>}
         <p className="text-[11px] text-muted-foreground">
-          데이터 출처: {candidate.sourceName} · {candidate.licenseName}
-          {candidate.sourceEntryUrl&&<> · <a href={candidate.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 보기</a></>}
-          {candidate.licenseUrl&&<> · <a href={candidate.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">라이선스</a></>}
+          데이터셋: {datasetName}
+          {datasetUrl&&<> · <a href={datasetUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">출처 보기</a></>}
         </p>
       </div>
       {isDataset&&(
         <div className="space-y-1 rounded-xl border border-border p-3 text-xs">
-          <p className="font-semibold">FreeDictionaryAPI 영어 의미·품사 대조</p>
+          <p className="font-semibold">FreeDictionaryAPI 사전 조회</p>
           {dictionaryMatched?<>
-            <p>일치 상태: {verification.matchType==="exact"?"정의 일치":"정의 내용 강한 유사"} · 일치도 {(Number(verification.matchScore??0)*100).toFixed(0)}%</p>
-            {typeof verification.sourceUrl==="string"&&<p>검증 사전: <a href={verification.sourceUrl} target="_blank" rel="noreferrer" className="underline">FreeDictionaryAPI / Wiktionary 원문</a> · {String(verification.licenseName??"CC BY-SA 4.0")}</p>}
-          </>:<p className="text-muted-foreground">같은 품사와 의미의 사전 항목을 아직 확인하지 못했습니다. 검증이 완료될 때까지 승인할 수 없습니다.</p>}
-          {levelMapped?<p>원본 레벨 신호: {signalLabels.length?signalLabels.join(" · "):"원본 레벨 데이터"}<br/>변환: <strong>{String(levelMapping.childLevel)}</strong> · {String(levelMapping.rule??"")}</p>
-          :<p className="text-muted-foreground">원본 레벨 데이터가 부족해 L1~L6을 지정하지 않았습니다. 이 항목은 현재 승인할 수 없습니다.</p>}
+            {verification.matchType==="dictionary_lookup"
+              ?<p>표제어 조회 성공 · 의미 {String(verification.senseCount??1)}개 확인 · 현재 의미 {String(verification.senseOrder??candidate.senseOrder)}번째</p>
+              :<p>원본 정의와 사전 정의 대조 완료 · 일치도 {(Number(verification.matchScore??0)*100).toFixed(0)}%</p>}
+            {typeof verification.sourceUrl==="string"&&<p>사전 원문: <a href={verification.sourceUrl} target="_blank" rel="noreferrer" className="underline">FreeDictionaryAPI 조회 결과</a></p>}
+          </>:<p className="text-muted-foreground">{candidate.verificationStatus==="dictionary_not_found"?"사전에서 표제어를 찾지 못했습니다.":candidate.verificationStatus==="dictionary_mismatch"?"표제어는 찾았지만 사용할 의미를 추출하지 못했습니다.":"표제어 사전 조회가 아직 완료되지 않았습니다."} 사전 조회가 완료되어야 승인할 수 있습니다.</p>}
+          {levelMapped?<p>원본 난이도 신호: {signalLabels.length?signalLabels.join(" · "):"원본 난이도 데이터"}<br/>변환: <strong>{String(levelMapping.childLevel)}</strong> · {String(levelMapping.rule??"")}</p>
+          :<p className="text-muted-foreground">원본 난이도 정보가 부족해 L1~L6을 지정하지 않았습니다. 이 항목은 현재 승인할 수 없습니다.</p>}
         </div>
       )}
-      <label className="block space-y-1.5"><span className="text-xs font-semibold text-muted-foreground">학습 단계</span><select value={learningStage} onChange={event=>setLearningStage(event.target.value as "primary"|"additional")} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="primary">대표 의미 · 초기 학습</option><option value="additional">추가 의미 · 후속 학습</option></select><span className="block text-[11px] text-muted-foreground">원본에서 먼저 나온 뜻을 대표 의미로 제안합니다. 원본 순서는 실제 사용 빈도 순위가 아니므로 필요하면 여기서 변경해 주세요.</span></label>
+      <label className="block space-y-1.5"><span className="text-xs font-semibold text-muted-foreground">학습 단계</span><select value={learningStage} onChange={event=>setLearningStage(event.target.value as "primary"|"additional")} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="primary">대표 의미 · 초기 학습</option><option value="additional">추가 의미 · 후속 학습</option></select><span className="block text-[11px] text-muted-foreground">사전에서 먼저 반환한 의미를 대표 의미로 제안합니다. 사전 나열 순서가 실제 사용 빈도 순위와 같다는 뜻은 아니므로 필요하면 여기서 변경해 주세요.</span></label>
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">한국어 뜻 제안</span>
         <input value={meaningKo} onChange={event=>setMeaningKo(event.target.value)} maxLength={200} placeholder="검증된 의미에 대한 한국어 뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"/>
@@ -181,7 +187,7 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
     setError("");setNotice("")
     startTransition(async()=>{
       try{
-        setProgress("최대 5개 표현의 사전 검증 및 뜻 제안 중…")
+        setProgress("최대 5개 표제어의 사전 조회 및 뜻 제안 중…")
         const result=await processNextVocabularyDatasetVerificationBatch()
         setNotice(`처리 ${result.processed}개 · 검증 통과 ${result.matched}개 · 사전 미검색 ${result.notFound}개 · 뜻/품사 불일치 ${result.mismatched}개 · 재시도 ${result.retry}개`)
         router.refresh()
@@ -193,7 +199,7 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
     <section id="candidate-review" className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <h2 className="text-lg font-bold">어휘 후보 검토</h2>
       <p className="text-sm text-muted-foreground">이 페이지에 검토할 후보가 없어요. 위에서 데이터셋 또는 사전 조회로 후보를 등록할 수 있어요.</p>
-      <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 사전 검증 및 뜻 제안"}</HapticButton>
+      <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 표제어 사전 조회 및 뜻 제안"}</HapticButton>
       {notice&&<p role="status" className="text-xs text-muted-foreground">{notice}</p>}{error&&<p role="alert" className="text-sm text-red-600">{error}</p>}
       {candidatePageCount>1&&<div className="flex items-center justify-between text-sm"><Link href={`?candidatePage=${Math.max(1,candidatePage-1)}#candidate-review`} className="rounded-lg border border-border px-3 py-2">이전</Link><span className="text-muted-foreground">{candidatePage} / {candidatePageCount}</span><Link href={`?candidatePage=${Math.min(candidatePageCount,candidatePage+1)}#candidate-review`} className="rounded-lg border border-border px-3 py-2">다음</Link></div>}
     </section>
@@ -206,7 +212,7 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
         <p className="mt-1 text-sm text-muted-foreground">먼저 사전 검증을 실행하면 한국어 뜻과 원본 데이터 기반 L1~L6 제안이 표시됩니다. 대표 의미는 초기 학습에 사용하고, 추가 의미는 후속 학습용으로 보존합니다.</p>
         <p className="mt-1 text-xs text-muted-foreground"><ShieldCheck className="mr-1 inline size-3.5"/>Gemini 한국어 뜻은 초안으로 표시되고, 레벨은 원본 학년·CEFR·YLE·빈도 신호의 고정 규칙으로만 변환합니다.</p>
       </div>
-      <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 사전 검증 및 뜻 제안"}</HapticButton>
+      <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 표제어 사전 조회 및 뜻 제안"}</HapticButton>
       {notice&&<p role="status" className="rounded-lg bg-muted/50 p-3 text-xs">{notice}</p>}{error&&<p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {visible.map(candidate=><CandidateCard key={candidate.id} candidate={candidate} onReviewed={id=>setItems(current=>current.filter(item=>item.id!==id))}/>)}
       {items.length>5&&<button type="button" onClick={()=>setShowAll(value=>!value)} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground">{showAll?"접기":`나머지 ${items.length-5}개 더 보기`}</button>}
