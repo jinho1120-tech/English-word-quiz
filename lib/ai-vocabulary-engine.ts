@@ -89,6 +89,7 @@ export async function generateAiVocabularyBundleForChild(childProfileId: string)
     const [candidates, wrongWords] = await Promise.all([
       tx.select().from(vocabularyCandidates).where(and(
         eq(vocabularyCandidates.verificationStatus, "approved"),
+        eq(vocabularyCandidates.learningStage, "primary"),
         eq(vocabularyCandidates.difficultyVerified, true),
         isNotNull(vocabularyCandidates.meaningKo),
         inArray(vocabularyCandidates.lexicalType, ["word", "idiom", "phrasal_verb", "collocation"]),
