@@ -207,6 +207,7 @@ function prepareMappedRecords(
   records: DatasetRecord[],
   fieldMap: FieldMap,
   defaultLexicalType: string,
+  sourcePreset: SourcePreset,
 ) {
   const rows: VocabularyDatasetImportRow[] = []
   const seen = new Set<string>()
