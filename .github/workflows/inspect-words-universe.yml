@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - analysis/grundwortschatz-db-inspection
-    paths-ignore:
-      - analysis-output/**
   workflow_dispatch:
 
 permissions:
@@ -17,6 +15,7 @@ concurrency:
 
 jobs:
   inspect:
+    if: github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'chore: record WortUniversum inspection run metadata')
     name: Download and inspect SQLite source
     runs-on: ubuntu-latest
     timeout-minutes: 20
