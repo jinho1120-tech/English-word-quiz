@@ -13,7 +13,7 @@ import {
 } from "@/app/actions/vocabulary-dataset-import"
 
 type Candidate = {
-  id:string;expression:string;lexicalType:string;disambiguation:string|null;partOfSpeech:string
+  id:string;expression:string;senseOrder:number;learningStage:"primary"|"additional";lexicalType:string;disambiguation:string|null;partOfSpeech:string
   definitionEn:string;meaningKo:string|null;childLevel:string|null;cefrLevel:string|null;domain:string|null
   exampleSentence:string|null;sourceName:string;sourceEntryUrl:string|null;licenseName:string;licenseUrl:string|null
   sourcePayload:Record<string,unknown>;verificationStatus:string;createdAt:Date
@@ -48,6 +48,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
   const levelMapped=levelMapping.status==="mapped"
   const canApprove=!isDataset||(dictionaryMatched&&levelMapped&&candidate.verificationStatus==="dictionary_found")
   const [meaningKo,setMeaningKo]=useState(candidate.meaningKo??"")
+  const [learningStage,setLearningStage]=useState<"primary"|"additional">(candidate.learningStage??"primary")
   const [disambiguation,setDisambiguation]=useState(candidate.disambiguation??"")
   const [childLevel,setChildLevel]=useState(candidate.childLevel??(typeof levelMapping.childLevel==="string"?levelMapping.childLevel:""))
   const [cefrLevel,setCefrLevel]=useState(candidate.cefrLevel??"")
@@ -64,7 +65,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
     setError("");setNotice("")
     startTransition(async()=>{
       try{
-        await reviewVocabularyCandidate({candidateId:candidate.id,decision,meaningKo,disambiguation,childLevel,cefrLevel,domain,difficultyVerified:true})
+        await reviewVocabularyCandidate({candidateId:candidate.id,decision,meaningKo,disambiguation,childLevel,cefrLevel,domain,learningStage,difficultyVerified:true})
         onReviewed(candidate.id)
       }catch(cause){setError(cause instanceof Error?cause.message:"후보를 검토하지 못했어요.")}
     })
@@ -98,7 +99,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
   return(
     <article className="space-y-3 rounded-2xl border border-border p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0"><h3 className="text-base font-bold">{candidate.expression}</h3><p className="text-xs text-muted-foreground">{TYPE_LABELS[candidate.lexicalType]??candidate.lexicalType} · {candidate.partOfSpeech}</p></div>
+        <div className="min-w-0"><h3 className="text-base font-bold">{candidate.expression}</h3><p className="text-xs text-muted-foreground">{TYPE_LABELS[candidate.lexicalType]??candidate.lexicalType} · {candidate.partOfSpeech} · 원본 의미 순서 {candidate.senseOrder}번째</p></div>
         <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">{STATUS_LABELS[candidate.verificationStatus]??candidate.verificationStatus}</span>
       </div>
       <div className="space-y-2 rounded-xl bg-muted/40 p-3">
@@ -121,6 +122,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
           :<p className="text-muted-foreground">원본 레벨 데이터가 부족해 L1~L6을 지정하지 않았습니다. 이 항목은 현재 승인할 수 없습니다.</p>}
         </div>
       )}
+      {isDataset&&<label className="block space-y-1.5"><span className="text-xs font-semibold text-muted-foreground">학습 단계</span><select value={learningStage} onChange={event=>setLearningStage(event.target.value as "primary"|"additional")} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="primary">대표 의미 · 초기 학습</option><option value="additional">추가 의미 · 후속 학습</option></select><span className="block text-[11px] text-muted-foreground">원본에서 먼저 나온 뜻을 대표 의미로 제안합니다. 원본 순서는 실제 사용 빈도 순위가 아니므로 필요하면 여기서 변경해 주세요.</span></label>}
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">한국어 뜻 제안</span>
         <input value={meaningKo} onChange={event=>setMeaningKo(event.target.value)} maxLength={200} placeholder="검증된 의미에 대한 한국어 뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"/>
@@ -201,7 +203,7 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
     <section id="candidate-review" className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-bold"><Languages className="size-5"/>어휘 후보 검토</h2>
-        <p className="mt-1 text-sm text-muted-foreground">먼저 사전 검증을 실행하면 한국어 뜻과 원본 데이터 기반 L1~L6 제안이 표시됩니다. 제안을 확인해 승인하거나 후보를 제외하면 됩니다.</p>
+        <p className="mt-1 text-sm text-muted-foreground">먼저 사전 검증을 실행하면 한국어 뜻과 원본 데이터 기반 L1~L6 제안이 표시됩니다. 대표 의미는 초기 학습에 사용하고, 추가 의미는 후속 학습용으로 보존합니다.</p>
         <p className="mt-1 text-xs text-muted-foreground"><ShieldCheck className="mr-1 inline size-3.5"/>Gemini 한국어 뜻은 초안으로 표시되고, 레벨은 원본 학년·CEFR·YLE·빈도 신호의 고정 규칙으로만 변환합니다.</p>
       </div>
       <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 사전 검증 및 뜻 제안"}</HapticButton>
