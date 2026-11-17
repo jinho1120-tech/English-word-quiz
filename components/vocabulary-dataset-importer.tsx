@@ -373,6 +373,23 @@ export function VocabularyDatasetImporter() {
     [records, fieldMap, defaultLexicalType, sourcePreset],
   )
 
+  const previewGroups = useMemo(() => {
+    const groups = new Map<string, { expression: string; lexicalType: string; partOfSpeech: string; senses: number; firstDefinition: string }>()
+    for (const row of mapped.rows) {
+      const key = [row.expression.toLocaleLowerCase("en-US"), row.lexicalType, row.partOfSpeech].join("|")
+      const current = groups.get(key)
+      if (current) current.senses += 1
+      else groups.set(key, {
+        expression: row.expression,
+        lexicalType: row.lexicalType,
+        partOfSpeech: row.partOfSpeech,
+        senses: 1,
+        firstDefinition: row.definitionEn,
+      })
+    }
+    return { total: groups.size, items: [...groups.values()].slice(0, 8) }
+  }, [mapped.rows])
+
   function resetPreview() {
     setPreview(null)
     setNotice("")
@@ -557,11 +574,16 @@ export function VocabularyDatasetImporter() {
             </div>
           </div>
           <div className="rounded-xl bg-muted/40 p-3">
-            <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold">가져오기 전 데이터 점검</p><span className="text-xs text-muted-foreground">미리보기 {mapped.rows.length.toLocaleString("ko-KR")}개 · 파일 중복 {mapped.duplicatesInFile.toLocaleString("ko-KR")}개 · 필수값 누락 {mapped.invalid.toLocaleString("ko-KR")}개</span></div>
-            <div className="mt-2 max-h-52 space-y-1 overflow-y-auto">
-              {mapped.rows.slice(0, 8).map((row, index) => <div key={row.expression + index} className="rounded-lg bg-background px-2.5 py-2"><p className="text-sm font-semibold">{row.expression}</p><p className="mt-0.5 text-xs text-muted-foreground">{row.definitionEn}</p></div>)}
-              {mapped.rows.length > 8 && <p className="px-1 pt-1 text-xs text-muted-foreground">나머지 {(mapped.rows.length - 8).toLocaleString("ko-KR")}개는 일괄 처리됩니다.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold">가져오기 전 데이터 점검</p><span className="text-xs text-muted-foreground">표제어·품사 그룹 {previewGroups.total.toLocaleString("ko-KR")}개 · 의미 후보 {mapped.rows.length.toLocaleString("ko-KR")}개</span></div>
+            <p className="mt-1 text-xs text-muted-foreground">서로 다른 표제어를 우선 보여줍니다. 각 표제어의 첫 번째 원본 정의는 대표 의미(초기 학습), 나머지는 추가 의미(후속 학습)로 보존합니다. 원본 나열 순서는 빈도 순위와 같다는 뜻은 아닙니다.</p>
+            <div className="mt-2 max-h-72 space-y-1 overflow-y-auto">
+              {previewGroups.items.map((group) => <div key={group.expression + group.lexicalType + group.partOfSpeech} className="rounded-lg bg-background px-2.5 py-2">
+                <div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold">{group.expression}</p><span className="text-[11px] text-muted-foreground">{group.partOfSpeech} · 의미 {group.senses}개</span><span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">대표 의미 1개</span></div>
+                <p className="mt-1 text-xs text-muted-foreground">{group.firstDefinition}</p>
+              </div>)}
+              {previewGroups.total > 8 && <p className="px-1 pt-1 text-xs text-muted-foreground">나머지 {(previewGroups.total - 8).toLocaleString("ko-KR")}개 표제어 그룹은 일괄 처리됩니다.</p>}
             </div>
+            <p className="mt-2 text-xs text-muted-foreground">파일 중복 {mapped.duplicatesInFile.toLocaleString("ko-KR")}개 · 필수값 누락 {mapped.invalid.toLocaleString("ko-KR")}개</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             <HapticButton type="button" disabled={busy || !mapped.rows.length} onClick={runPreview} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-bold disabled:opacity-50"><Eye className="size-4" /> {busy ? (progress || "확인 중…") : "DB 중복 미리 확인"}</HapticButton>
