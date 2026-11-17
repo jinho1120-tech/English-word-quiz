@@ -34,7 +34,7 @@ def main():
     with gzip.open(gz, "rb") as source, db.open("wb") as target:
         shutil.copyfileobj(source, target, 1024 * 1024)
     with db.open("rb") as f:
-        if f.read(16) != b"SQLite format 3\\x00":
+        if f.read(16) != b"SQLite format 3\x00":
             raise RuntimeError("Downloaded file is not SQLite")
 
     con = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True)
@@ -161,8 +161,8 @@ def main():
         lines = ["# WortUniversum DB inspection", "", f"- Source: {URL}", "- License: CC BY-SA 4.0", f"- SHA-256: {digest}", f"- SQLite integrity: {integrity}", "", "## Table row counts", "", "| Table | Rows |", "|---|---:|"]
         lines += [f"| {name} | {count:,} |" for name,count in sorted(tables.items())]
         lines += ["", "## Word records", "", f"- Word/POS rows: {w['word_pos_records']:,}", f"- Unique normalized lemmas: {w['distinct_normalized_lemmas']:,}", f"- Lemmas with multiple rows: {w['multi_record_lemmas']:,}", f"- CEFR coverage: {w['cefr_coverage']:,} ({w['cefr_coverage_percent']}%)", f"- Definition coverage: {w['definition_coverage']:,} ({w['definition_coverage_percent']}%)", f"- Any example coverage: {w['records_with_any_example']:,} ({w['any_example_coverage_percent']}%)", "", "Analysis files include word_inventory.csv, phrasal_verbs.csv, duplicate_lemmas.csv, table_inventory.csv, column_coverage.csv, schema.json, the unmodified SQLite source DB and original gzip."]
-        (out / "report.md").write_text("\\n".join(lines), encoding="utf-8")
-        (out / "ATTRIBUTION.txt").write_text("WortUniversum English vocabulary database\\nDataset: cstr/grundwortschatz-voc-en\\nSource: " + URL + "\\nLicense: CC BY-SA 4.0\\nSHA-256: " + digest + "\\n\\nRefer to the dataset README for complete source-by-source attribution and licensing. Redistributed derivative datasets must satisfy applicable attribution and share-alike obligations.\\n", encoding="utf-8")
+        (out / "report.md").write_text("\n".join(lines), encoding="utf-8")
+        (out / "ATTRIBUTION.txt").write_text("WortUniversum English vocabulary database\nDataset: cstr/grundwortschatz-voc-en\nSource: " + URL + "\nLicense: CC BY-SA 4.0\nSHA-256: " + digest + "\n\nRefer to the dataset README for complete source-by-source attribution and licensing. Redistributed derivative datasets must satisfy applicable attribution and share-alike obligations.\n", encoding="utf-8")
         print(json.dumps(report, ensure_ascii=False, indent=2))
     finally:
         con.close()
