@@ -169,7 +169,7 @@ function prepareMappedRecords(
   let duplicatesInFile = 0
 
   for (const record of records) {
-    const expression = readString(record, fieldMap.expression).replace(/\\s+/g, " ")
+    const expression = readString(record, fieldMap.expression).replace(/\s+/g, " ")
     const isWortUniversumPhrasal = sourcePreset === "worduniversum" && Boolean(readString(record, "phrasal"))
     if (!expression || expression.length > 120) {
       invalid += 1
@@ -183,7 +183,7 @@ function prepareMappedRecords(
     if (gradeLevel) sourcePayload.grade_level = gradeLevel
     if (gradeBand) sourcePayload.grade_band = gradeBand
 
-    const key = expression.toLocaleLowerCase("en-US").replace(/\\s+/g, " ") + "|" + lexicalType
+    const key = expression.toLocaleLowerCase("en-US").replace(/\s+/g, " ") + "|" + lexicalType
     if (seen.has(key)) {
       duplicatesInFile += 1
       continue
