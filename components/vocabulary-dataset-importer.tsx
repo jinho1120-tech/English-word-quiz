@@ -253,7 +253,7 @@ function prepareMappedRecords(
     const datasetMetadata = sourcePreset === "worduniversum" ? parseNestedObject(record.metadata_json) : null
     const mappedDefinition = readString(record, fieldMap.definitionEn)
     const nestedDefinitions = Array.isArray(enrichment?.definitions)
-      ? enrichment.definitions.filter((item): item is string => typeof item === "string" && item.trim()).map((item) => item.trim())
+      ? enrichment.definitions.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim())
       : []
     const phrasalDefinitions = isWortUniversumPhrasal
       ? textList(record.senses_json).length ? textList(record.senses_json) : [readString(record, "meaning")].filter(Boolean)
