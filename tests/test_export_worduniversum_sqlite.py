@@ -33,6 +33,7 @@ class WortUniversumExportTests(unittest.TestCase):
                     lemma TEXT,
                     word_type TEXT,
                     grade_level INTEGER,
+                    frequency_json TEXT,
                     enrichment_json TEXT,
                     metadata_json TEXT
                 );
@@ -42,13 +43,16 @@ class WortUniversumExportTests(unittest.TestCase):
                     phrasal TEXT,
                     meaning TEXT,
                     senses_json TEXT,
-                    wiktionary_examples_json TEXT
+                    wiktionary_examples_json TEXT,
+                    grade_band TEXT,
+                    base_zipf REAL,
+                    examples_json TEXT
                 );
                 """
             )
             for index in range(5):
                 connection.execute(
-                    "INSERT INTO words VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO words VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         index + 1,
                         "word_" + str(index + 1),
@@ -56,12 +60,13 @@ class WortUniversumExportTests(unittest.TestCase):
                         "word" + str(index + 1),
                         "noun",
                         1,
+                        json.dumps({"frequency_band": 2, "zipf": 5.1}),
                         json.dumps({"definitions": ["Definition " + str(index + 1)]}),
                         json.dumps({"cefr_level": "A1", "gradeLevelEstimate": 1}),
                     ),
                 )
             connection.execute(
-                "INSERT INTO phrasal_verbs VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO phrasal_verbs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     1,
                     1,
@@ -69,6 +74,9 @@ class WortUniversumExportTests(unittest.TestCase):
                     "to stop trying",
                     json.dumps(["to stop trying", "to quit"]),
                     json.dumps(["Do not give up."]),
+                    "3-6",
+                    4.8,
+                    json.dumps({"3": ["Do not give up."]}),
                 ),
             )
             connection.commit()
@@ -107,11 +115,14 @@ class WortUniversumExportTests(unittest.TestCase):
             self.assertEqual(len(exported_words), 5)
             self.assertIn("enrichment_json", exported_words[0])
             self.assertIn("Definition 1", exported_words[0]["enrichment_json"])
+            self.assertIn("frequency_band", exported_words[0]["frequency_json"])
 
             with phrasal_files[0].open("r", encoding="utf-8", newline="") as source:
                 exported_phrasal = list(csv.DictReader(source))
             self.assertEqual(exported_phrasal[0]["phrasal"], "give up")
             self.assertIn("to stop trying", exported_phrasal[0]["senses_json"])
+            self.assertEqual(exported_phrasal[0]["grade_band"], "3-6")
+            self.assertIn("Do not give up", exported_phrasal[0]["examples_json"])
 
             sample_dir = temp_dir / "sample-output"
             sample = subprocess.run(

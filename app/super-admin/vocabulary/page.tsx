@@ -25,7 +25,11 @@ export default async function SuperAdminVocabularyPage({ searchParams }: { searc
   const candidatePage = Number.isFinite(parsedPage) ? Math.max(1, Math.min(parsedPage, 1000)) : 1
   const data = await getSuperAdminVocabularyCandidateDashboard(candidatePage)
   const total = Object.values(data.statusCounts).reduce((sum, value) => sum + value, 0)
-  const pending = data.statusCounts.dictionary_found ?? 0
+  const pending = (data.statusCounts.pending_verification ?? 0) +
+    (data.statusCounts.verification_retry ?? 0) +
+    (data.statusCounts.dictionary_found ?? 0) +
+    (data.statusCounts.dictionary_not_found ?? 0) +
+    (data.statusCounts.dictionary_mismatch ?? 0)
   const approved = data.statusCounts.approved ?? 0
   const rejected = data.statusCounts.rejected ?? 0
   const readiness = data.assessmentReadiness
@@ -55,7 +59,7 @@ export default async function SuperAdminVocabularyPage({ searchParams }: { searc
             <p className="mt-1 text-2xl font-black tabular-nums">{number(total)}</p>
           </article>
           <article className="rounded-xl bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">검토 대기</p>
+            <p className="text-xs text-muted-foreground">검증·검토 대기</p>
             <p className="mt-1 text-2xl font-black tabular-nums">{number(pending)}</p>
           </article>
           <article className="rounded-xl bg-muted/50 p-3">
@@ -86,7 +90,7 @@ export default async function SuperAdminVocabularyPage({ searchParams }: { searc
               <p className="mt-1 text-xs text-muted-foreground">{idiomReady ? "문제 출제 기준 충족" : "후보 등록과 검토가 더 필요합니다."}</p>
             </article>
           </div>
-          <p className="text-xs text-muted-foreground">위 숫자는 승인, 난이도 검토 완료, 한국어 뜻, 자녀 레벨 지정 및 선택지 구성을 모두 만족한 출제 가능 후보 수입니다.</p>
+          <p className="text-xs text-muted-foreground">외부 데이터는 영어 사전 검증과 원본 레벨 변환이 끝난 뒤 관리자가 승인해야 출제 후보가 됩니다. Gemini 번역은 AI 초안으로 표시됩니다.</p>
         </div>
       </section>
 

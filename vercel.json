@@ -15,5 +15,10 @@
         }
       ]
     }
+  },
+  "git": {
+    "deploymentEnabled": {
+      "feature/vocabulary-candidate-bulk-ingestion": false
+    }
   }
 }

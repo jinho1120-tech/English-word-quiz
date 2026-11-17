@@ -477,7 +477,7 @@ export function VocabularyDatasetImporter() {
           processed += batch.length
           setProgress("공용 후보 저장 중 " + processed.toLocaleString("ko-KR") + " / " + mapped.rows.length.toLocaleString("ko-KR"))
         }
-        setNotice("가져오기 완료: 신규 " + added.toLocaleString("ko-KR") + "개, 중복 제외 " + skipped.toLocaleString("ko-KR") + "개. 모든 신규 항목은 검토 대기 상태입니다.")
+        setNotice("가져오기 완료: 신규 " + added.toLocaleString("ko-KR") + "개, 중복 제외 " + skipped.toLocaleString("ko-KR") + "개. 신규 후보는 사전 검증 대기 상태로 저장됩니다.")
         setPreview(null)
         setRecords([])
         setFileName("")
@@ -524,7 +524,7 @@ export function VocabularyDatasetImporter() {
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">데이터셋 원문 주소</span><input value={metadata.sourceDatasetUrl} onChange={(event) => updateMetadata("sourceDatasetUrl", event.target.value)} disabled={busy} type="url" placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">라이선스 주소</span><input value={metadata.licenseUrl ?? ""} onChange={(event) => updateMetadata("licenseUrl", event.target.value)} disabled={busy} type="url" placeholder="https://creativecommons.org/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
         </div>
-        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json을 자동 해석하고, phrasal_verbs 테이블은 senses_json과 예문을 읽어 구동사 후보로 등록합니다. 영국 초등 학년 추정치는 원본 자료로 보존하며 L1~L6으로 자동 변환하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
+        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json을 자동 해석하고, phrasal_verbs 테이블은 senses_json과 예문을 읽어 구동사 후보로 등록합니다. 원본 grade_level·학년 추정치·CEFR·YLE·빈도 신호를 고정 규칙으로 L1~L6 제안에 변환합니다. AI가 레벨을 추측하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
         {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">Open English WordNet은 단어 의미·관계 자료입니다. ZIP 파일을 내려받은 경우 압축을 풀고 표제어·품사·영어 정의를 평탄화한 CSV/JSON/JSONL 파일을 올려 주세요. 원본 JSON의 계층 구조를 그대로 올리는 방식은 아직 지원하지 않으며, 한국어 뜻이나 아동 난이도가 검증된 자료는 아니므로 검토가 필요합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
         {sourcePreset === "custom" && <p className="text-xs leading-relaxed text-muted-foreground">GitHub의 공개 데이터도 CSV/JSON/JSONL 파일로 내려받아 가져올 수 있습니다. 원본 데이터의 재사용 라이선스를 먼저 확인하고 출처를 정확히 기록해 주세요.</p>}
       </div>
@@ -576,7 +576,7 @@ export function VocabularyDatasetImporter() {
                 <div className="rounded-lg bg-muted/50 p-2"><p className="text-xs text-muted-foreground">DB 기존 중복</p><p className="mt-1 text-lg font-bold tabular-nums">{preview.databaseDuplicates.toLocaleString("ko-KR")}</p></div>
                 <div className="rounded-lg bg-muted/50 p-2"><p className="text-xs text-muted-foreground">신규 예상</p><p className="mt-1 text-lg font-bold tabular-nums">{preview.expectedNew.toLocaleString("ko-KR")}</p></div>
               </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">가져오기를 실행하면 신규 예상 항목만 추가됩니다. 저장된 항목은 모두 검토 대기 상태이며, 한국어 뜻·L1~L6 난이도를 확인하기 전에는 테스트에 출제되지 않습니다.</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">가져오기를 실행하면 신규 예상 항목만 추가됩니다. 저장된 후보는 FreeDictionaryAPI 의미·품사 검증, 한국어 뜻 제안, 원본 레벨 변환을 거친 뒤 관리자가 승인해야 출제됩니다.</p>
             </div>
           )}
         </>
@@ -584,7 +584,7 @@ export function VocabularyDatasetImporter() {
 
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
       {notice && <p role="status" className="rounded-lg bg-muted/50 p-3 text-sm">{notice}</p>}
-      <p className="text-xs leading-relaxed text-muted-foreground">중간에 네트워크가 끊겨도 이미 저장된 묶음은 유지됩니다. 같은 파일을 다시 가져오면 고유 키로 중복을 건너뜁니다. 외부 데이터의 번역·학년·CEFR 값은 검증된 서비스 레벨로 자동 승인하지 않습니다.</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">중간에 네트워크가 끊겨도 이미 저장된 묶음은 유지됩니다. 같은 파일을 다시 가져오면 고유 키로 중복을 건너뜁니다. 영어 의미·품사는 FreeDictionaryAPI와 대조하며, 한국어 뜻은 API 번역 또는 검증된 정의에 근거한 Gemini 초안으로 제시합니다. L1~L6은 원본 레벨 신호의 결정 규칙으로만 변환합니다.</p>
     </section>
   )
 }

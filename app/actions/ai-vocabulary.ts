@@ -318,16 +318,25 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
       lexicalType: vocabularyCandidates.lexicalType,
       partOfSpeech: vocabularyCandidates.partOfSpeech,
       definitionEn: vocabularyCandidates.definitionEn,
+      meaningKo: vocabularyCandidates.meaningKo,
+      childLevel: vocabularyCandidates.childLevel,
+      cefrLevel: vocabularyCandidates.cefrLevel,
+      domain: vocabularyCandidates.domain,
       disambiguation: vocabularyCandidates.disambiguation,
       exampleSentence: vocabularyCandidates.exampleSentence,
       sourceName: vocabularyCandidates.sourceName,
       sourceEntryUrl: vocabularyCandidates.sourceEntryUrl,
       licenseName: vocabularyCandidates.licenseName,
       licenseUrl: vocabularyCandidates.licenseUrl,
+      sourcePayload: vocabularyCandidates.sourcePayload,
+      verificationStatus: vocabularyCandidates.verificationStatus,
       createdAt: vocabularyCandidates.createdAt,
     }).from(vocabularyCandidates)
-      .where(eq(vocabularyCandidates.verificationStatus, "dictionary_found"))
-      .orderBy(desc(vocabularyCandidates.createdAt))
+      .where(inArray(vocabularyCandidates.verificationStatus, [
+        "pending_verification", "verification_retry", "dictionary_found",
+        "dictionary_not_found", "dictionary_mismatch",
+      ]))
+      .orderBy(asc(vocabularyCandidates.createdAt))
       .limit(pageSize)
       .offset((safePage - 1) * pageSize),
   ])
@@ -349,7 +358,11 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
 
   const idiomTypes = ["idiom", "phrasal_verb", "collocation"]
   const statusCounts = Object.fromEntries(statusRows.map((row) => [row.status, Number(row.count)]))
-  const pendingCount = statusCounts.dictionary_found ?? 0
+  const pendingCount = (statusCounts.pending_verification ?? 0) +
+    (statusCounts.verification_retry ?? 0) +
+    (statusCounts.dictionary_found ?? 0) +
+    (statusCounts.dictionary_not_found ?? 0) +
+    (statusCounts.dictionary_mismatch ?? 0)
   return {
     statusCounts,
     assessmentReadiness: {
@@ -381,6 +394,21 @@ export async function reviewVocabularyCandidate(input: {
     throw new Error("어휘 후보 검토 정보가 올바르지 않습니다.")
   }
 
+  const [candidate] = await db.select({
+    meaningKo: vocabularyCandidates.meaningKo,
+    childLevel: vocabularyCandidates.childLevel,
+    cefrLevel: vocabularyCandidates.cefrLevel,
+    domain: vocabularyCandidates.domain,
+    sourcePayload: vocabularyCandidates.sourcePayload,
+    verificationStatus: vocabularyCandidates.verificationStatus,
+  }).from(vocabularyCandidates).where(eq(vocabularyCandidates.id, input.candidateId)).limit(1)
+  const reviewableStatuses = input.decision === "approve"
+    ? ["dictionary_found"]
+    : ["pending_verification", "verification_retry", "dictionary_found", "dictionary_not_found", "dictionary_mismatch"]
+  if (!candidate || !reviewableStatuses.includes(candidate.verificationStatus)) {
+    throw new Error("이미 검토했거나 검토할 수 없는 어휘 후보입니다.")
+  }
+
   const now = new Date()
   const changes = input.decision === "reject"
     ? {
@@ -391,18 +419,29 @@ export async function reviewVocabularyCandidate(input: {
         updatedAt: now,
       }
     : (() => {
-        const meaningKo = typeof input.meaningKo === "string" ? input.meaningKo.trim() : ""
+        const meaningKo = input.meaningKo?.trim() || candidate.meaningKo?.trim() || ""
         const disambiguation = input.disambiguation?.trim() ?? ""
-        const childLevel = input.childLevel?.trim() ?? ""
-        const cefrLevel = input.cefrLevel?.trim() ?? ""
-        const domain = input.domain?.trim() ?? ""
-        const difficultyVerified = input.difficultyVerified === true
+        const childLevel = input.childLevel?.trim() || candidate.childLevel || ""
+        const cefrLevel = input.cefrLevel?.trim() || candidate.cefrLevel || ""
+        const domain = input.domain?.trim() || candidate.domain || ""
+        const sourcePayload = candidate.sourcePayload && typeof candidate.sourcePayload === "object"
+          ? candidate.sourcePayload as Record<string, unknown> : {}
+        const isDatasetImport = sourcePayload.importKind === "public_dataset"
+        const dictionaryVerification = sourcePayload.dictionaryVerification
+        const levelMapping = sourcePayload.levelMapping
+        if (isDatasetImport && (
+          !dictionaryVerification || typeof dictionaryVerification !== "object" ||
+          (dictionaryVerification as Record<string, unknown>).status !== "matched" ||
+          !levelMapping || typeof levelMapping !== "object" ||
+          (levelMapping as Record<string, unknown>).status !== "mapped"
+        )) {
+          throw new Error("외부 데이터는 FreeDictionaryAPI 의미·품사 검증과 원본 레벨 변환이 끝난 뒤 승인할 수 있습니다.")
+        }
         if (!meaningKo || meaningKo.length > 200 || disambiguation.length > 100 ||
             !LEVELS.has(childLevel) ||
             (cefrLevel && !CEFR_LEVELS.has(cefrLevel)) ||
-            (domain && !VOCABULARY_DOMAINS.has(domain)) ||
-            !difficultyVerified) {
-          throw new Error("한국어 뜻, 자녀 난이도(L1~L6), 난이도 검토 완료 여부를 확인해 주세요.")
+            (domain && !VOCABULARY_DOMAINS.has(domain))) {
+          throw new Error("제안된 한국어 뜻과 자녀 난이도(L1~L6)를 확인해 주세요.")
         }
         return {
           verificationStatus: "approved",
@@ -411,7 +450,8 @@ export async function reviewVocabularyCandidate(input: {
           childLevel,
           cefrLevel: cefrLevel || null,
           domain: domain || null,
-          difficultyVerified,
+          // Explicit administrator approval is the human verification step.
+          difficultyVerified: true,
           reviewedByUserId: actor.id,
           verifiedAt: now,
           updatedAt: now,
@@ -421,7 +461,7 @@ export async function reviewVocabularyCandidate(input: {
   const [updated] = await db.update(vocabularyCandidates).set(changes)
     .where(and(
       eq(vocabularyCandidates.id, input.candidateId),
-      eq(vocabularyCandidates.verificationStatus, "dictionary_found"),
+      inArray(vocabularyCandidates.verificationStatus, reviewableStatuses),
     ))
     .returning({ id: vocabularyCandidates.id })
   if (!updated) throw new Error("이미 검토했거나 어휘 후보를 찾을 수 없습니다.")
