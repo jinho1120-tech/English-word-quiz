@@ -122,7 +122,7 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
           :<p className="text-muted-foreground">원본 레벨 데이터가 부족해 L1~L6을 지정하지 않았습니다. 이 항목은 현재 승인할 수 없습니다.</p>}
         </div>
       )}
-      {isDataset&&<label className="block space-y-1.5"><span className="text-xs font-semibold text-muted-foreground">학습 단계</span><select value={learningStage} onChange={event=>setLearningStage(event.target.value as "primary"|"additional")} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="primary">대표 의미 · 초기 학습</option><option value="additional">추가 의미 · 후속 학습</option></select><span className="block text-[11px] text-muted-foreground">원본에서 먼저 나온 뜻을 대표 의미로 제안합니다. 원본 순서는 실제 사용 빈도 순위가 아니므로 필요하면 여기서 변경해 주세요.</span></label>}
+      <label className="block space-y-1.5"><span className="text-xs font-semibold text-muted-foreground">학습 단계</span><select value={learningStage} onChange={event=>setLearningStage(event.target.value as "primary"|"additional")} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"><option value="primary">대표 의미 · 초기 학습</option><option value="additional">추가 의미 · 후속 학습</option></select><span className="block text-[11px] text-muted-foreground">원본에서 먼저 나온 뜻을 대표 의미로 제안합니다. 원본 순서는 실제 사용 빈도 순위가 아니므로 필요하면 여기서 변경해 주세요.</span></label>
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">한국어 뜻 제안</span>
         <input value={meaningKo} onChange={event=>setMeaningKo(event.target.value)} maxLength={200} placeholder="검증된 의미에 대한 한국어 뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"/>
