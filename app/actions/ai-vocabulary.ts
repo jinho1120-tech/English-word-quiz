@@ -232,7 +232,7 @@ export async function lookupAndStageVocabularyCandidates(
   }
 
   const results: CandidateLookupItem[] = await Promise.all(expressions.map(async ({ input, normalized }) => {
-    let lookup
+    let lookup: Awaited<ReturnType<typeof lookupFreeDictionaryCached>>
     try {
       lookup = await lookupFreeDictionaryCached(normalized)
     } catch {
