@@ -39,6 +39,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+      - name: Test WortUniversum SQLite export helper
+        run: python3 -m unittest discover -s tests -p 'test_export_worduniversum_sqlite.py'
       - name: Test access-code hash migration safety
         run: pnpm test:access-code-migration
       - name: Test migration against real PostgreSQL
