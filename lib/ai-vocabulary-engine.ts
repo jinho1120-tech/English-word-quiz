@@ -75,6 +75,7 @@ export async function generateAiVocabularyBundleForChild(childProfileId: string)
         word: wordEntries.word,
         lexicalType: wordEntries.lexicalType,
         subjectId: wordEntries.subjectId,
+        vocabularyCandidateId: wordEntries.vocabularyCandidateId,
       }).from(wordEntries).where(and(
         eq(wordEntries.childProfileId, child.id),
         eq(wordEntries.userId, child.ownerUserId),
@@ -84,7 +85,8 @@ export async function generateAiVocabularyBundleForChild(childProfileId: string)
 
     const usedCandidateIds = new Set(usedRows.map((row) => row.candidateId).filter((value): value is string => Boolean(value)))
     const usedWrongWordIds = new Set(usedRows.map((row) => row.sourceWordEntryId).filter((value): value is number => value !== null))
-    const existingKeys = new Set(existingWords.map((row) => `${normalizeDictionaryExpression(row.word)}|${row.lexicalType}`))
+    // Legacy/manual words block duplicate expressions; candidate-backed words are tracked per sense ID above.
+    const existingKeys = new Set(existingWords.filter((row) => !row.vocabularyCandidateId).map((row) => `${normalizeDictionaryExpression(row.word)}|${row.lexicalType}`))
 
     const [candidates, wrongWords] = await Promise.all([
       tx.select().from(vocabularyCandidates).where(and(
