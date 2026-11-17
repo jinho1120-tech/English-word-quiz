@@ -8,7 +8,7 @@ import { requireSuperAdmin } from "@/lib/super-admin"
 import { vocabularyCandidates } from "@/lib/db/schema"
 import { normalizeDictionaryExpression, type DictionarySense } from "@/lib/free-dictionary-api"
 import { lookupFreeDictionaryCached } from "@/lib/free-dictionary-cache"
-import { generateKoreanMeaningDraft } from "@/lib/ai-korean-meaning"
+import { generateKoreanMeaningDraft, generateKoreanMeaningDrafts } from "@/lib/ai-korean-meaning"
 
 const LEXICAL_TYPES = new Set(["word", "idiom", "phrasal_verb", "collocation"])
 const CEFR_LEVELS = new Set(["A1", "A2", "B1", "B2", "C1", "C2"])
@@ -250,6 +250,16 @@ function matchVerifiedSense(candidate:{definitionEn:string;partOfSpeech:string},
 function withPayload(value:unknown,updates:Record<string,unknown>){
   return {...(isRecord(value)?value:{}),...updates}
 }
+function dictionaryKoreanTranslations(sense:DictionarySense){
+  return [...new Set(sense.translations
+    .filter(item=>item.languageCode==="ko")
+    .map(item=>item.word.trim())
+    .filter(Boolean))].slice(0,3)
+}
+function compactDictionaryTranslation(values:string[]){
+  const joined=values.join(" / ").trim()
+  return joined.length>0&&joined.length<=24&&!/[.!?。！？]/.test(joined)?joined:null
+}
 
 /**
  * Resumable, bounded verification: at most five distinct words per invocation
@@ -323,25 +333,27 @@ export async function processNextVocabularyDatasetVerificationBatch(){
           continue
         }
         const now=new Date()
+        const meaningDrafts=await generateKoreanMeaningDrafts({
+          expression:candidate.expression,
+          senses:uniqueSenses.map(sense=>({
+            partOfSpeech:sense.partOfSpeech,
+            verifiedDefinitionEn:sense.definition,
+            dictionaryTranslations:dictionaryKoreanTranslations(sense),
+          })),
+        })
         for(let index=0;index<uniqueSenses.length;index++){
           const sense=uniqueSenses[index]
           const partOfSpeech=sense.partOfSpeech.trim().toLowerCase()||"unknown"
           const definitionEn=sense.definition.trim()
           const senseKey=createHash("sha256").update(partOfSpeech+"|"+normalizedDefinition(definitionEn)).digest("hex").slice(0,24)
-          const korean=[...new Set(sense.translations.filter(item=>item.languageCode==="ko").map(item=>item.word.trim()).filter(Boolean))].slice(0,3)
-          let meaningKo=korean.join(" / ").slice(0,200)||null
-          const meaningSuggestion:Record<string,unknown>=meaningKo
-            ?{status:"dictionary_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
-            :{status:"pending_ai_draft",sourceName:"Gemini",basedOn:"FreeDictionaryAPI dictionary sense"}
-          if(!meaningKo){
-            try{
-              meaningKo=await generateKoreanMeaningDraft({expression:candidate.expression,partOfSpeech,verifiedDefinitionEn:definitionEn})
-            }catch{
-              meaningKo=null
-            }
-            meaningSuggestion.status=meaningKo?"ai_draft":"unavailable"
-            meaningSuggestion.requiresHumanReview=true
-          }
+          const korean=dictionaryKoreanTranslations(sense)
+          const shortDictionaryMeaning=compactDictionaryTranslation(korean)
+          const meaningKo=meaningDrafts[index]??shortDictionaryMeaning
+          const meaningSuggestion:Record<string,unknown>=meaningDrafts[index]
+            ?{status:"ai_short_gloss",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",dictionaryTranslationHints:korean,requiresHumanReview:true}
+            :shortDictionaryMeaning
+              ?{status:"dictionary_short_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
+              :{status:"unavailable",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",requiresHumanReview:true}
           const dictionaryVerification={
             status:"matched",matchType:"dictionary_lookup",senseCount:uniqueSenses.length,senseOrder:index+1,
             partOfSpeech,definitionEn,examples:sense.examples,translations:sense.translations,
@@ -382,16 +394,20 @@ export async function processNextVocabularyDatasetVerificationBatch(){
         }).where(eq(vocabularyCandidates.id,candidate.id))
         continue
       }
-      const korean=[...new Set(match.sense.translations.filter(item=>item.languageCode==="ko").map(item=>item.word.trim()).filter(Boolean))].slice(0,3)
-      let meaningKo=korean.join(" / ").slice(0,200)||null
-      const meaningSuggestion:Record<string,unknown>=meaningKo
-        ?{status:"dictionary_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
-        :{status:"pending_ai_draft",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense"}
-      if(!meaningKo){
-        meaningKo=await generateKoreanMeaningDraft({expression:candidate.expression,partOfSpeech:match.sense.partOfSpeech,verifiedDefinitionEn:match.sense.definition})
-        meaningSuggestion.status=meaningKo?"ai_draft":"unavailable"
-        meaningSuggestion.requiresHumanReview=true
-      }
+      const korean=dictionaryKoreanTranslations(match.sense)
+      const shortDictionaryMeaning=compactDictionaryTranslation(korean)
+      const aiMeaning=await generateKoreanMeaningDraft({
+        expression:candidate.expression,
+        partOfSpeech:match.sense.partOfSpeech,
+        verifiedDefinitionEn:match.sense.definition,
+        dictionaryTranslations:korean,
+      })
+      const meaningKo=aiMeaning??shortDictionaryMeaning
+      const meaningSuggestion:Record<string,unknown>=aiMeaning
+        ?{status:"ai_short_gloss",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",dictionaryTranslationHints:korean,requiresHumanReview:true}
+        :shortDictionaryMeaning
+          ?{status:"dictionary_short_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
+          :{status:"unavailable",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",requiresHumanReview:true}
       const dictionaryVerification={
         status:"matched",matchType:match.matchType,matchScore:match.matchScore,
         partOfSpeech:match.sense.partOfSpeech,definitionEn:match.sense.definition,
@@ -412,6 +428,69 @@ export async function processNextVocabularyDatasetVerificationBatch(){
   }
   revalidatePath("/super-admin/vocabulary")
   return {processed:pending.length,matched,notFound,mismatched,retry,hasMore:pending.length===MAX_DICTIONARY_BATCH}
+}
+
+/**
+ * Rewrites existing long dictionary/AI translations into short learning glosses.
+ * Processes five candidates per call so the browser can safely resume the work.
+ */
+export async function processNextVocabularyDatasetMeaningBatch(){
+  await requireSuperAdmin()
+  const rows=await db.select({
+    id:vocabularyCandidates.id,
+    expression:vocabularyCandidates.expression,
+    partOfSpeech:vocabularyCandidates.partOfSpeech,
+    sourcePayload:vocabularyCandidates.sourcePayload,
+  }).from(vocabularyCandidates)
+    .where(eq(vocabularyCandidates.verificationStatus,"dictionary_found"))
+    .orderBy(asc(vocabularyCandidates.createdAt)).limit(10000)
+  const pending=rows.filter(candidate=>{
+    if(!isRecord(candidate.sourcePayload)||candidate.sourcePayload.importKind!=="public_dataset")return false
+    const suggestion=candidate.sourcePayload.koreanMeaningSuggestion
+    const status=isRecord(suggestion)?suggestion.status:null
+    return status!=="ai_short_gloss"&&status!=="dictionary_short_translation"&&status!=="unavailable"
+  })
+  const batch=pending.slice(0,5)
+  if(!batch.length)return {processed:0,generated:0,fallback:0,unavailable:0,hasMore:false}
+  const results=await Promise.all(batch.map(async candidate=>{
+    const payload=isRecord(candidate.sourcePayload)?candidate.sourcePayload:{}
+    const verification=isRecord(payload.dictionaryVerification)?payload.dictionaryVerification:{}
+    const translationRows=Array.isArray(verification.translations)?verification.translations:[]
+    const korean=[...new Set(translationRows
+      .filter(isRecord)
+      .filter(item=>item.languageCode==="ko"&&typeof item.word==="string")
+      .map(item=>(item.word as string).trim())
+      .filter(Boolean))].slice(0,3)
+    const fallback=compactDictionaryTranslation(korean)
+    const aiMeaning=await generateKoreanMeaningDraft({
+      expression:candidate.expression,
+      partOfSpeech:candidate.partOfSpeech,
+      verifiedDefinitionEn:typeof verification.definitionEn==="string"?verification.definitionEn:"",
+      dictionaryTranslations:korean,
+    })
+    const meaningKo=aiMeaning??fallback
+    const suggestion:Record<string,unknown>=aiMeaning
+      ?{status:"ai_short_gloss",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",dictionaryTranslationHints:korean,requiresHumanReview:true}
+      :fallback
+        ?{status:"dictionary_short_translation",sourceName:"FreeDictionaryAPI.com",languageCode:"ko",values:korean}
+        :{status:"unavailable",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",requiresHumanReview:true}
+    return {candidate,meaningKo,suggestion}
+  }))
+  await Promise.all(results.map(({candidate,meaningKo,suggestion})=>
+    db.update(vocabularyCandidates).set({
+      meaningKo,
+      sourcePayload:withPayload(candidate.sourcePayload,{koreanMeaningSuggestion:suggestion}),
+      updatedAt:new Date(),
+    }).where(eq(vocabularyCandidates.id,candidate.id))
+  ))
+  revalidatePath("/super-admin/vocabulary")
+  return {
+    processed:batch.length,
+    generated:results.filter(item=>item.suggestion.status==="ai_short_gloss").length,
+    fallback:results.filter(item=>item.suggestion.status==="dictionary_short_translation").length,
+    unavailable:results.filter(item=>item.suggestion.status==="unavailable").length,
+    hasMore:pending.length>batch.length,
+  }
 }
 
 export async function retryVocabularyCandidateVerification(candidateId:string){
@@ -438,14 +517,21 @@ export async function regenerateVocabularyCandidateKoreanMeaning(candidateId:str
   const verification=candidate.sourcePayload.dictionaryVerification
   if(!isRecord(verification)||verification.status!=="matched"||typeof verification.definitionEn!=="string")
     throw new Error("FreeDictionaryAPI 의미 검증이 완료되지 않았습니다.")
+  const translationRows=Array.isArray(verification.translations)?verification.translations:[]
+  const korean=[...new Set(translationRows
+    .filter(isRecord)
+    .filter(item=>item.languageCode==="ko"&&typeof item.word==="string")
+    .map(item=>(item.word as string).trim())
+    .filter(Boolean))].slice(0,3)
   const meaningKo=await generateKoreanMeaningDraft({
-    expression:candidate.expression,partOfSpeech:candidate.partOfSpeech,verifiedDefinitionEn:verification.definitionEn,
+    expression:candidate.expression,partOfSpeech:candidate.partOfSpeech,
+    verifiedDefinitionEn:verification.definitionEn,dictionaryTranslations:korean,
   })
-  if(!meaningKo)throw new Error("AI 뜻 제안을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.")
+  if(!meaningKo)throw new Error("간결한 AI 뜻 제안을 만들지 못했습니다. 다시 시도해 주세요.")
   await db.update(vocabularyCandidates).set({
     meaningKo,
     sourcePayload:withPayload(candidate.sourcePayload,{koreanMeaningSuggestion:{
-      status:"ai_draft",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",requiresHumanReview:true,
+      status:"ai_short_gloss",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",dictionaryTranslationHints:korean,requiresHumanReview:true,
     }}),
     updatedAt:new Date(),
   }).where(eq(vocabularyCandidates.id,candidate.id))
