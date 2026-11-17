@@ -156,7 +156,7 @@ export async function generateAiVocabularyBundleForChild(childProfileId: string)
       }
 
       if (missing > 0) {
-        const wrongFallback = wrongWords.filter((word) =>
+        const wrongFallback = settings.senseStage === "additional" ? [] : wrongWords.filter((word) =>
           target.types.includes(word.lexicalType) &&
           !usedWrongWordIds.has(word.id) &&
           !selected.some((item) => item.sourceWordEntryId === word.id) &&
