@@ -471,7 +471,7 @@ export async function processNextVocabularyDatasetVerificationBatch(){
 
 /**
  * Rewrites existing long dictionary/AI translations into short learning glosses.
- * Processes up to 25 candidate meanings per call using one Gemini request.
+ * Processes up to 50 candidate meanings per call using one Gemini request.
  */
 export async function processNextVocabularyDatasetMeaningBatch(){
   await requireSuperAdmin()
@@ -507,7 +507,7 @@ export async function processNextVocabularyDatasetMeaningBatch(){
       verifiedDefinitionEn:typeof verification.definitionEn==="string"?verification.definitionEn:"",
     }
   })
-  // One Gemini call for up to 25 candidates; never one request per word.
+  // One Gemini call for up to 50 candidates; never one request per word.
   const aiIndices=prepared.map((item,index)=>item.fallback? -1:index).filter(index=>index>=0)
   const batchDrafts=await generateKoreanMeaningDrafts({
     items:aiIndices.map(index=>{
