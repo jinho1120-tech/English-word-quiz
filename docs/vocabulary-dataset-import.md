@@ -5,18 +5,24 @@
 슈퍼 관리자 어휘 가져오기는 UTF-8 CSV/JSON/JSONL 파일을 받습니다. WortUniversum 원본은 SQLite 파일이므로 제공된 변환 스크립트로 CSV 조각을 만든 뒤 업로드합니다.
 
 1. [WortUniversum 데이터셋](https://huggingface.co/datasets/cstr/grundwortschatz-voc-en)에서 `grundwortschatz_en.db.gz` 파일을 내려받습니다.
-2. 저장소를 Windows PowerShell로 열고 저장소 루트에서 다음 명령을 실행합니다. 다운로드 경로가 다르면 파일 경로만 바꾸면 됩니다.
+2. 저장소를 Windows PowerShell로 열고 저장소 루트에서 먼저 300개 표제어만 시험용으로 추출합니다. 다운로드 경로가 다르면 파일 경로만 바꾸면 됩니다.
+
+   ```powershell
+   py -3 scripts\export_worduniversum_sqlite.py "$env:USERPROFILE\Downloads\grundwortschatz_en.db.gz" --limit-per-table 300 --output-dir "$env:USERPROFILE\Downloads\worduniversum-sample"
+   ```
+
+3. 시험용 데이터가 정상적으로 검토·가져오기 되는 것을 확인한 뒤 전체 자료를 추출합니다. 전체 추출은 별도 폴더를 사용합니다.
 
    ```powershell
    py -3 scripts\export_worduniversum_sqlite.py "$env:USERPROFILE\Downloads\grundwortschatz_en.db.gz" --output-dir "$env:USERPROFILE\Downloads\worduniversum-import"
    ```
 
-3. 스크립트가 `words_001.csv`, `words_002.csv`처럼 크기와 행 수 제한에 맞춰 CSV를 나눕니다. `phrasal_verbs_001.csv`도 별도로 생성합니다.
+4. 스크립트가 `words_001.csv`, `words_002.csv`처럼 크기와 행 수 제한에 맞춰 CSV를 나눕니다. 기본은 파일당 500행이며, `--max-rows`로 최대 5,000행까지 조정할 수 있습니다. `phrasal_verbs_001.csv`도 별도로 생성합니다.
 4. Preview가 승인되어 배포된 뒤 슈퍼 관리자 계정으로 `/super-admin/vocabulary`에 접속합니다.
 5. 출처에서 **WortUniversum**을 선택하고 CSV를 한 파일씩 올립니다. 자동 연결된 `lemma`, `word_type`, `enrichment_json`, `metadata_json` 열을 확인한 다음 중복 미리보기를 실행하고 가져오기를 확정합니다.
 6. 모든 신규 항목은 검토 대기 상태로 들어갑니다. 한국어 뜻, 자녀 레벨 L1~L6 및 난이도를 직접 검토한 항목만 승인합니다.
 
-변환 스크립트는 Python 표준 라이브러리만 사용하며 원본 SQLite DB를 읽기 전용으로 엽니다. 데이터베이스 파일을 수정하지 않습니다. CSV 조각은 파일당 기본 5,000행 이하, 7MiB 이하로 저장해 앱의 8MiB 업로드 제한에 여유를 둡니다.
+변환 스크립트는 Python 표준 라이브러리만 사용하며 원본 SQLite DB를 읽기 전용으로 엽니다. 데이터베이스 파일을 수정하지 않습니다. CSV 조각은 파일당 기본 500행 이하, 최대 5,000행 및 7MiB 이하로 저장해 여러 뜻이 후보로 확장되는 경우에도 파일별 처리량을 낮추고 앱의 8MiB 업로드 제한에 여유를 둡니다. `--limit-per-table 300`은 각 테이블의 첫 300행만 추출하는 초기 시험용 옵션입니다.
 
 ## Open English WordNet
 

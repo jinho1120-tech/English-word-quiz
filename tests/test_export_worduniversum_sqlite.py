@@ -113,6 +113,29 @@ class WortUniversumExportTests(unittest.TestCase):
             self.assertEqual(exported_phrasal[0]["phrasal"], "give up")
             self.assertIn("to stop trying", exported_phrasal[0]["senses_json"])
 
+            sample_dir = temp_dir / "sample-output"
+            sample = subprocess.run(
+                [
+                    sys.executable,
+                    str(EXPORT_SCRIPT),
+                    str(compressed_database),
+                    "--output-dir",
+                    str(sample_dir),
+                    "--limit-per-table",
+                    "2",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(sample.returncode, 0, sample.stderr)
+            with (sample_dir / "words_001.csv").open("r", encoding="utf-8", newline="") as source:
+                sample_words = list(csv.DictReader(source))
+            with (sample_dir / "phrasal_verbs_001.csv").open("r", encoding="utf-8", newline="") as source:
+                sample_phrasal = list(csv.DictReader(source))
+            self.assertEqual(len(sample_words), 2)
+            self.assertEqual(len(sample_phrasal), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

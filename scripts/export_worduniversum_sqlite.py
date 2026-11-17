@@ -19,7 +19,8 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
-DEFAULT_MAX_ROWS = 5_000
+DEFAULT_MAX_ROWS = 500
+MAX_ROWS_LIMIT = 5_000
 DEFAULT_MAX_BYTES = 7 * 1024 * 1024
 TABLES = ("words", "phrasal_verbs")
 
@@ -38,6 +39,7 @@ def write_table_chunks(
     output_dir: Path,
     max_rows: int,
     max_bytes: int,
+    record_limit: int | None = None,
 ) -> tuple[int, list[Path]]:
     columns = [
         row[1]
@@ -47,9 +49,10 @@ def write_table_chunks(
         return 0, []
 
     order_by = "id" if "id" in columns else columns[0]
-    cursor = connection.execute(
-        "SELECT * FROM " + table + " ORDER BY " + order_by
-    )
+    query = "SELECT * FROM " + table + " ORDER BY " + order_by
+    if record_limit is not None:
+        query += " LIMIT " + str(record_limit)
+    cursor = connection.execute(query)
     header = csv_line(columns)
     header_bytes = len(header.encode("utf-8"))
     current_lines: list[str] = []
@@ -102,11 +105,14 @@ def export_database(
     output_dir: Path,
     max_rows: int = DEFAULT_MAX_ROWS,
     max_bytes: int = DEFAULT_MAX_BYTES,
+    limit_per_table: int | None = None,
 ) -> dict[str, tuple[int, list[Path]]]:
     if not database_path.is_file():
         raise FileNotFoundError("Database file not found: " + str(database_path))
-    if max_rows < 1 or max_rows > DEFAULT_MAX_ROWS:
+    if max_rows < 1 or max_rows > MAX_ROWS_LIMIT:
         raise ValueError("max_rows must be between 1 and 5000.")
+    if limit_per_table is not None and limit_per_table < 1:
+        raise ValueError("limit_per_table must be at least 1.")
     if max_bytes < 1024 or max_bytes > DEFAULT_MAX_BYTES:
         raise ValueError("max_bytes must be between 1024 and 7 MiB.")
 
@@ -141,7 +147,7 @@ def export_database(
                         continue
                     raise RuntimeError("Required table not found: " + table)
                 results[table] = write_table_chunks(
-                    connection, table, output_dir, max_rows, max_bytes
+                    connection, table, output_dir, max_rows, max_bytes, limit_per_table
                 )
         finally:
             connection.close()
@@ -164,7 +170,12 @@ def main() -> int:
         "--max-rows",
         type=int,
         default=DEFAULT_MAX_ROWS,
-        help="Maximum source rows per CSV (default: 5000)",
+        help="Maximum source rows per CSV (default: 500; maximum: 5000)",
+    )
+    parser.add_argument(
+        "--limit-per-table",
+        type=int,
+        help="Optional first-N sample from each table; omit to export all rows.",
     )
     parser.add_argument(
         "--max-bytes",
@@ -175,7 +186,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        results = export_database(args.database, args.output_dir, args.max_rows, args.max_bytes)
+        results = export_database(args.database, args.output_dir, args.max_rows, args.max_bytes, args.limit_per_table)
     except Exception as error:
         parser.exit(2, "Export failed: " + str(error) + "\n")
 
