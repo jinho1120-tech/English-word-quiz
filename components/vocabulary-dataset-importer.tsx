@@ -223,8 +223,12 @@ function firstText(value: unknown): string {
     }
   }
   if (isRecord(value)) {
-    for (const key of ["text", "sentence", "example", "value"]) {
+    for (const key of ["text", "sentence", "example", "value", "gloss", "definition", "meaning"]) {
       const found = firstText(value[key])
+      if (found) return found
+    }
+    for (const nested of Object.values(value)) {
+      const found = firstText(nested)
       if (found) return found
     }
   }
