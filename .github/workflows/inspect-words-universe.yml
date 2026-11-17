@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - analysis/grundwortschatz-db-inspection
+  workflow_dispatch:
 
 permissions:
   contents: write
