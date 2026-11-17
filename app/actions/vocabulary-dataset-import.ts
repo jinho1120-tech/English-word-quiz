@@ -313,24 +313,29 @@ export async function processNextVocabularyDatasetVerificationBatch(){
         if(!uniqueSenses.length)continue
         dictionarySensesByCandidate.set(candidate.id,uniqueSenses)
         uniqueSenses.forEach((sense,index)=>{
+          const korean=dictionaryKoreanTranslations(sense)
+          // A short source translation is already suitable; do not spend a Gemini request on it.
+          if(compactDictionaryTranslation(korean))return
           meaningTaskKeys.push(candidate.id+":"+index)
           meaningInputs.push({
             expression:candidate.expression,
             partOfSpeech:sense.partOfSpeech,
             verifiedDefinitionEn:sense.definition,
-            dictionaryTranslations:dictionaryKoreanTranslations(sense),
+            dictionaryTranslations:korean,
           })
         })
       }else{
         const match=matchVerifiedSense(candidate,lookup.senses)
         if(!match)continue
         matchedSenseByCandidate.set(candidate.id,match)
+        const korean=dictionaryKoreanTranslations(match.sense)
+        if(compactDictionaryTranslation(korean))continue
         meaningTaskKeys.push(candidate.id+":0")
         meaningInputs.push({
           expression:candidate.expression,
           partOfSpeech:match.sense.partOfSpeech,
           verifiedDefinitionEn:match.sense.definition,
-          dictionaryTranslations:dictionaryKoreanTranslations(match.sense),
+          dictionaryTranslations:korean,
         })
       }
     }
@@ -503,16 +508,23 @@ export async function processNextVocabularyDatasetMeaningBatch(){
     }
   })
   // One Gemini call for up to 25 candidates; never one request per word.
+  const aiIndices=prepared.map((item,index)=>item.fallback? -1:index).filter(index=>index>=0)
   const batchDrafts=await generateKoreanMeaningDrafts({
-    items:prepared.map(item=>({
-      expression:item.expression,
-      partOfSpeech:item.partOfSpeech,
-      verifiedDefinitionEn:item.verifiedDefinitionEn,
-      dictionaryTranslations:item.korean,
-    })),
+    items:aiIndices.map(index=>{
+      const item=prepared[index]
+      return {
+        expression:item.expression,
+        partOfSpeech:item.partOfSpeech,
+        verifiedDefinitionEn:item.verifiedDefinitionEn,
+        dictionaryTranslations:item.korean,
+      }
+    }),
   })
-  const results=prepared.map((item,index)=>{
-    const aiMeaning=batchDrafts[index]??null
+  const aiMeaningByCandidate=new Map(aiIndices.map((preparedIndex,draftIndex)=>[
+    prepared[preparedIndex].candidate.id,batchDrafts[draftIndex]??null,
+  ]))
+  const results=prepared.map(item=>{
+    const aiMeaning=aiMeaningByCandidate.get(item.candidate.id)??null
     const meaningKo=aiMeaning??item.fallback
     const suggestion:Record<string,unknown>=aiMeaning
       ?{status:"ai_short_gloss",sourceName:"Gemini",basedOn:"FreeDictionaryAPI verified sense",dictionaryTranslationHints:item.korean,requiresHumanReview:true}
@@ -534,7 +546,7 @@ export async function processNextVocabularyDatasetMeaningBatch(){
     generated:results.filter(item=>item.suggestion.status==="ai_short_gloss").length,
     fallback:results.filter(item=>item.suggestion.status==="dictionary_short_translation").length,
     unavailable:results.filter(item=>item.suggestion.status==="unavailable").length,
-    aiRequests:batch.length>0&&Boolean(process.env.GEMINI_API_KEY?.trim())?1:0,
+    aiRequests:aiIndices.length>0&&Boolean(process.env.GEMINI_API_KEY?.trim())?1:0,
     hasMore:pending.length>batch.length,
   }
 }
