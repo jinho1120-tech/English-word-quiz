@@ -282,7 +282,7 @@ export async function processNextVocabularyDatasetVerificationBatch(){
   }).from(vocabularyCandidates)
     .where(inArray(vocabularyCandidates.verificationStatus,["pending_verification","verification_retry"]))
     .orderBy(asc(vocabularyCandidates.createdAt)).limit(MAX_DICTIONARY_BATCH)
-  if(!pending.length)return {processed:0,matched:0,notFound:0,mismatched:0,retry:0,hasMore:false}
+  if(!pending.length)return {processed:0,matched:0,notFound:0,mismatched:0,retry:0,aiRequests:0,hasMore:false}
   const groups=new Map<string,typeof pending>()
   for(const candidate of pending){
     const group=groups.get(candidate.normalizedExpression)??[]
