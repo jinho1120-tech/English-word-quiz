@@ -16,7 +16,7 @@ import shutil
 import sqlite3
 import tempfile
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
 
 DEFAULT_MAX_ROWS = 500
