@@ -86,7 +86,7 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
           <h3 className="text-base font-bold">{candidate.expression}</h3>
           <p className="text-xs text-muted-foreground">{TYPE_LABELS[candidate.lexicalType] ?? candidate.lexicalType} · {candidate.partOfSpeech}</p>
         </div>
-        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">사전 확인됨 · 검토 대기</span>
+        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">사전 확인됨 · 운영자 검토 대기</span>
       </div>
       <div className="space-y-2 rounded-xl bg-muted/40 p-3">
         <p className="text-sm leading-relaxed">{candidate.definitionEn}</p>
@@ -129,10 +129,10 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
       </label>
       <label className="flex items-start gap-2 rounded-xl bg-muted/40 p-3 text-sm">
         <input type="checkbox" checked={difficultyVerified} onChange={(event) => setDifficultyVerified(event.target.checked)} className="mt-0.5 size-4 accent-primary" />
-        <span><span className="block font-semibold">난이도 검토 완료</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">선택한 레벨을 확인했을 때만 체크해 주세요. 전문 용어는 근거 없이 CEFR을 지정하지 않아도 됩니다.</span></span>
+        <span><span className="block font-semibold">난이도 검토 완료</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">레벨 테스트에 쓰려면 실제 자녀 난이도(L1~L6)를 지정하고 검토를 완료해야 합니다. CEFR은 선택 항목입니다.</span></span>
       </label>
       <div className="grid grid-cols-2 gap-2">
-        <HapticButton type="button" disabled={isPending || !meaningKo.trim() || (difficultyVerified && !childLevel && !cefrLevel)} onClick={() => review("approve")} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"><Check className="size-4" /> 검토 승인</HapticButton>
+        <HapticButton type="button" disabled={isPending || !meaningKo.trim() || !childLevel || !difficultyVerified} onClick={() => review("approve")} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"><Check className="size-4" /> 검토 승인</HapticButton>
         <HapticButton type="button" disabled={isPending} onClick={() => review("reject")} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground disabled:opacity-50"><X className="size-4" /> 후보 제외</HapticButton>
       </div>
       {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
