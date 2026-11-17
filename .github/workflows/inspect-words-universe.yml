@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - analysis/grundwortschatz-db-inspection
+    paths-ignore:
+      - analysis-output/**
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: grundwortschatz-db-inspection-${{ github.ref }}
@@ -43,3 +45,23 @@ jobs:
           path: artifacts/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Record run ID for artifact retrieval
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p analysis-output
+          cat > analysis-output/last-run.json <<EOF
+          {
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_number": "${GITHUB_RUN_NUMBER}",
+            "commit": "${GITHUB_SHA}",
+            "workflow": "Inspect WortUniversum vocabulary database"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add analysis-output/last-run.json
+          git commit -m "chore: record WortUniversum inspection run metadata"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
