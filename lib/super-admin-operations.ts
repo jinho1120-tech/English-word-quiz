@@ -49,6 +49,46 @@ export async function getSuperAdminOperationsOverview() {
   }
 }
 
+export async function getSuperAdminGameUsageReport(period: "all" | "7d" | "30d" | "month" = "all") {
+  await requireSuperAdmin()
+  if (!["all", "7d", "30d", "month"].includes(period)) throw new Error("조회 기간이 올바르지 않습니다.")
+
+  const filter = `AND (
+    $1 = 'all'
+    OR ($1 = '7d' AND p.started_at >= now() - interval '7 days')
+    OR ($1 = '30d' AND p.started_at >= now() - interval '30 days')
+    OR ($1 = 'month' AND p.started_at >= (date_trunc('month', timezone('Asia/Seoul', now())) AT TIME ZONE 'Asia/Seoul'))
+  )`
+
+  const [totals, families] = await Promise.all([
+    pool.query(
+      `SELECT p.game, count(*)::int AS plays
+       FROM child_game_plays p
+       WHERE true ${filter}
+       GROUP BY p.game
+       ORDER BY plays DESC, p.game`,
+      [period],
+    ),
+    pool.query(
+      `SELECT f.id::text AS family_id,
+              coalesce(u.name, '이름 없음') AS owner_name,
+              coalesce(u.email, '') AS owner_email,
+              p.game,
+              count(*)::int AS plays
+       FROM child_game_plays p
+       INNER JOIN child_profiles c ON c.id = p.child_profile_id
+       INNER JOIN families f ON f.id = c.family_id
+       LEFT JOIN "user" u ON u.id = f.owner_user_id
+       WHERE true ${filter}
+       GROUP BY f.id, u.name, u.email, p.game
+       ORDER BY plays DESC, owner_name, p.game`,
+      [period],
+    ),
+  ])
+
+  return { period, totals: totals.rows as { game: string; plays: number }[], families: families.rows as { family_id: string; owner_name: string; owner_email: string; game: string; plays: number }[] }
+}
+
 export async function getSuperAdminUsageReport(month: string) {
   await requireSuperAdmin()
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("조회 월 형식이 올바르지 않습니다.")
