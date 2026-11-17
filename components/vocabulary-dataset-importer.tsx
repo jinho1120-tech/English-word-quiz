@@ -378,13 +378,15 @@ export function VocabularyDatasetImporter() {
   const previewGroups = useMemo(() => {
     const groups = new Map<string, { expression: string; lexicalType: string; partOfSpeech: string; senses: number; firstDefinition: string }>()
     for (const row of mapped.rows) {
-      const key = [row.expression.toLocaleLowerCase("en-US"), row.lexicalType, row.partOfSpeech].join("|")
+      const lexicalType = row.lexicalType ?? defaultLexicalType
+      const partOfSpeech = row.partOfSpeech ?? "unknown"
+      const key = [row.expression.toLocaleLowerCase("en-US"), lexicalType, partOfSpeech].join("|")
       const current = groups.get(key)
       if (current) current.senses += 1
       else groups.set(key, {
         expression: row.expression,
-        lexicalType: row.lexicalType,
-        partOfSpeech: row.partOfSpeech,
+        lexicalType,
+        partOfSpeech,
         senses: 1,
         firstDefinition: row.definitionEn,
       })
