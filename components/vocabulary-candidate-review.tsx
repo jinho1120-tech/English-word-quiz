@@ -87,14 +87,14 @@ function CandidateCard({ candidate, onReviewed }: { candidate: Candidate; onRevi
           <h3 className="text-base font-bold">{candidate.expression}</h3>
           <p className="text-xs text-muted-foreground">{TYPE_LABELS[candidate.lexicalType] ?? candidate.lexicalType} · {candidate.partOfSpeech}</p>
         </div>
-        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">사전 확인됨 · 운영자 검토 대기</span>
+        <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">원문 데이터 확인됨 · 운영자 검토 대기</span>
       </div>
       <div className="space-y-2 rounded-xl bg-muted/40 p-3">
         <p className="text-sm leading-relaxed">{candidate.definitionEn}</p>
         {candidate.exampleSentence && <p className="text-xs italic leading-relaxed text-muted-foreground">“{candidate.exampleSentence}”</p>}
         <p className="text-[11px] text-muted-foreground">
           출처: {candidate.sourceName} · {candidate.licenseName}
-          {candidate.sourceEntryUrl && <> · <a href={candidate.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 Wiktionary</a></>}
+          {candidate.sourceEntryUrl && <> · <a href={candidate.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 보기</a></>}
           {candidate.licenseUrl && <> · <a href={candidate.licenseUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">라이선스</a></>}
         </p>
       </div>
@@ -158,7 +158,7 @@ export function VocabularyCandidateReview({ candidates, candidatePage, candidate
     <section id="candidate-review" className="space-y-3 rounded-2xl border border-border bg-card p-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-bold"><Languages className="size-5" /> 어휘 후보 검토</h2>
-        <p className="mt-1 text-sm text-muted-foreground">사전에 존재하는 표현을 확인한 뒤 한국어 뜻과 난이도를 검토해 주세요. 사전 존재 여부만으로는 추천 후보가 되지 않아요.</p>
+        <p className="mt-1 text-sm text-muted-foreground">영어 정의와 예문, 출처를 확인한 뒤 한국어 뜻과 난이도를 검토해 주세요. 원문 데이터에 포함되어 있다는 사실만으로는 추천 후보가 되지 않아요.</p>
         <p className="mt-1 text-xs text-muted-foreground"><ShieldCheck className="mr-1 inline size-3.5" /> L1–L6은 서비스 내부 기준이며, CEFR도 이 후보의 난이도를 검토해 지정하는 값이에요.</p>
       </div>
       {visible.map((candidate) => <CandidateCard key={candidate.id} candidate={candidate} onReviewed={(id) => setItems((current) => current.filter((item) => item.id !== id))} />)}
