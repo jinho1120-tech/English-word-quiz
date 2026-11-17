@@ -150,7 +150,10 @@ function parseDatasetText(input: string, fileName: string): DatasetRecord[] {
     }
     const values = Object.entries(parsed)
     if (values.length > 0 && values.every(([, value]) => isRecord(value))) {
-      return values.map(([id, value]) => ({ ...value, id: value.id ?? id }))
+      return values.map(([id, value]) => {
+        const record = value as DatasetRecord
+        return { ...record, id: record.id ?? id }
+      })
     }
   }
   throw new Error("JSON에서 어휘 레코드 배열을 찾지 못했습니다. 각 항목이 객체인 배열 또는 JSONL 형식이어야 합니다.")

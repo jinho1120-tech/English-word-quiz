@@ -88,7 +88,7 @@ function prepareRows(
   const licenseUrl = metadataInput.licenseUrl
     ? requireHttpsUrl(metadataInput.licenseUrl, "라이선스 주소", true)
     : null
-  const metadata = { sourceName, sourceDatasetUrl, licenseName, licenseUrl }
+  const metadata = { sourceName, sourceDatasetUrl, licenseName, licenseUrl: licenseUrl ?? undefined }
 
   const prepared = rows.map((row, index) => {
     if (!isRecord(row)) throw new Error((index + 1) + "번째 데이터 형식이 올바르지 않습니다.")
