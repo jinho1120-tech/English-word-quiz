@@ -306,7 +306,10 @@ export async function processNextVocabularyDatasetVerificationBatch(){
     for(const candidate of candidates){
       const payload=isRecord(candidate.sourcePayload)?candidate.sourcePayload:{}
       if(payload.dictionaryMode==="lookup_by_expression"){
-        const uniqueSenses=dictionarySensesByCandidate.get(candidate.id)??[]
+        const uniqueSenses=[...new Map(lookup.senses
+          .filter(sense=>typeof sense.definition==="string"&&sense.definition.trim())
+          .map(sense=>[sense.partOfSpeech.toLowerCase()+"|"+normalizedDefinition(sense.definition),sense])).values()]
+          .slice(0,20)
         if(!uniqueSenses.length)continue
         dictionarySensesByCandidate.set(candidate.id,uniqueSenses)
         uniqueSenses.forEach((sense,index)=>{
