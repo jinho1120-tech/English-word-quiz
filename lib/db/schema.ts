@@ -350,6 +350,7 @@ export const aiVocabularySettings = pgTable("ai_vocabulary_settings", {
   idiomsPerDay: integer("idioms_per_day").default(5).notNull(),
   wordLevel: varchar("word_level", { length: 2 }).default("L1").notNull(),
   idiomLevel: varchar("idiom_level", { length: 2 }).default("L1").notNull(),
+  senseStage: varchar("sense_stage", { length: 16 }).default("primary").notNull(),
   activeDays: jsonb("active_days").$type<number[]>().default([0, 1, 2, 3, 4, 5, 6]).notNull(),
   publishMode: varchar("publish_mode", { length: 16 }).default("manual").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
