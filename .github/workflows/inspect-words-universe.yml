@@ -1,4 +1,4 @@
-name: Inspect WortUniversum vocabulary database
+name: Inspect WortUniversum vocabulary database (read-only audit)
 
 on:
   push:
