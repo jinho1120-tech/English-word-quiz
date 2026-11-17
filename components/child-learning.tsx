@@ -13,6 +13,7 @@ import { WordDefenseGame } from "@/components/arcade/word-defense-game"
 import { OWL_GAME_NAME, OWL_GAME_TITLE } from "@/components/arcade/game-branding"
 import { BlueOwlIcon } from "@/components/arcade/owl-icon"
 import { addChildWord, addChildWordsBulk, scanChildWordsImage, deleteChildWord, clearChildWords, updateChildWord, recordChildQuizResult, gradeChildListeningAnswer, getChildAzureSpeechToken, startChildPacmanGame, startChildAiVocabularyQuiz, completeChildAiVocabularyQuiz } from "@/app/actions/child-words"
+import { getCachedTtsAudio, saveCachedTtsAudio } from "@/lib/tts-audio-cache"
 
 type Subject = { id: string; name: string; color: string }
 type Word = { id: number; subjectId: string | null; subject: string; word: string; meaning: string; example: string | null; wrongCount: number; disambiguation: string | null; lexicalType: string; sourceName?: string | null; sourceEntryUrl?: string | null; licenseName?: string | null; licenseUrl?: string | null }
@@ -175,6 +176,14 @@ export function ChildLearning({
       const cached = ttsCacheRef.current.get(cacheKey)
       if (cached) { await playUrl(cached); return }
 
+      const persistedAudio = await getCachedTtsAudio(cacheKey)
+      if (persistedAudio) {
+        const url = URL.createObjectURL(persistedAudio)
+        ttsCacheRef.current.set(cacheKey, url)
+        await playUrl(url)
+        return
+      }
+
       const token = await getChildAzureSpeechToken()
       if (!token.success || !token.token || !token.region) {
         fallbackTTS(cleanText)
@@ -193,8 +202,10 @@ export function ChildLearning({
         synthesizer.speakSsmlAsync(ssml, async (result) => {
           synthesizer.close()
           if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
-            const url = URL.createObjectURL(new Blob([result.audioData], { type: "audio/wav" }))
+            const audioBlob = new Blob([result.audioData], { type: "audio/wav" })
+            const url = URL.createObjectURL(audioBlob)
             ttsCacheRef.current.set(cacheKey, url)
+            void saveCachedTtsAudio(cacheKey, audioBlob)
             await playUrl(url)
           } else {
             fallbackTTS(cleanText)
@@ -315,39 +326,17 @@ export function ChildLearning({
         <WordStorageCalendar selectedDate={date} subjects={subjects} initialStorage={initialStorage} refreshKey={calendarRefreshVersion} onSelectDate={(nextDate) => { setDate(nextDate); router.push("/child?date=" + nextDate) }} />
         <ChildAiVocabularyAssessment summary={aiVocabularyAssessment} />
         <div className="grid grid-cols-4 gap-1 rounded-2xl border border-border bg-muted/50 p-1 sm:gap-1.5 sm:p-1.5">
-          <HapticButton
-            hapticLabel="날짜별 퀴즈 탭"
-            onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
-            wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "daily" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-          >
-            <GraduationCap className={`size-5 shrink-0 ${activeTab === "daily" ? "animate-tab-pulse" : ""}`} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>날짜별 퀴즈</span>
+          <HapticButton hapticLabel="단어 카드 탭" onClick={() => { setActiveTab("cards"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} wrapperClassName="relative flex h-full" className={"flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors sm:gap-1 sm:py-2.5 sm:text-sm " + (activeTab === "cards" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80")}>
+            <BookOpen className={"size-5 shrink-0 " + (activeTab === "cards" ? "animate-tab-pulse" : "")} style={activeTab === "cards" ? { color: "var(--child-accent, #2563eb)" } : undefined} /><span>단어 카드</span>
           </HapticButton>
-          <HapticButton
-            hapticLabel="오답 몬스터 탭"
-            onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
-            wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "wrong" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-          >
-            <Ghost className={`size-5 shrink-0 ${activeTab === "wrong" ? "animate-monster-hop" : ""}`} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
-            <span>오답 몬스터</span>
+          <HapticButton hapticLabel="날짜별 퀴즈 탭" onClick={() => { setActiveTab("daily"); setReviewMode("daily"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} wrapperClassName="relative flex h-full" className={"flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors sm:gap-1 sm:py-2.5 sm:text-sm " + (activeTab === "daily" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80")}>
+            <GraduationCap className={"size-5 shrink-0 " + (activeTab === "daily" ? "animate-tab-pulse" : "")} style={activeTab === "daily" ? { color: "var(--child-accent, #2563eb)" } : undefined} /><span>날짜별 퀴즈</span>
           </HapticButton>
-          <HapticButton
-            hapticLabel="단어 카드 탭"
-            onClick={() => { setActiveTab("cards"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
-            wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "cards" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-          >
-            <BookOpen className={`size-5 shrink-0 ${activeTab === "cards" ? "animate-tab-pulse" : ""}`} style={activeTab === "cards" ? { color: "var(--child-accent, #2563eb)" } : undefined} />
-            <span>단어 카드</span>
+          <HapticButton hapticLabel="오답 몬스터 탭" onClick={() => { setActiveTab("wrong"); setReviewMode("wrong"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} wrapperClassName="relative flex h-full" className={"flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors sm:gap-1 sm:py-2.5 sm:text-sm " + (activeTab === "wrong" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80")}>
+            <Ghost className={"size-5 shrink-0 " + (activeTab === "wrong" ? "animate-monster-hop" : "")} style={activeTab === "wrong" ? { color: "var(--child-accent, #2563eb)" } : undefined} /><span>오답 몬스터</span>
           </HapticButton>
-          <HapticButton
-            hapticLabel="단어 입력 탭"
-            onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }}
-            wrapperClassName="relative flex h-full"
-            className={`w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 sm:gap-1 sm:py-2.5 text-[11px] sm:text-sm font-semibold transition-colors ${activeTab === "manage" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80"}`}
-          >
-            <Pencil className={`size-5 shrink-0 ${activeTab === "manage" ? "animate-pencil-write" : ""}`} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /> <span>단어 입력</span>
+          <HapticButton hapticLabel="단어 입력 탭" onClick={() => { setActiveTab("manage"); setQuizMode(false); setQuizIndex(0); setQuizFeedback(null) }} wrapperClassName="relative flex h-full" className={"flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors sm:gap-1 sm:py-2.5 sm:text-sm " + (activeTab === "manage" ? "bg-primary-container text-primary-container-foreground shadow-sm" : "text-muted-foreground hover:text-foreground/80")}>
+            <Pencil className={"size-5 shrink-0 " + (activeTab === "manage" ? "animate-pencil-write" : "")} style={activeTab === "manage" ? { color: "var(--child-accent, #2563eb)" } : undefined} /><span>단어 입력</span>
           </HapticButton>
         </div>
         {(activeTab === "daily" || activeTab === "wrong") && <div className="flex gap-2 overflow-x-auto pb-1">
@@ -356,7 +345,7 @@ export function ChildLearning({
         </div>}
       </section>
 
-      {activeTab === "cards" && <WordFlashcards words={allWords} subjects={subjects} initialFavoriteWordIds={favoriteWordIds} onSpeak={playPronunciation} aiBundle={todayAiBundle} onStartAiQuiz={startTodayAiQuiz} />}
+      {activeTab === "cards" && <WordFlashcards dateWords={initialWords} allWords={allWords} selectedDate={date} subjects={subjects} initialFavoriteWordIds={favoriteWordIds} onSpeak={playPronunciation} ttsVoice={ttsVoice} onTtsVoiceChange={(voice) => { setTtsVoice(voice); window.localStorage.setItem("word_quiz_tts_voice", voice) }} aiBundle={todayAiBundle} onStartAiQuiz={startTodayAiQuiz} />}
       {activeTab === "manage" && <div className="space-y-6 lg:col-span-2">
       <section className="space-y-4 rounded-2xl border border-border p-4">
         <h2 className="font-bold">단어 추가</h2>

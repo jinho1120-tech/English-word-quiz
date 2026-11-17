@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import type { PointerEvent as ReactPointerEvent, KeyboardEvent as ReactKeyboardEvent } from "react"
 import { Bookmark, ChevronLeft, ChevronRight, List, RotateCcw, Star, Volume2 } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
 import { recordChildAiVocabularyCardView, toggleChildWordFavorite } from "@/app/actions/child-words"
@@ -29,32 +30,41 @@ type AiBundle = {
 }
 
 export function WordFlashcards({
-  words,
+  dateWords,
+  allWords,
+  selectedDate,
   subjects,
   initialFavoriteWordIds,
   onSpeak,
+  ttsVoice,
+  onTtsVoiceChange,
   aiBundle,
   onStartAiQuiz,
 }: {
-  words: FlashcardWord[]
+  dateWords: FlashcardWord[]
+  allWords: FlashcardWord[]
+  selectedDate: string
   subjects: FlashcardSubject[]
   initialFavoriteWordIds: number[]
   onSpeak: (text: string) => void
+  ttsVoice: string
+  onTtsVoiceChange: (voice: string) => void
   aiBundle: AiBundle | null
   onStartAiQuiz: () => void
 }) {
   const [subjectFilter, setSubjectFilter] = useState("__all__")
-  const [cardScope, setCardScope] = useState<"all" | "today-ai">("all")
+  const [cardScope, setCardScope] = useState<"date" | "favorites" | "today-ai">("date")
   const [quizPromptDismissed, setQuizPromptDismissed] = useState(false)
   const [bundleCardsComplete, setBundleCardsComplete] = useState(Boolean(aiBundle && aiBundle.items.length > 0 && aiBundle.items.every((item) => item.frontViewedAt && item.backViewedAt)))
   const recordedSides = useRef(new Set<string>())
-  const [favoritesOnly, setFavoritesOnly] = useState(false)
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(() => new Set(initialFavoriteWordIds))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
+  const pointerStart = useRef<{ x: number; y: number } | null>(null)
+  const suppressClick = useRef(false)
 
   const todayAiWords = useMemo(() => (aiBundle?.items ?? [])
     .filter((item) => item.wordEntryId !== null)
@@ -73,18 +83,14 @@ export function WordFlashcards({
       licenseUrl: item.licenseUrl,
       aiBundleItemId: item.id,
     })), [aiBundle])
-  const visibleWordbook = useMemo(() => words.filter((item) =>
-    !item.subjectId || subjects.some((subject) => subject.id === item.subjectId),
-  ), [words, subjects])
-  const sourceWords = cardScope === "today-ai" ? todayAiWords : visibleWordbook
+  const sourceWords = cardScope === "today-ai" ? todayAiWords : cardScope === "favorites"
+    ? allWords.filter((item) => favoriteIds.has(item.id))
+    : dateWords
   const filteredWords = useMemo(() => sourceWords.filter((item) => {
-    const matchesSubject = cardScope === "today-ai" || subjectFilter === "__all__" ||
-      item.subjectId === subjectFilter ||
+    if (cardScope === "today-ai" || subjectFilter === "__all__") return true
+    return item.subjectId === subjectFilter ||
       (!item.subjectId && item.subject === subjects.find((subject) => subject.id === subjectFilter)?.name)
-    const matchesFavorite = !favoritesOnly || favoriteIds.has(item.id)
-    return matchesSubject && matchesFavorite
-  }), [sourceWords, cardScope, subjectFilter, favoritesOnly, favoriteIds, subjects])
-
+  }), [sourceWords, cardScope, subjectFilter, subjects])
   const safeIndex = filteredWords.length ? currentIndex % filteredWords.length : 0
   const current = filteredWords[safeIndex]
   const isFavorite = current ? favoriteIds.has(current.id) : false
@@ -117,6 +123,37 @@ export function WordFlashcards({
     setError("")
   }
 
+  function changeScope(nextScope: "date" | "favorites" | "today-ai") {
+    setCardScope(nextScope)
+    setSubjectFilter("__all__")
+    setCurrentIndex(0)
+    setIsFlipped(false)
+    setViewMode("card")
+    setError("")
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>) {
+    pointerStart.current = { x: event.clientX, y: event.clientY }
+    suppressClick.current = false
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
+    const start = pointerStart.current
+    pointerStart.current = null
+    if (!start || event.pointerType === "mouse") return
+    const deltaX = event.clientX - start.x
+    const deltaY = event.clientY - start.y
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+    suppressClick.current = true
+    move(deltaX < 0 ? 1 : -1)
+  }
+
+  function handleCardKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowLeft") { event.preventDefault(); move(-1) }
+    else if (event.key === "ArrowRight") { event.preventDefault(); move(1) }
+    else if (event.key === " " || event.key === "Enter") { event.preventDefault(); setIsFlipped((value) => !value) }
+  }
+
   function toggleFavorite() {
     if (!current || isPending) return
     setError("")
@@ -143,27 +180,33 @@ export function WordFlashcards({
           <p className="mt-0.5 text-xs text-muted-foreground">카드를 눌러 뜻과 예문을 확인해 보세요.</p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button type="button" aria-pressed={favoritesOnly} onClick={() => { setFavoritesOnly((value) => !value); setCurrentIndex(0); setIsFlipped(false) }} className={favoritesOnly ? "inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary-container px-3 py-2 text-xs font-semibold text-primary-container-foreground" : "inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground"}>
-            <Star className="size-3.5" /> 즐겨찾기
-          </button>
+          <label className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-2.5 py-2 text-xs font-semibold text-muted-foreground">
+            <Volume2 className="size-3.5" />
+            <span>음성</span>
+            <select aria-label="단어 카드 음성 선택" value={ttsVoice} onChange={(event) => onTtsVoiceChange(event.target.value)} className="max-w-[120px] bg-transparent text-xs font-bold text-foreground outline-none">
+              <option value="en-US-AnaNeural">어린이 목소리</option>
+              <option value="en-US-JennyNeural">여성 목소리</option>
+              <option value="en-US-GuyNeural">남성 목소리</option>
+              <option value="en-US-AriaNeural">표준 목소리</option>
+            </select>
+          </label>
           <button type="button" aria-pressed={viewMode === "list"} onClick={() => setViewMode((value) => value === "card" ? "list" : "card")} className={viewMode === "list" ? "inline-flex items-center gap-1.5 rounded-xl border border-primary bg-primary-container px-3 py-2 text-xs font-semibold text-primary-container-foreground" : "inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground"}>
             <List className="size-3.5" /> {viewMode === "list" ? "카드 보기" : "전체 목록"}
           </button>
         </div>
       </div>
 
-      {aiBundle && (
-        <div className="flex gap-2">
-          <HapticButton type="button" onClick={() => { setCardScope("all"); setCurrentIndex(0); setIsFlipped(false); changeFilter("__all__") }} className={cardScope === "all" ? "rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" : "rounded-xl border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground"}>전체 과목</HapticButton>
-          <HapticButton type="button" onClick={() => { setCardScope("today-ai"); setSubjectFilter("__all__"); setCurrentIndex(0); setIsFlipped(false); setError("") }} className={cardScope === "today-ai" ? "rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground" : "rounded-xl border border-border bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground"}>오늘의 AI 추천</HapticButton>
-        </div>
-      )}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <HapticButton type="button" onClick={() => changeScope("date")} className={cardScope === "date" ? "rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground" : "rounded-xl border border-border bg-muted px-3 py-2 text-xs font-bold text-muted-foreground"}>날짜별 카드</HapticButton>
+        <HapticButton type="button" onClick={() => changeScope("favorites")} className={cardScope === "favorites" ? "rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground" : "rounded-xl border border-border bg-muted px-3 py-2 text-xs font-bold text-muted-foreground"}><Star className="mr-1 inline size-3.5" /> 즐겨찾기</HapticButton>
+        {aiBundle && <HapticButton type="button" onClick={() => changeScope("today-ai")} className={cardScope === "today-ai" ? "rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground" : "rounded-xl border border-border bg-muted px-3 py-2 text-xs font-bold text-muted-foreground"}>오늘의 AI 추천</HapticButton>}
+      </div>
+      {cardScope !== "today-ai" && <div className="flex gap-2 overflow-x-auto pb-1">
         <HapticButton type="button" onClick={() => changeFilter("__all__")} className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold ${subjectFilter === "__all__" ? "bg-primary text-primary-foreground" : "border border-border bg-muted text-muted-foreground"}`}>전체</HapticButton>
         {subjects.map((subject) => (
           <HapticButton key={subject.id} type="button" onClick={() => changeFilter(subject.id)} className={`shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold ${subjectFilter === subject.id ? "bg-primary text-primary-foreground" : "border border-border bg-muted text-muted-foreground"}`}>{subject.name}</HapticButton>
         ))}
-      </div>
+      </div>}
 
       {viewMode === "list" && filteredWords.length > 0 ? (
         <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
@@ -191,20 +234,24 @@ export function WordFlashcards({
       ) : !current ? (
         <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-12 text-center">
           <Bookmark className="mx-auto mb-3 size-8 text-muted-foreground" />
-          <p className="font-semibold">{favoritesOnly ? "즐겨찾기한 표현이 아직 없어요." : "아직 카드로 볼 표현이 없어요."}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{favoritesOnly ? "카드 오른쪽 위 별표를 눌러 모아 보세요." : "부모님이나 내가 등록한 단어가 이곳에 모여요."}</p>
+          <p className="font-semibold">{cardScope === "favorites" ? "즐겨찾기한 표현이 아직 없어요." : "아직 카드로 볼 표현이 없어요."}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{cardScope === "favorites" ? "날짜별 카드에서 별표를 눌러 모아 보세요." : "선택한 날짜에 등록된 단어가 이곳에 모여요."}</p>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{current.subject}</span>
+            <span>{current.subject}{cardScope === "date" ? " · " + selectedDate : ""}</span>
             <span>{safeIndex + 1} / {filteredWords.length}</span>
           </div>
           <button
             type="button"
-            onClick={() => setIsFlipped((value) => !value)}
+            onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } setIsFlipped((value) => !value) }}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={() => { pointerStart.current = null }}
+            onKeyDown={handleCardKeyDown}
             aria-label={isFlipped ? "영어 표현 앞면으로 뒤집기" : "뜻과 예문 뒷면 보기"}
-            className="flex min-h-[260px] w-full flex-col items-center justify-center rounded-3xl border border-border bg-muted/45 px-5 py-8 text-center transition-colors hover:bg-muted/70 sm:min-h-[300px]"
+            className="flex min-h-[260px] w-full touch-pan-y flex-col items-center justify-center rounded-3xl border border-border bg-muted/45 px-5 py-8 text-center transition-colors hover:bg-muted/70 sm:min-h-[300px]"
           >
             {isFlipped ? (
               <>
