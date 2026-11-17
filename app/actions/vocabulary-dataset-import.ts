@@ -189,9 +189,6 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
     }
   })
 }
-function candidateKey(row:{normalizedExpression:string;lexicalType:string;partOfSpeech:string;senseKey:string}){
-  return [row.normalizedExpression,row.lexicalType,row.partOfSpeech,row.senseKey].join("|")
-}
 export async function previewVocabularyDatasetImport(input:{rows:VocabularyDatasetImportRow[];defaultLexicalType:string;metadata:VocabularyDatasetImportMetadata}){
   await requireSuperAdmin()
   const prepared=prepareRows(input?.rows,input?.defaultLexicalType,input?.metadata)
