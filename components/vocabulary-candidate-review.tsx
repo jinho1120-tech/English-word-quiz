@@ -7,6 +7,7 @@ import { Check, Languages, RefreshCw, ShieldCheck, X } from "lucide-react"
 import { HapticButton } from "@/components/haptic-button"
 import { reviewVocabularyCandidate } from "@/app/actions/ai-vocabulary"
 import {
+  processNextVocabularyDatasetMeaningBatch,
   processNextVocabularyDatasetVerificationBatch,
   regenerateVocabularyCandidateKoreanMeaning,
   retryVocabularyCandidateVerification,
@@ -49,7 +50,8 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
   const datasetUrl=typeof payload.datasetUrl==="string"?payload.datasetUrl:null
   const dictionaryMatched=verification.status==="matched"
   const levelMapped=levelMapping.status==="mapped"
-  const canApprove=!isDataset||(dictionaryMatched&&levelMapped&&candidate.verificationStatus==="dictionary_found")
+  const compactMeaningReady=["ai_short_gloss","dictionary_short_translation"].includes(String(meaningSuggestion.status))
+  const canApprove=!isDataset||(dictionaryMatched&&levelMapped&&candidate.verificationStatus==="dictionary_found"&&compactMeaningReady&&Boolean(candidate.meaningKo?.trim())&&candidate.meaningKo!.trim().length<=50)
   const [meaningKo,setMeaningKo]=useState(candidate.meaningKo??"")
   const [learningStage,setLearningStage]=useState<"primary"|"additional">(candidate.learningStage==="additional"?"additional":"primary")
   const [disambiguation,setDisambiguation]=useState(candidate.disambiguation??"")
@@ -133,12 +135,12 @@ function CandidateCard({candidate,onReviewed}:{candidate:Candidate;onReviewed:(i
         <span className="text-xs font-semibold text-muted-foreground">한국어 뜻 제안</span>
         <input value={meaningKo} onChange={event=>setMeaningKo(event.target.value)} maxLength={200} placeholder="검증된 의미에 대한 한국어 뜻" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"/>
         <span className="block text-[11px] text-muted-foreground">
-          {meaningSuggestion.status==="dictionary_translation"?"FreeDictionaryAPI 제공 한국어 번역":
-           meaningSuggestion.status==="ai_draft"?"Gemini 초안 · 사전 검증 정의 기반 · 관리자 확인 필요":
-           meaningSuggestion.status==="unavailable"?"한국어 뜻 제안 생성 실패 · 다시 시도할 수 있습니다":"한국어 뜻 출처 미확인"}
+          {meaningSuggestion.status==="dictionary_short_translation"?"FreeDictionaryAPI의 짧은 한국어 번역":
+           meaningSuggestion.status==="ai_short_gloss"?"Gemini가 사전 정의를 바탕으로 만든 짧은 학습용 뜻":
+           meaningSuggestion.status==="unavailable"?"짧은 뜻 자동 생성 실패 · 다시 시도할 수 있습니다":"짧은 학습용 뜻 자동 정리 대기"}
         </span>
-        {isDataset&&dictionaryMatched&&meaningSuggestion.status==="unavailable"&&
-          <HapticButton type="button" disabled={isPending} onClick={retryMeaning} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"><RefreshCw className="size-3.5"/>한국어 뜻 다시 생성</HapticButton>}
+        {isDataset&&dictionaryMatched&&!compactMeaningReady&&
+          <HapticButton type="button" disabled={isPending} onClick={retryMeaning} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"><RefreshCw className="size-3.5"/>짧은 학습용 뜻 다시 생성</HapticButton>}
       </label>
       <label className="block space-y-1.5">
         <span className="text-xs font-semibold text-muted-foreground">뜻 구분 설명 (선택)</span>
@@ -187,11 +189,32 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
     setError("");setNotice("")
     startTransition(async()=>{
       try{
-        setProgress("최대 5개 표제어의 사전 조회 및 뜻 제안 중…")
+        setProgress("최대 5개 표제어의 사전 조회 및 짧은 뜻 제안 중…")
         const result=await processNextVocabularyDatasetVerificationBatch()
-        setNotice(`처리 ${result.processed}개 · 검증 통과 ${result.matched}개 · 사전 미검색 ${result.notFound}개 · 뜻/품사 불일치 ${result.mismatched}개 · 재시도 ${result.retry}개`)
+        setNotice(`처리 ${result.processed}개 · 사전 조회 성공 ${result.matched}개 · 사전 미검색 ${result.notFound}개 · 뜻/품사 불일치 ${result.mismatched}개 · 재시도 ${result.retry}개`)
         router.refresh()
-      }catch(cause){setError(cause instanceof Error?cause.message:"사전 검증을 완료하지 못했어요.")}
+      }catch(cause){setError(cause instanceof Error?cause.message:"사전 조회 및 뜻 제안을 완료하지 못했어요.")}
+      finally{setProgress("")}
+    })
+  }
+  function simplifyAllMeanings(){
+    setError("");setNotice("")
+    startTransition(async()=>{
+      let processed=0,generated=0,fallback=0,unavailable=0,rounds=0
+      try{
+        while(rounds<200){
+          const result=await processNextVocabularyDatasetMeaningBatch()
+          processed+=result.processed
+          generated+=result.generated
+          fallback+=result.fallback
+          unavailable+=result.unavailable
+          setProgress(`짧은 학습용 뜻 자동 정리 중… ${processed.toLocaleString("ko-KR")}개 처리`)
+          rounds++
+          if(!result.hasMore||result.processed===0)break
+        }
+        setNotice(`자동 정리 완료: ${processed}개 처리 · AI 뜻 ${generated}개 · 짧은 사전 번역 ${fallback}개 · 재시도 필요 ${unavailable}개. 뜻이 준비되지 않은 항목만 개별 확인해 주세요.`)
+        router.refresh()
+      }catch(cause){setError(cause instanceof Error?cause.message:"짧은 뜻 자동 정리를 완료하지 못했어요.")}
       finally{setProgress("")}
     })
   }
@@ -213,6 +236,8 @@ export function VocabularyCandidateReview({candidates,candidatePage,candidatePag
         <p className="mt-1 text-xs text-muted-foreground"><ShieldCheck className="mr-1 inline size-3.5"/>Gemini 한국어 뜻은 초안으로 표시되고, 레벨은 원본 학년·CEFR·YLE·빈도 신호의 고정 규칙으로만 변환합니다.</p>
       </div>
       <HapticButton type="button" disabled={isPending} onClick={verifyNextBatch} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold disabled:opacity-50"><ShieldCheck className="size-4"/>{isPending?(progress||"검증 중…"):"다음 5개 표제어 사전 조회 및 뜻 제안"}</HapticButton>
+      <HapticButton type="button" disabled={isPending} onClick={simplifyAllMeanings} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold disabled:opacity-50"><Languages className="size-4"/>{isPending?(progress||"뜻 정리 중…"):"조회된 후보의 짧은 학습용 뜻 전체 자동 정리"}</HapticButton>
+      <p className="text-xs text-muted-foreground">이미 조회된 긴 한국어 번역도 한 번에 자동으로 줄입니다. 사전 원문과 번역 기록은 보존하며, 간결한 뜻을 만들 수 없는 항목만 별도 확인 대상으로 남깁니다.</p>
       {notice&&<p role="status" className="rounded-lg bg-muted/50 p-3 text-xs">{notice}</p>}{error&&<p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {visible.map(candidate=><CandidateCard key={candidate.id} candidate={candidate} onReviewed={id=>setItems(current=>current.filter(item=>item.id!==id))}/>)}
       {items.length>5&&<button type="button" onClick={()=>setShowAll(value=>!value)} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted-foreground">{showAll?"접기":`나머지 ${items.length-5}개 더 보기`}</button>}
