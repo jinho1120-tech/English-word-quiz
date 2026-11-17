@@ -14,6 +14,7 @@ type ChildSetting = {
   idiomsPerDay: number
   wordLevel: string
   idiomLevel: string
+  senseStage: "primary" | "additional"
   activeDays: number[]
   publishMode: "manual" | "automatic"
   latestWordAssessment: { assignedLevel: string; questionCount: number; correctCount: number; confidence: string; completedAt: Date | null } | null
@@ -50,6 +51,7 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
   const [idiomsPerDay, setIdiomsPerDay] = useState(selected?.idiomsPerDay ?? 5)
   const [wordLevel, setWordLevel] = useState(selected?.wordLevel ?? "L1")
   const [idiomLevel, setIdiomLevel] = useState(selected?.idiomLevel ?? "L1")
+  const [senseStage, setSenseStage] = useState<"primary" | "additional">(selected?.senseStage ?? "primary")
   const [activeDays, setActiveDays] = useState<number[]>(selected?.activeDays ?? [0, 1, 2, 3, 4, 5, 6])
   const [publishMode, setPublishMode] = useState<"manual" | "automatic">(selected?.publishMode ?? "manual")
   const [message, setMessage] = useState("")
@@ -62,6 +64,7 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
     setIdiomsPerDay(selected.idiomsPerDay)
     setWordLevel(selected.wordLevel)
     setIdiomLevel(selected.idiomLevel)
+    setSenseStage(selected.senseStage ?? "primary")
     setActiveDays(selected.activeDays)
     setPublishMode(selected.publishMode)
     setMessage("")
@@ -85,6 +88,7 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
           idiomsPerDay,
           wordLevel,
           idiomLevel,
+          senseStage,
           activeDays,
           publishMode,
         })
@@ -140,6 +144,14 @@ export function ParentAiVocabularySettings({ settings }: { settings: ChildSettin
                     </select>
                   </label>
                 </div>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">단어 의미 학습 단계</span>
+                  <select value={senseStage} onChange={(event) => setSenseStage(event.target.value as "primary" | "additional")} className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm">
+                    <option value="primary">1단계 · 대표 의미 먼저</option>
+                    <option value="additional">2단계 · 추가 의미 학습</option>
+                  </select>
+                  <span className="block text-[11px] leading-relaxed text-muted-foreground">대표 의미를 충분히 학습한 뒤 추가 의미 단계로 전환하세요. 선택한 단계의 승인된 의미만 AI 추천에 사용됩니다.</span>
+                </label>
                 <div className="space-y-2 rounded-xl bg-muted/40 p-3">
                   <p className="text-xs font-semibold text-muted-foreground">최근 레벨 진단 결과</p>
                   <div className="grid grid-cols-2 gap-2">

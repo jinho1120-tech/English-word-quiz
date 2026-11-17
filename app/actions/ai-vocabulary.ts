@@ -65,6 +65,7 @@ export async function getParentAiVocabularySettings() {
     idiomsPerDay: aiVocabularySettings.idiomsPerDay,
     wordLevel: aiVocabularySettings.wordLevel,
     idiomLevel: aiVocabularySettings.idiomLevel,
+    senseStage: aiVocabularySettings.senseStage,
     activeDays: aiVocabularySettings.activeDays,
     publishMode: aiVocabularySettings.publishMode,
   }).from(childProfiles)
@@ -93,6 +94,7 @@ export async function getParentAiVocabularySettings() {
     idiomsPerDay: row.idiomsPerDay ?? 5,
     wordLevel: row.wordLevel ?? "L1",
     idiomLevel: row.idiomLevel ?? "L1",
+    senseStage: row.senseStage === "additional" ? "additional" as const : "primary" as const,
     activeDays: row.activeDays ?? [0, 1, 2, 3, 4, 5, 6],
     publishMode: row.publishMode === "automatic" ? "automatic" as const : "manual" as const,
     latestWordAssessment: assessments.find((item) => item.childProfileId === row.childProfileId && item.lexicalType === "word") ?? null,
@@ -107,6 +109,7 @@ export async function saveParentAiVocabularySettings(input: {
   idiomsPerDay: number
   wordLevel: string
   idiomLevel: string
+  senseStage: "primary" | "additional"
   activeDays: number[]
   publishMode: "manual" | "automatic"
 }) {
@@ -116,6 +119,7 @@ export async function saveParentAiVocabularySettings(input: {
       !Number.isInteger(input.idiomsPerDay) || input.idiomsPerDay < 0 || input.idiomsPerDay > 30 ||
       (input.enabled && input.wordsPerDay + input.idiomsPerDay < 1) ||
       !LEVELS.has(input.wordLevel) || !LEVELS.has(input.idiomLevel) ||
+      !["primary", "additional"].includes(input.senseStage) ||
       !Array.isArray(input.activeDays) || input.activeDays.length > 7 ||
       input.activeDays.some((day) => !Number.isInteger(day) || !DAY_VALUES.has(day)) ||
       new Set(input.activeDays).size !== input.activeDays.length ||
@@ -132,6 +136,7 @@ export async function saveParentAiVocabularySettings(input: {
       idiomsPerDay: input.idiomsPerDay,
       wordLevel: input.wordLevel,
       idiomLevel: input.idiomLevel,
+      senseStage: input.senseStage,
       activeDays,
       publishMode: input.publishMode,
       updatedAt: new Date(),
@@ -143,6 +148,7 @@ export async function saveParentAiVocabularySettings(input: {
         idiomsPerDay: input.idiomsPerDay,
         wordLevel: input.wordLevel,
         idiomLevel: input.idiomLevel,
+        senseStage: input.senseStage,
         activeDays,
         publishMode: input.publishMode,
         updatedAt: new Date(),
@@ -245,7 +251,9 @@ export async function lookupAndStageVocabularyCandidates(
       return { input, status: "unavailable" as const, word: lookup.word, reason: lookup.reason }
     }
 
-    const rows = lookup.senses.map((sense) => ({
+    const rows = lookup.senses.map((sense, index) => ({
+      senseOrder: index + 1,
+      learningStage: index === 0 ? "primary" : "additional",
       expression: lookup.word,
       normalizedExpression: normalized,
       lexicalType,
@@ -306,6 +314,7 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
       lexicalType: vocabularyCandidates.lexicalType,
       meaningKo: vocabularyCandidates.meaningKo,
       disambiguation: vocabularyCandidates.disambiguation,
+      learningStage: vocabularyCandidates.learningStage,
     }).from(vocabularyCandidates).where(and(
       eq(vocabularyCandidates.verificationStatus, "approved"),
       eq(vocabularyCandidates.difficultyVerified, true),
@@ -315,6 +324,8 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
     db.select({
       id: vocabularyCandidates.id,
       expression: vocabularyCandidates.expression,
+      senseOrder: vocabularyCandidates.senseOrder,
+      learningStage: vocabularyCandidates.learningStage,
       lexicalType: vocabularyCandidates.lexicalType,
       partOfSpeech: vocabularyCandidates.partOfSpeech,
       definitionEn: vocabularyCandidates.definitionEn,
@@ -344,7 +355,7 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
   const groups = new Map<string, typeof eligibleRows>()
   for (const candidate of eligibleRows) {
     const group = groups.get(candidate.lexicalType) ?? []
-    group.push(candidate)
+    if (candidate.learningStage === "primary") group.push(candidate)
     groups.set(candidate.lexicalType, group)
   }
   const usableCounts = new Map<string, number>()
@@ -386,6 +397,7 @@ export async function reviewVocabularyCandidate(input: {
   childLevel?: string
   cefrLevel?: string
   domain?: string
+  learningStage?: "primary" | "additional"
   difficultyVerified?: boolean
 }) {
   const actor = await requireSuperAdmin()
@@ -396,6 +408,7 @@ export async function reviewVocabularyCandidate(input: {
 
   const [candidate] = await db.select({
     meaningKo: vocabularyCandidates.meaningKo,
+    learningStage: vocabularyCandidates.learningStage,
     childLevel: vocabularyCandidates.childLevel,
     cefrLevel: vocabularyCandidates.cefrLevel,
     domain: vocabularyCandidates.domain,
@@ -445,6 +458,7 @@ export async function reviewVocabularyCandidate(input: {
         }
         return {
           verificationStatus: "approved",
+          learningStage: input.learningStage === "additional" ? "additional" : "primary",
           meaningKo,
           disambiguation: disambiguation || null,
           childLevel,
