@@ -175,6 +175,34 @@ function readString(record: DatasetRecord, key: string) {
   return ""
 }
 
+function parseNestedObject(value: unknown): DatasetRecord | null {
+  if (isRecord(value)) return value
+  if (typeof value !== "string" || !value.trim()) return null
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return isRecord(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function firstText(value: unknown): string {
+  if (typeof value === "string") return value.trim()
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstText(item)
+      if (found) return found
+    }
+  }
+  if (isRecord(value)) {
+    for (const key of ["text", "sentence", "example", "value"]) {
+      const found = firstText(value[key])
+      if (found) return found
+    }
+  }
+  return ""
+}
+
 function prepareMappedRecords(
   records: DatasetRecord[],
   fieldMap: FieldMap,
@@ -187,57 +215,83 @@ function prepareMappedRecords(
 
   for (const record of records) {
     const expression = readString(record, fieldMap.expression).replace(/\s+/g, " ")
-    const definitionEn = readString(record, fieldMap.definitionEn)
-    if (!expression || !definitionEn || expression.length > 120 || definitionEn.length > 8000) {
+    const enrichment = sourcePreset === "worduniversum" ? parseNestedObject(record.enrichment_json) : null
+    const datasetMetadata = sourcePreset === "worduniversum" ? parseNestedObject(record.metadata_json) : null
+    const mappedDefinition = readString(record, fieldMap.definitionEn)
+    const nestedDefinitions = Array.isArray(enrichment?.definitions)
+      ? enrichment.definitions.filter((item): item is string => typeof item === "string" && item.trim()).map((item) => item.trim())
+      : []
+    const definitions = sourcePreset === "worduniversum" && fieldMap.definitionEn === "enrichment_json"
+      ? nestedDefinitions
+      : mappedDefinition ? [mappedDefinition] : nestedDefinitions
+    const distinctDefinitions = [...new Set(definitions)]
+    if (!expression || expression.length > 120 || distinctDefinitions.length === 0) {
       invalid += 1
       continue
     }
+
     const mappedType = readString(record, fieldMap.lexicalType).toLocaleLowerCase("en-US")
     const lexicalType = LEXICAL_TYPES.some((item) => item.value === mappedType) ? mappedType : defaultLexicalType
     const partOfSpeech = readString(record, fieldMap.partOfSpeech) || "unknown"
-    const key = [
-      expression.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
-      lexicalType,
-      partOfSpeech.toLocaleLowerCase("en-US"),
-      definitionEn.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
-    ].join("|")
-    if (seen.has(key)) {
-      duplicatesInFile += 1
-      continue
-    }
-    seen.add(key)
-
     const rawFrequency = readString(record, fieldMap.frequencyRank)
     const frequencyRank = rawFrequency && /^\d+$/.test(rawFrequency) ? Number(rawFrequency) : null
-    rows.push({
-      expression,
-      definitionEn,
-      partOfSpeech,
-      exampleSentence: readString(record, fieldMap.exampleSentence) || undefined,
-      lexicalType,
-      cefrLevel: readString(record, fieldMap.cefrLevel) || undefined,
-      frequencyRank,
-      sourceEntryUrl: readString(record, fieldMap.sourceEntryUrl) || undefined,
-      sourceRecordId: readString(record, fieldMap.sourceRecordId) || undefined,
-      sourcePayload: record,
-    })
+    const nestedExample = sourcePreset === "worduniversum"
+      ? firstText(enrichment?.examples) || firstText(datasetMetadata?.gutenberg_examples)
+      : ""
+    const exampleSentence = readString(record, fieldMap.exampleSentence) || nestedExample
+    const cefrLevel = readString(record, fieldMap.cefrLevel) ||
+      (typeof datasetMetadata?.cefr_level === "string" ? datasetMetadata.cefr_level : "")
+    const sourceRecordId = readString(record, fieldMap.sourceRecordId) || readString(record, "original_id")
+
+    for (const definitionEn of distinctDefinitions) {
+      if (!definitionEn || definitionEn.length > 8000 || rows.length >= MAX_RECORDS) {
+        invalid += 1
+        continue
+      }
+      const key = [
+        expression.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
+        lexicalType,
+        partOfSpeech.toLocaleLowerCase("en-US"),
+        definitionEn.toLocaleLowerCase("en-US").replace(/\s+/g, " "),
+      ].join("|")
+      if (seen.has(key)) {
+        duplicatesInFile += 1
+        continue
+      }
+      seen.add(key)
+      rows.push({
+        expression,
+        definitionEn,
+        partOfSpeech,
+        exampleSentence: exampleSentence || undefined,
+        lexicalType,
+        cefrLevel: cefrLevel || undefined,
+        frequencyRank,
+        sourceEntryUrl: readString(record, fieldMap.sourceEntryUrl) || undefined,
+        sourceRecordId: sourceRecordId || undefined,
+        sourcePayload: record,
+      })
+    }
   }
 
   return { rows, invalid, duplicatesInFile }
 }
 
-function inferredMap(records: DatasetRecord[]): FieldMap {
+function inferredMap(records: DatasetRecord[], sourcePreset: SourcePreset): FieldMap {
   const keys = records.length ? Object.keys(records[0]) : []
+  const isWortUniversum = sourcePreset === "worduniversum"
   return {
-    expression: findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform"]),
-    definitionEn: findKey(keys, ["definition", "definition_en", "gloss", "meaning_en", "def", "description"]),
-    partOfSpeech: findKey(keys, ["part_of_speech", "partofspeech", "pos", "grammatical_category"]),
+    expression: findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform", "phrasal"]),
+    definitionEn: findKey(keys, isWortUniversum
+      ? ["enrichment_json", "definition", "definition_en", "gloss", "meaning_en", "def", "description"]
+      : ["definition", "definition_en", "gloss", "meaning_en", "def", "description", "senses_json"]),
+    partOfSpeech: findKey(keys, ["part_of_speech", "partofspeech", "pos", "grammatical_category", "word_type"]),
     exampleSentence: findKey(keys, ["example", "example_sentence", "sentence", "exampletext"]),
     cefrLevel: findKey(keys, ["cefr", "cefr_level", "cefrlevel"]),
     frequencyRank: findKey(keys, ["frequency_rank", "frequencyrank", "rank", "word_frequency_rank"]),
     lexicalType: findKey(keys, ["lexical_type", "lexicaltype"]),
     sourceEntryUrl: findKey(keys, ["source_entry_url", "sourceentryurl", "source_url", "url"]),
-    sourceRecordId: findKey(keys, ["id", "record_id", "recordid", "synset_id", "synsetid"]),
+    sourceRecordId: findKey(keys, ["original_id", "record_id", "recordid", "id", "synset_id", "synsetid"]),
   }
 }
 
@@ -272,8 +326,8 @@ export function VocabularyDatasetImporter() {
 
   const keys = useMemo(() => records.length ? Object.keys(records[0]) : [], [records])
   const mapped = useMemo(
-    () => prepareMappedRecords(records, fieldMap, defaultLexicalType),
-    [records, fieldMap, defaultLexicalType],
+    () => prepareMappedRecords(records, fieldMap, defaultLexicalType, sourcePreset),
+    [records, fieldMap, defaultLexicalType, sourcePreset],
   )
 
   function resetPreview() {
@@ -298,7 +352,7 @@ export function VocabularyDatasetImporter() {
       if (!parsed.length) throw new Error("파일에 가져올 데이터가 없습니다.")
       setRecords(parsed)
       setFileName(file.name)
-      setFieldMap(inferredMap(parsed))
+      setFieldMap(inferredMap(parsed, sourcePreset))
       setNotice(parsed.length.toLocaleString("ko-KR") + "개 레코드를 읽었습니다. 아래 열 연결을 확인해 주세요.")
     } catch (cause) {
       setRecords([])
@@ -315,6 +369,7 @@ export function VocabularyDatasetImporter() {
   function selectPreset(value: SourcePreset) {
     setSourcePreset(value)
     setMetadata(PRESETS[value])
+    if (records.length) setFieldMap(inferredMap(records, value))
     resetPreview()
   }
 
@@ -426,8 +481,8 @@ export function VocabularyDatasetImporter() {
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">데이터셋 원문 주소</span><input value={metadata.sourceDatasetUrl} onChange={(event) => updateMetadata("sourceDatasetUrl", event.target.value)} disabled={busy} type="url" placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">라이선스 주소</span><input value={metadata.licenseUrl ?? ""} onChange={(event) => updateMetadata("licenseUrl", event.target.value)} disabled={busy} type="url" placeholder="https://creativecommons.org/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
         </div>
-        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">원본 배포본은 SQLite 데이터입니다. 여기에는 CSV/JSON으로 추출한 레코드를 올려야 합니다. 원본의 영국 초등 학년 추정치와 CEFR은 참고 정보일 뿐, 서비스의 L1~L6으로 자동 변환하지 않습니다. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
-        {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">Open English WordNet은 단어 의미·관계 자료입니다. ZIP 파일을 내려받은 경우 압축을 풀고 내부 JSON/JSONL 파일을 올려 주세요. 한국어 뜻이나 아동 난이도가 검증된 자료는 아니므로 검토가 필요합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
+        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json 구조를 자동 해석해 각 영어 정의를 개별 후보로 나눕니다. 영국 초등 학년 추정치는 원본 자료로 보존하며 L1~L6으로 자동 변환하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
+        {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">Open English WordNet은 단어 의미·관계 자료입니다. ZIP 파일을 내려받은 경우 압축을 풀고 표제어·품사·영어 정의를 평탄화한 CSV/JSON/JSONL 파일을 올려 주세요. 원본 JSON의 계층 구조를 그대로 올리는 방식은 아직 지원하지 않으며, 한국어 뜻이나 아동 난이도가 검증된 자료는 아니므로 검토가 필요합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
         {sourcePreset === "custom" && <p className="text-xs leading-relaxed text-muted-foreground">GitHub의 공개 데이터도 CSV/JSON/JSONL 파일로 내려받아 가져올 수 있습니다. 원본 데이터의 재사용 라이선스를 먼저 확인하고 출처를 정확히 기록해 주세요.</p>}
       </div>
 
