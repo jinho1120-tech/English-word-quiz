@@ -197,8 +197,9 @@ function prepareMappedRecords(
 
 function inferredMap(records: DatasetRecord[], sourcePreset: SourcePreset): FieldMap {
   const keys = records.length ? Object.keys(records[0]) : []
+  const phrasal = findKey(keys, ["phrasal"])
   return {
-    expression: findKey(keys, ["lemma", "phrasal", "word", "expression", "headword", "term", "entry", "writtenform"]),
+    expression: phrasal || findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform"]),
     gradeLevel: findKey(keys, ["grade_level", "gradelevel", "grade", "grade_level_estimate"]),
     gradeBand: findKey(keys, ["grade_band", "gradeband"]),
   }
