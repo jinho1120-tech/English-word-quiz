@@ -1,5 +1,7 @@
 # AI development instructions
 
+Before making any repository change, read `docs/vercel-deployment-policy.md` and follow its deployment, approval, and Hobby-quota rules. This is mandatory for every code, configuration, workflow, and documentation change—not only Vercel-related work.
+
 This repository has a shared visual language for the parent manager app and the child learning app.
 
 ## Mandatory UI workflow
