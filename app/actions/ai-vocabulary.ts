@@ -442,6 +442,9 @@ export async function reviewVocabularyCandidate(input: {
         const isDatasetImport = sourcePayload.importKind === "public_dataset"
         const dictionaryVerification = sourcePayload.dictionaryVerification
         const levelMapping = sourcePayload.levelMapping
+        const meaningSuggestion = sourcePayload.koreanMeaningSuggestion
+        const meaningSuggestionStatus = meaningSuggestion && typeof meaningSuggestion === "object"
+          ? (meaningSuggestion as Record<string, unknown>).status : null
         if (isDatasetImport && (
           !dictionaryVerification || typeof dictionaryVerification !== "object" ||
           (dictionaryVerification as Record<string, unknown>).status !== "matched" ||
@@ -449,6 +452,12 @@ export async function reviewVocabularyCandidate(input: {
           (levelMapping as Record<string, unknown>).status !== "mapped"
         )) {
           throw new Error("외부 데이터는 FreeDictionaryAPI 의미·품사 검증과 원본 레벨 변환이 끝난 뒤 승인할 수 있습니다.")
+        }
+        if (isDatasetImport && (
+          !["ai_short_gloss", "dictionary_short_translation"].includes(String(meaningSuggestionStatus)) ||
+          meaningKo.length > 50
+        )) {
+          throw new Error("외부 데이터는 간결한 한국어 학습용 뜻이 준비된 뒤 승인할 수 있습니다. 먼저 뜻 자동 정리를 실행해 주세요.")
         }
         if (!meaningKo || meaningKo.length > 200 || disambiguation.length > 100 ||
             !LEVELS.has(childLevel) ||
