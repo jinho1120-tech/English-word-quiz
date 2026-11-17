@@ -245,7 +245,9 @@ export async function lookupAndStageVocabularyCandidates(
       return { input, status: "unavailable" as const, word: lookup.word, reason: lookup.reason }
     }
 
-    const rows = lookup.senses.map((sense) => ({
+    const rows = lookup.senses.map((sense, index) => ({
+      senseOrder: index + 1,
+      learningStage: index === 0 ? "primary" : "additional",
       expression: lookup.word,
       normalizedExpression: normalized,
       lexicalType,
@@ -306,6 +308,7 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
       lexicalType: vocabularyCandidates.lexicalType,
       meaningKo: vocabularyCandidates.meaningKo,
       disambiguation: vocabularyCandidates.disambiguation,
+      learningStage: vocabularyCandidates.learningStage,
     }).from(vocabularyCandidates).where(and(
       eq(vocabularyCandidates.verificationStatus, "approved"),
       eq(vocabularyCandidates.difficultyVerified, true),
@@ -315,6 +318,8 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
     db.select({
       id: vocabularyCandidates.id,
       expression: vocabularyCandidates.expression,
+      senseOrder: vocabularyCandidates.senseOrder,
+      learningStage: vocabularyCandidates.learningStage,
       lexicalType: vocabularyCandidates.lexicalType,
       partOfSpeech: vocabularyCandidates.partOfSpeech,
       definitionEn: vocabularyCandidates.definitionEn,
@@ -344,7 +349,7 @@ export async function getSuperAdminVocabularyCandidateDashboard(candidatePage = 
   const groups = new Map<string, typeof eligibleRows>()
   for (const candidate of eligibleRows) {
     const group = groups.get(candidate.lexicalType) ?? []
-    group.push(candidate)
+    if (candidate.learningStage === "primary") group.push(candidate)
     groups.set(candidate.lexicalType, group)
   }
   const usableCounts = new Map<string, number>()
@@ -386,6 +391,7 @@ export async function reviewVocabularyCandidate(input: {
   childLevel?: string
   cefrLevel?: string
   domain?: string
+  learningStage?: "primary" | "additional"
   difficultyVerified?: boolean
 }) {
   const actor = await requireSuperAdmin()
@@ -396,6 +402,7 @@ export async function reviewVocabularyCandidate(input: {
 
   const [candidate] = await db.select({
     meaningKo: vocabularyCandidates.meaningKo,
+    learningStage: vocabularyCandidates.learningStage,
     childLevel: vocabularyCandidates.childLevel,
     cefrLevel: vocabularyCandidates.cefrLevel,
     domain: vocabularyCandidates.domain,
@@ -445,6 +452,7 @@ export async function reviewVocabularyCandidate(input: {
         }
         return {
           verificationStatus: "approved",
+          learningStage: input.learningStage === "additional" ? "additional" : "primary",
           meaningKo,
           disambiguation: disambiguation || null,
           childLevel,
