@@ -1,0 +1,45 @@
+name: Inspect WortUniversum vocabulary database
+
+on:
+  push:
+    branches:
+      - analysis/grundwortschatz-db-inspection
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grundwortschatz-db-inspection-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    name: Download and inspect SQLite source
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out analysis branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download, verify and inspect source database
+        run: python scripts/inspect_grundwortschatz_db.py
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Add inspection summary to run page
+        if: success()
+        run: cat artifacts/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload source database and analysis outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: grundwortschatz-db-inspection
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
