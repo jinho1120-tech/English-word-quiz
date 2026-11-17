@@ -61,6 +61,8 @@ export function WordFlashcards({
   const [favoriteIds, setFavoriteIds] = useState<Set<number>>(() => new Set(initialFavoriteWordIds))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
+  const [slideDirection, setSlideDirection] = useState<"next" | "previous" | null>(null)
+  const [slideKey, setSlideKey] = useState(0)
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
   const pointerStart = useRef<{ x: number; y: number } | null>(null)
@@ -118,6 +120,8 @@ export function WordFlashcards({
 
   function move(step: number) {
     if (!filteredWords.length) return
+    setSlideDirection(step > 0 ? "next" : "previous")
+    setSlideKey((value) => value + 1)
     setCurrentIndex((value) => (value + step + filteredWords.length) % filteredWords.length)
     setIsFlipped(false)
     setError("")
@@ -243,31 +247,32 @@ export function WordFlashcards({
             <span>{current.subject}{cardScope === "date" ? " · " + selectedDate : ""}</span>
             <span>{safeIndex + 1} / {filteredWords.length}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } setIsFlipped((value) => !value) }}
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={() => { pointerStart.current = null }}
-            onKeyDown={handleCardKeyDown}
-            aria-label={isFlipped ? "영어 표현 앞면으로 뒤집기" : "뜻과 예문 뒷면 보기"}
-            className="flex min-h-[260px] w-full touch-pan-y flex-col items-center justify-center rounded-3xl border border-border bg-muted/45 px-5 py-8 text-center transition-colors hover:bg-muted/70 sm:min-h-[300px]"
-          >
-            {isFlipped ? (
-              <>
-                <span className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">뜻과 예문</span>
-                <span className="text-2xl font-black">{current.meaning}{current.disambiguation ? ` (${current.disambiguation})` : ""}</span>
-                {current.example && <span className="mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground">{current.example}</span>}
-                <span className="mt-6 text-xs text-muted-foreground">탭하면 영어 표현으로 돌아가요</span>
-              </>
-            ) : (
-              <>
-                <span className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">영어 표현</span>
-                <span className="text-3xl font-black tracking-tight sm:text-4xl">{current.word}</span>
-                <span className="mt-6 text-xs text-muted-foreground">탭하면 뜻과 예문을 확인할 수 있어요</span>
-              </>
-            )}
-          </button>
+          <div key={slideKey} className={slideDirection === "next" ? "flashcard-slide-next" : slideDirection === "previous" ? "flashcard-slide-previous" : ""}>
+            <button
+              type="button"
+              onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } setIsFlipped((value) => !value) }}
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={() => { pointerStart.current = null }}
+              onKeyDown={handleCardKeyDown}
+              aria-label={isFlipped ? "영어 표현 앞면으로 뒤집기" : "뜻과 예문 뒷면 보기"}
+              className="flashcard-perspective min-h-[260px] w-full touch-pan-y rounded-3xl text-center sm:min-h-[300px]"
+            >
+              <span className={isFlipped ? "flashcard-inner is-flipped" : "flashcard-inner"}>
+                <span className="flashcard-face flex flex-col items-center justify-center rounded-3xl border border-border bg-muted/45 px-5 py-8 hover:bg-muted/70">
+                  <span className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">영어 표현</span>
+                  <span className="text-3xl font-black tracking-tight sm:text-4xl">{current.word}</span>
+                  <span className="mt-6 text-xs text-muted-foreground">탭하면 뜻과 예문을 확인할 수 있어요</span>
+                </span>
+                <span className="flashcard-face flashcard-back flex flex-col items-center justify-center rounded-3xl border border-border bg-muted/45 px-5 py-8">
+                  <span className="mb-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">뜻과 예문</span>
+                  <span className="text-2xl font-black">{current.meaning}{current.disambiguation ? ` (${current.disambiguation})` : ""}</span>
+                  {current.example && <span className="mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground">{current.example}</span>}
+                  <span className="mt-6 text-xs text-muted-foreground">탭하면 영어 표현으로 돌아가요</span>
+                </span>
+              </span>
+            </button>
+          </div>
           {current.sourceName && current.sourceEntryUrl && (
             <p className="px-1 text-center text-[11px] leading-relaxed text-muted-foreground">
               출처: {current.sourceName} · <a href={current.sourceEntryUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">원문 Wiktionary</a>{current.licenseName ? " · " + current.licenseName : ""}
