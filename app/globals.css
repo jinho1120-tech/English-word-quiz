@@ -282,3 +282,49 @@
     animation: none;
   }
 }
+
+
+/* Flashcard motion: 3D flip plus directional card transitions. */
+.flashcard-perspective {
+  display: block;
+  perspective: 1100px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.flashcard-inner {
+  position: relative;
+  display: block;
+  min-height: 260px;
+  width: 100%;
+  transform-style: preserve-3d;
+  transition: transform 520ms cubic-bezier(.2,.72,.25,1);
+}
+@media (min-width: 640px) {
+  .flashcard-inner { min-height: 300px; }
+}
+.flashcard-inner.is-flipped { transform: rotateY(180deg); }
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  min-height: inherit;
+  width: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flashcard-back { transform: rotateY(180deg); }
+.flashcard-slide-next { animation: flashcard-enter-next 300ms cubic-bezier(.2,.72,.25,1) both; }
+.flashcard-slide-previous { animation: flashcard-enter-previous 300ms cubic-bezier(.2,.72,.25,1) both; }
+@keyframes flashcard-enter-next {
+  from { opacity: .35; transform: translateX(34px) scale(.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes flashcard-enter-previous {
+  from { opacity: .35; transform: translateX(-34px) scale(.985); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flashcard-inner { transition: none; }
+  .flashcard-slide-next, .flashcard-slide-previous { animation: none; }
+}
