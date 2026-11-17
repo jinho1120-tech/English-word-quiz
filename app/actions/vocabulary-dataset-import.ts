@@ -159,7 +159,7 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
   const metadata={sourceName,sourceDatasetUrl,licenseName,licenseUrl:licenseUrl??undefined}
   return rows.map((row,index)=>{
     if(!isRecord(row))throw new Error((index+1)+"번째 데이터 형식이 올바르지 않습니다.")
-    const expression=typeof row.expression==="string"?row.expression.trim().replace(/\\s+/g," "):""
+    const expression=typeof row.expression==="string"?row.expression.trim().replace(/\s+/g," "):""
     const normalizedExpression=normalizeDictionaryExpression(expression)
     const suppliedDefinition=typeof row.definitionEn==="string"?row.definitionEn.trim():""
     const dictionaryMode=suppliedDefinition?"match_definition" as const:"lookup_by_expression" as const
@@ -176,7 +176,7 @@ function prepareRows(rows:VocabularyDatasetImportRow[],defaultLexicalType:string
     const sourceRecordId=typeof row.sourceRecordId==="string"&&row.sourceRecordId.trim()?row.sourceRecordId.trim().slice(0,200):null
     const levelMapping=deriveSourceLevelMapping(row.sourcePayload,cefrLevel??undefined)
     const seedKey="dictionary-seed:"+normalizedExpression
-    const senseKey=createHash("sha256").update(dictionaryMode==="lookup_by_expression"?seedKey:definitionEn.toLowerCase().replace(/\\s+/g," ")).digest("hex").slice(0,24)
+    const senseKey=createHash("sha256").update(dictionaryMode==="lookup_by_expression"?seedKey:definitionEn.toLowerCase().replace(/\s+/g," ")).digest("hex").slice(0,24)
     return {
       expression,normalizedExpression,lexicalType,partOfSpeech,senseKey,definitionEn,
       senseOrder:dictionaryMode==="lookup_by_expression"?1:Number.isInteger(row.senseOrder)&&Number(row.senseOrder)>0?Math.min(Number(row.senseOrder),1000):1,
