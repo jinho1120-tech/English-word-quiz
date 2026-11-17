@@ -286,7 +286,7 @@ function prepareMappedRecords(
       (typeof datasetMetadata?.cefr_level === "string" ? datasetMetadata.cefr_level : "")
     const sourceRecordId = readString(record, fieldMap.sourceRecordId) || readString(record, "original_id")
 
-    for (const definitionEn of distinctDefinitions) {
+    for (const [senseIndex, definitionEn] of distinctDefinitions.entries()) {
       if (!definitionEn || definitionEn.length > 8000 || rows.length >= MAX_RECORDS) {
         invalid += 1
         continue
@@ -312,6 +312,8 @@ function prepareMappedRecords(
         frequencyRank,
         sourceEntryUrl: readString(record, fieldMap.sourceEntryUrl) || undefined,
         sourceRecordId: sourceRecordId || undefined,
+        senseOrder: senseIndex + 1,
+        learningStage: senseIndex === 0 ? "primary" : "additional",
         sourcePayload: record,
       })
     }
