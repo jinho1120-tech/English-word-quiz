@@ -186,6 +186,34 @@ function parseNestedObject(value: unknown): DatasetRecord | null {
   }
 }
 
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== "string" || !value.trim()) return value
+  try {
+    return JSON.parse(value)
+  } catch {
+    return value
+  }
+}
+
+function textList(value: unknown): string[] {
+  const parsed = parseJsonValue(value)
+  if (typeof parsed === "string") return parsed.trim() ? [parsed.trim()] : []
+  if (Array.isArray(parsed)) {
+    return parsed.map((item) => firstText(item)).filter(Boolean)
+  }
+  if (isRecord(parsed)) {
+    for (const key of ["definitions", "senses", "glosses", "meanings"]) {
+      if (parsed[key] !== undefined) {
+        const found = textList(parsed[key])
+        if (found.length) return found
+      }
+    }
+    const found = firstText(parsed)
+    return found ? [found] : []
+  }
+  return []
+}
+
 function firstText(value: unknown): string {
   if (typeof value === "string") return value.trim()
   if (Array.isArray(value)) {
@@ -216,15 +244,21 @@ function prepareMappedRecords(
 
   for (const record of records) {
     const expression = readString(record, fieldMap.expression).replace(/\s+/g, " ")
+    const isWortUniversumPhrasal = sourcePreset === "worduniversum" && typeof record.phrasal === "string"
     const enrichment = sourcePreset === "worduniversum" ? parseNestedObject(record.enrichment_json) : null
     const datasetMetadata = sourcePreset === "worduniversum" ? parseNestedObject(record.metadata_json) : null
     const mappedDefinition = readString(record, fieldMap.definitionEn)
     const nestedDefinitions = Array.isArray(enrichment?.definitions)
       ? enrichment.definitions.filter((item): item is string => typeof item === "string" && item.trim()).map((item) => item.trim())
       : []
-    const definitions = sourcePreset === "worduniversum" && fieldMap.definitionEn === "enrichment_json"
-      ? nestedDefinitions
-      : mappedDefinition ? [mappedDefinition] : nestedDefinitions
+    const phrasalDefinitions = isWortUniversumPhrasal
+      ? textList(record.senses_json).length ? textList(record.senses_json) : [readString(record, "meaning")].filter(Boolean)
+      : []
+    const definitions = isWortUniversumPhrasal
+      ? phrasalDefinitions
+      : sourcePreset === "worduniversum" && fieldMap.definitionEn === "enrichment_json"
+        ? nestedDefinitions
+        : mappedDefinition ? [mappedDefinition] : nestedDefinitions
     const distinctDefinitions = [...new Set(definitions)]
     if (!expression || expression.length > 120 || distinctDefinitions.length === 0) {
       invalid += 1
@@ -232,13 +266,17 @@ function prepareMappedRecords(
     }
 
     const mappedType = readString(record, fieldMap.lexicalType).toLocaleLowerCase("en-US")
-    const lexicalType = LEXICAL_TYPES.some((item) => item.value === mappedType) ? mappedType : defaultLexicalType
-    const partOfSpeech = readString(record, fieldMap.partOfSpeech) || "unknown"
+    const lexicalType = isWortUniversumPhrasal
+      ? "phrasal_verb"
+      : LEXICAL_TYPES.some((item) => item.value === mappedType) ? mappedType : defaultLexicalType
+    const partOfSpeech = readString(record, fieldMap.partOfSpeech) || (isWortUniversumPhrasal ? "phrase" : "unknown")
     const rawFrequency = readString(record, fieldMap.frequencyRank)
     const frequencyRank = rawFrequency && /^\d+$/.test(rawFrequency) ? Number(rawFrequency) : null
-    const nestedExample = sourcePreset === "worduniversum"
-      ? firstText(enrichment?.examples) || firstText(datasetMetadata?.gutenberg_examples)
-      : ""
+    const nestedExample = isWortUniversumPhrasal
+      ? firstText(parseJsonValue(record.wiktionary_examples_json)) || firstText(parseJsonValue(record.examples_json))
+      : sourcePreset === "worduniversum"
+        ? firstText(enrichment?.examples) || firstText(datasetMetadata?.gutenberg_examples)
+        : ""
     const exampleSentence = readString(record, fieldMap.exampleSentence) || nestedExample
     const cefrLevel = readString(record, fieldMap.cefrLevel) ||
       (typeof datasetMetadata?.cefr_level === "string" ? datasetMetadata.cefr_level : "")
@@ -284,7 +322,7 @@ function inferredMap(records: DatasetRecord[], sourcePreset: SourcePreset): Fiel
   return {
     expression: findKey(keys, ["lemma", "word", "expression", "headword", "term", "entry", "writtenform", "phrasal"]),
     definitionEn: findKey(keys, isWortUniversum
-      ? ["enrichment_json", "definition", "definition_en", "gloss", "meaning_en", "def", "description"]
+      ? ["enrichment_json", "senses_json", "definition", "definition_en", "gloss", "meaning_en", "def", "description"]
       : ["definition", "definition_en", "gloss", "meaning_en", "def", "description", "senses_json"]),
     partOfSpeech: findKey(keys, ["part_of_speech", "partofspeech", "pos", "grammatical_category", "word_type"]),
     exampleSentence: findKey(keys, ["example", "example_sentence", "sentence", "exampletext"]),
@@ -482,7 +520,7 @@ export function VocabularyDatasetImporter() {
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">데이터셋 원문 주소</span><input value={metadata.sourceDatasetUrl} onChange={(event) => updateMetadata("sourceDatasetUrl", event.target.value)} disabled={busy} type="url" placeholder="https://..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
           <label className="block space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-muted-foreground">라이선스 주소</span><input value={metadata.licenseUrl ?? ""} onChange={(event) => updateMetadata("licenseUrl", event.target.value)} disabled={busy} type="url" placeholder="https://creativecommons.org/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" /></label>
         </div>
-        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json 구조를 자동 해석해 각 영어 정의를 개별 후보로 나눕니다. 영국 초등 학년 추정치는 원본 자료로 보존하며 L1~L6으로 자동 변환하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
+        {sourcePreset === "worduniversum" && <p className="text-xs leading-relaxed text-muted-foreground">CSV/JSON으로 내보낸 words 테이블은 lemma·word_type·enrichment_json·metadata_json을 자동 해석하고, phrasal_verbs 테이블은 senses_json과 예문을 읽어 구동사 후보로 등록합니다. 영국 초등 학년 추정치는 원본 자료로 보존하며 L1~L6으로 자동 변환하지 않습니다. SQLite 원본은 먼저 CSV/JSON으로 내보내고 5,000행씩 나누어 주세요. <a href="https://huggingface.co/datasets/cstr/grundwortschatz-voc-en" target="_blank" rel="noreferrer" className="underline">데이터셋 페이지</a></p>}
         {sourcePreset === "oewn" && <p className="text-xs leading-relaxed text-muted-foreground">Open English WordNet은 단어 의미·관계 자료입니다. ZIP 파일을 내려받은 경우 압축을 풀고 표제어·품사·영어 정의를 평탄화한 CSV/JSON/JSONL 파일을 올려 주세요. 원본 JSON의 계층 구조를 그대로 올리는 방식은 아직 지원하지 않으며, 한국어 뜻이나 아동 난이도가 검증된 자료는 아니므로 검토가 필요합니다. <a href="https://en-word.net/downloads" target="_blank" rel="noreferrer" className="underline">다운로드 페이지</a></p>}
         {sourcePreset === "custom" && <p className="text-xs leading-relaxed text-muted-foreground">GitHub의 공개 데이터도 CSV/JSON/JSONL 파일로 내려받아 가져올 수 있습니다. 원본 데이터의 재사용 라이선스를 먼저 확인하고 출처를 정확히 기록해 주세요.</p>}
       </div>
